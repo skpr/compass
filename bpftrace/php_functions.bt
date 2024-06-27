@@ -1,0 +1,22 @@
+BEGIN
+{
+    printf("Tracing PHP function calls... Hit Ctrl-C to end.\n");
+}
+
+usdt:/proc/PID/root/usr/lib/php/modules/compass.so:compass:php_function_begin
+{
+    printf("FUNCTION BEGIN | request_id = %s | hash = %s | function = %s\n", str(arg0), str(arg1), str(arg2));
+    @function[str(arg1)] = nsecs;
+}
+
+usdt:/proc/PID/root/usr/lib/php/modules/compass.so:compass:php_function_end
+/ @function[str(arg1)] /
+{
+    printf("FUNCTION END | request_id = %s | function = %s | duration = %d\n", str(arg0), str(arg1), (nsecs - @function[str(arg0)]) / 1000);
+}
+
+END
+{
+    clear(@function);
+    printf("Finished tracing PHP function calls\n");
+}

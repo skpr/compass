@@ -1,0 +1,23 @@
+BEGIN
+{
+    printf("Tracing FPM requests... Hit Ctrl-C to end.\n");
+}
+
+usdt:/proc/PID/root/usr/lib/php/modules/compass.so:compass:fpm_request_init
+{
+    printf("FPM REQUEST END | request_id = %s\n", str(arg0));
+    @request[str(arg0)] = nsecs;
+}
+
+usdt:/proc/PID/root/usr/lib/php/modules/compass.so:compass:fpm_request_shutdown
+/ @request[str(arg0)] /
+{
+    printf("FPM REQUEST END | request_id = %s | duration = %d\n", str(arg0), (nsecs - @request[str(arg0)]) / 1000);
+}
+
+END
+{
+    clear(@request);
+    clear(@function);
+    printf("Finished tracing FPM requests\n");
+}
