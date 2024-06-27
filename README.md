@@ -3,6 +3,10 @@ Compass
 
 A tool for pointing developers in the right direction for performance issues.
 
+<img src="/logo.png" width="100">
+
+----
+
 ## Architecture
 
 ```mermaid
