@@ -11,15 +11,15 @@ A tool for pointing developers in the right direction for performance issues.
 
 ```mermaid
 flowchart LR
-   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> skpr_fpm_request_init[<b>skpr_fpm_request_init</b>\n<i>Probe</i>]
-   Extension --> skpr_fpm_request_shutdown[<b>skpr_fpm_request_shutdown</b>\n<i>Probe</i>]
-   Extension --> skpr_php_function_begin[<b>skpr_php_function_begin</b>\n<i>Probe</i>]
-   Extension --> skpr_php_function_end[<b>skpr_php_function_end</b>\n<i>Probe</i>]
+   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_fpm_request_init[<b>compass_fpm_request_init</b>\n<i>Probe</i>]
+   Extension --> compass_fpm_request_shutdown[<b>compass_fpm_request_shutdown</b>\n<i>Probe</i>]
+   Extension --> compass_php_function_begin[<b>compass_php_function_begin</b>\n<i>Probe</i>]
+   Extension --> compass_php_function_end[<b>compass_php_function_end</b>\n<i>Probe</i>]
 
-   skpr_fpm_request_init --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
-   skpr_fpm_request_shutdown --> eBPF
-   skpr_php_function_begin --> eBPF
-   skpr_php_function_end --> eBPF
+   compass_fpm_request_init --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
+   compass_fpm_request_shutdown --> eBPF
+   compass_php_function_begin --> eBPF
+   compass_php_function_end --> eBPF
 
    eBPF --> function_end[<b>function_end</b>\n<i>Ring Buffer</i>]
    eBPF --> request_shutdown[<b>request_shutdown</b>\n<i>Ring Buffer</i>]
