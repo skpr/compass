@@ -1,24 +1,18 @@
 use phper::{
-    ini::{Policy, ini_get},
-    modules::Module,
-    php_get_module,
-    strings::ZStr,
     arrays::ZArr,
-    values::ZVal,
     eg,
-    pg,
+    ini::{ini_get, Policy},
+    modules::Module,
+    pg, php_get_module,
+    strings::ZStr,
     sys,
-    values::{ExecuteData},
+    values::ExecuteData,
+    values::ZVal,
 };
 
-use std::{
-    ffi::CStr,
-};
+use std::ffi::CStr;
 
-use anyhow::{
-    Result,
-    Context,
-};
+use anyhow::Context;
 
 use once_cell::sync::Lazy;
 use probe::probe_lazy;
@@ -40,10 +34,8 @@ pub fn get_module() -> Module {
     module.on_request_init(on_request_init);
     module.on_request_shutdown(on_request_shutdown);
 
-    module.on_module_init(|| {
-        unsafe {
-            sys::zend_observer_fcall_register(Some(observer_handler));
-        }
+    module.on_module_init(|| unsafe {
+        sys::zend_observer_fcall_register(Some(observer_handler));
     });
 
     module
@@ -51,11 +43,11 @@ pub fn get_module() -> Module {
 
 pub fn on_request_init() {
     if !is_enabled() {
-        return
+        return;
     }
 
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
-        return
+        return;
     }
 
     jit_initialization();
@@ -76,11 +68,11 @@ pub fn on_request_init() {
 
 pub fn on_request_shutdown() {
     if !is_enabled() {
-        return
+        return;
     }
 
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
-        return
+        return;
     }
 
     let server_result = get_request_server();
@@ -98,7 +90,7 @@ pub fn on_request_shutdown() {
 }
 
 pub unsafe extern "C" fn observer_handler(
-    execute_data: *mut sys::zend_execute_data,
+    _execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
     if !is_enabled() {
         return Default::default();
@@ -117,7 +109,7 @@ unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
 
     let (function, class) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
-        Err(err) => {
+        Err(_err) => {
             // @todo, Handle the error.
             return;
         }
@@ -127,8 +119,10 @@ unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
 
     let server = match server_result {
         Ok(carrier) => carrier,
-        // @todo, This should not panic.
-        Err(error) => panic!("Problem getting the server: {:?}", error),
+        Err(_err) => {
+            // @todo, Handle the error.
+            return;
+        }
     };
 
     let request_id = get_request_id(server);
@@ -140,19 +134,28 @@ unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
-    let combined= get_combined_name(class_name, function_name);
+    let combined = get_combined_name(class_name, function_name);
 
-    probe_lazy!(compass, php_function_begin, request_id.as_ptr(), format!("{:p}", execute_data.as_ptr()).as_ptr(), combined.as_ptr());
+    probe_lazy!(
+        compass,
+        php_function_begin,
+        request_id.as_ptr(),
+        format!("{:p}", execute_data.as_ptr()).as_ptr(),
+        combined.as_ptr()
+    );
 }
 
-unsafe extern "C" fn observer_end(execute_data: *mut sys::zend_execute_data, _retval: *mut sys::zval) {
+unsafe extern "C" fn observer_end(
+    execute_data: *mut sys::zend_execute_data,
+    _retval: *mut sys::zval,
+) {
     let Some(execute_data) = ExecuteData::try_from_mut_ptr(execute_data) else {
         return;
     };
 
     let (function, class) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
-        Err(err) => {
+        Err(_err) => {
             // @todo, Handle the error.
             return;
         }
@@ -162,8 +165,10 @@ unsafe extern "C" fn observer_end(execute_data: *mut sys::zend_execute_data, _re
 
     let server = match server_result {
         Ok(carrier) => carrier,
-        // @todo, This should not panic.
-        Err(error) => panic!("Problem getting the server: {:?}", error),
+        Err(_err) => {
+            // @todo, Handle the error.
+            return;
+        }
     };
 
     let request_id = get_request_id(server);
@@ -174,9 +179,15 @@ unsafe extern "C" fn observer_end(execute_data: *mut sys::zend_execute_data, _re
         return;
     }
 
-    let combined= get_combined_name(class_name, function_name);
+    let combined = get_combined_name(class_name, function_name);
 
-    probe_lazy!(compass, php_function_end, request_id.as_ptr(), format!("{:p}", execute_data.as_ptr()).as_ptr(), combined.as_ptr());
+    probe_lazy!(
+        compass,
+        php_function_end,
+        request_id.as_ptr(),
+        format!("{:p}", execute_data.as_ptr()).as_ptr(),
+        combined.as_ptr()
+    );
 }
 
 // Helper function taken from skywalking-php
@@ -257,8 +268,8 @@ fn get_combined_name(class_name: String, function_name: String) -> String {
     }
 
     if class_name != "" {
-        return class_name
+        return class_name;
     }
 
-    return function_name
+    return function_name;
 }

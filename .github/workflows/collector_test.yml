@@ -1,0 +1,28 @@
+name: "📋 Collector: Test"
+
+on:
+  push
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.22-alpine
+      options: --user root
+
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Install Dependencies
+        run: |
+          apk add --no-cache ca-certificates llvm clang libbpf-dev
+
+      - name: 📋 Test
+        run: |
+          cd collector
+          go install github.com/cilium/ebpf/cmd/bpf2go@v0.12.3
+          go generate ./...
+          go fmt ./...
+          go vet ./...
+          go test ./...
