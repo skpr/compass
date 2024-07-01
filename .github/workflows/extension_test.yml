@@ -1,0 +1,24 @@
+name: "📋 Extension: Test"
+
+on:
+  push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/skpr/php-cli:8.3-v2-latest
+      options: --user root
+
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Install Dependencies
+        run: |
+          apk add --no-cache rust rustfmt cargo php8.3-dev clang-dev
+
+      - run: |
+          cd extension
+          cargo fmt --all -- --check
+          cargo build
