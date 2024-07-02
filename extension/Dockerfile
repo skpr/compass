@@ -2,12 +2,13 @@ ARG PHP_VERSION=8.3
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest as build
 
 USER root
-RUN apk add --no-cache rust cargo php${PHP_VERSION}-dev clang-dev
+RUN apk add --no-cache rust rustfmt cargo php${PHP_VERSION}-dev clang-dev
 USER skpr
 
 ADD --chown=skpr:skpr . /data
 
 ENV RUST_BACKTRACE=full
+RUN cargo fmt --all -- --check
 RUN cargo build --release
 
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest

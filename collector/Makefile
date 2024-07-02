@@ -1,13 +1,20 @@
 #!/usr/bin/make -f
 
-IMAGE=docker.io/skpr/compass-collector:latest
+fmt: generate
+	go fmt ./...
 
-build:
-	docker build --no-cache -t $(IMAGE) .
+vet: generate
+	go vet ./...
 
-PID=""
+test: generate
+	go test ./...
 
-run:
-	docker run -it -e PID=$(PID) -v /proc:/host/proc -v /run:/host/run --privileged $(IMAGE)
+generate:
+	go generate ./...
+
+build: generate
+	go build -a -o _output/compass-collector github.com/skpr/compass/collector/cmd/compass-collector
+	go build -a -buildmode=plugin -o _output/plugin/cache.so github.com/skpr/compass/collector/plugin/cache
+	go build -a -buildmode=plugin -o _output/plugin/stdout.so github.com/skpr/compass/collector/plugin/stdout
 
 .PHONY: *
