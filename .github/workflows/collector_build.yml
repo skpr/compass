@@ -1,0 +1,14 @@
+name: "📋 Collector: Build"
+
+on:
+  push
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+      - name: 📦 Build
+        run: |
+          docker build -t localhost/compass-collector:latest collector
