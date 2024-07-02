@@ -1,4 +1,4 @@
-name: "📋 Collector: Build"
+name: "📋 Collector: Build and Test"
 
 on:
   push
@@ -11,4 +11,4 @@ jobs:
         uses: actions/checkout@v4
       - name: 📦 Build
         run: |
-          docker build -t localhost/compass-collector:latest collector
+          docker build -t docker.io/skpr/compass-collector:latest collector

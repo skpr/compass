@@ -1,0 +1,17 @@
+name: "📋 Extension: Build and Test"
+
+on:
+  push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+      - name: 📦 Build
+        run: |
+          IMAGE=docker.io/skpr/compass-php-extension
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t $(IMAGE):8.3-latest extension
+	        docker build --no-cache --build-arg=PHP_VERSION=8.2 -t $(IMAGE):8.2-latest extension
+	        docker build --no-cache --build-arg=PHP_VERSION=8.1 -t $(IMAGE):8.1-latest extension
