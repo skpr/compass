@@ -6,8 +6,7 @@ RUN apk add --no-cache ca-certificates llvm clang libbpf-dev
 ADD . /go/src/github.com/skpr/compass/collector
 WORKDIR /go/src/github.com/skpr/compass/collector
 RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.12.3
-RUN go generate ./...
-RUN go build -a -o bin/compass-collector github.com/skpr/compass/collector/cmd/compass-collector
+RUN make build
 
 # Plugins
 RUN mkdir -p /usr/lib64/compass
