@@ -12,5 +12,5 @@ jobs:
       - name: 📦 Build
         run: |
           docker build --no-cache --build-arg=PHP_VERSION=8.3 -t docker.io/skpr/compass-php-extension:8.3-latest extension
-	        docker build --no-cache --build-arg=PHP_VERSION=8.2 -t docker.io/skpr/compass-php-extension:8.2-latest extension
-	        docker build --no-cache --build-arg=PHP_VERSION=8.1 -t docker.io/skpr/compass-php-extension:8.1-latest extension
+          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t docker.io/skpr/compass-php-extension:8.2-latest extension
+          docker build --no-cache --build-arg=PHP_VERSION=8.1 -t docker.io/skpr/compass-php-extension:8.1-latest extension
