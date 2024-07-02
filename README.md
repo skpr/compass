@@ -5,7 +5,8 @@ A tool for pointing developers in the right direction for performance issues.
 
 <img src="/logo.png" width="100">
 
-[![📋 Extension: Build and Test](https://github.com/skpr/compass/actions/workflows/extension_build.yml/badge.svg)](https://github.com/skpr/compass/actions/workflows/extension_build.yml) [![📋 Collector: Build and Test](https://github.com/skpr/compass/actions/workflows/collector_build.yml/badge.svg)](https://github.com/skpr/compass/actions/workflows/collector_build.yml)
+[![📋 Extension: Build and Test](https://github.com/skpr/compass/actions/workflows/extension_build.yml/badge.svg)](https://github.com/skpr/compass/actions/workflows/extension_build.yml)
+[![📋 Collector: Build and Test](https://github.com/skpr/compass/actions/workflows/collector_build.yml/badge.svg)](https://github.com/skpr/compass/actions/workflows/collector_build.yml)
 
 ----
 
