@@ -16,7 +16,7 @@ jobs:
 
       - name: 📦 Install Dependencies
         run: |
-          apk add --no-cache ca-certificates llvm clang libbpf-dev
+          apk add --no-cache ca-certificates llvm clang libbpf-dev make
 
       - name: 📋 Test
         run: |

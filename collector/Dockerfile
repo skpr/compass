@@ -1,6 +1,6 @@
 FROM golang:1.22-alpine as build
 
-RUN apk add --no-cache ca-certificates llvm clang libbpf-dev
+RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
 
 # Collector.
 ADD . /go/src/github.com/skpr/compass/collector
