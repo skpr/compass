@@ -42,3 +42,18 @@ flowchart LR
 | example   | Example for testing purposes.                                                                    |
 | collector | Listens to USDT probes, collates them and sends them to the collector plugin (stdout, file etc). |
 
+## Images
+
+**PHP Extension**
+
+```
+ghcr.io/skpr/compass:extension-8.3-latest
+ghcr.io/skpr/compass:extension-8.2-latest
+ghcr.io/skpr/compass:extension-8.1-latest
+```
+
+**Collector**
+
+```
+ghcr.io/skpr/compass:collector-latest
+```
