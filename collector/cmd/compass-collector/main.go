@@ -1,58 +1,55 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
-	"regexp"
-	"strings"
 
-	"github.com/jwalton/gchalk"
 	"github.com/spf13/cobra"
 
-	"github.com/skpr/compass/collector/cmd/compass-collector/run"
+	"github.com/skpr/compass/collector/internal/collector"
+	"github.com/skpr/compass/collector/internal/envget"
+	"github.com/skpr/compass/collector/plugin"
 )
 
-const cmdExample = `
-    # Run the collector.
-    compass-collector run --container=php-fpm
-`
+var (
+	cmdLong = `
+		Run the process which collects tracing data.`
 
-var cmd = &cobra.Command{
-	Use:     "compass-collector",
-	Short:   "Collector for the Compass project.",
-	Example: cmdExample,
-	Long: `   __________  __  _______  ___   __________
-	/ ____/ __ \/  |/  / __ \/   | / ___/ ___/
-   / /   / / / / /|_/ / /_/ / /| | \__ \\__ \
-  / /___/ /_/ / /  / / ____/ ___ |___/ /__/ /
-  \____/\____/_/  /_/_/   /_/  |_/____/____/
+	cmdExample = `
+		# Run the collector and target a specific container.
+		compass-collector --container=php-fpm
 
-A tool for pointing developers in the right direction for performance issues.`,
-}
+		# Run the collector and target a different library.
+		compass-collector --lib-path=/usr/lib/php/modules/something-else.so`
+)
 
 func main() {
-	cobra.AddTemplateFunc("StyleHeading", styleHeading)
-	usageTemplate := cmd.UsageTemplate()
-	usageTemplate = strings.NewReplacer(
-		`Usage:`, `{{StyleHeading "Usage:"}}`,
-		`Aliases:`, `{{StyleHeading "Aliases:"}}`,
-		`Examples:`, `{{StyleHeading "Examples:"}}`,
-		`Available Commands:`, `{{StyleHeading "Available Commands:"}}`,
-		`Global Flags:`, `{{StyleHeading "Global Flags:"}}`,
-	).Replace(usageTemplate)
+	var (
+		flagPlugin  string
+		flagLibPath string
+	)
 
-	re := regexp.MustCompile(`(?m)^Flags:\s*$`)
-	usageTemplate = re.ReplaceAllLiteralString(usageTemplate, `{{StyleHeading "Flags:"}}`)
-	cmd.SetUsageTemplate(usageTemplate)
+	cmd := &cobra.Command{
+		Use:     "run",
+		Short:   "Run the collector",
+		Long:    cmdLong,
+		Example: cmdExample,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 
-	cmd.AddCommand(run.NewCommand())
+			p, err := plugin.Load(flagPlugin)
+			if err != nil {
+				return fmt.Errorf("failed to load plugin: %w", err)
+			}
 
-	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+			return collector.Run(context.TODO(), logger, flagLibPath, p)
+		},
 	}
-}
 
-func styleHeading(data string) string {
-	return gchalk.WithHex("#ee5622").Bold(data)
+	cmd.PersistentFlags().StringVar(&flagPlugin, "plugin", envget.GetString("COMPASS_COLLECTOR_PLUGIN", "/usr/lib64/compass/stdout.so"), "Plugin for processing tracing data")
+	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
+
+	cmd.Execute()
 }

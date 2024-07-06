@@ -40,8 +40,8 @@ func (s *plugin) Initialize() error {
 	return nil
 }
 
-// ProfileEnd event from the collector.
-func (s *plugin) ProfileEnd(trace types.Trace) error {
+// TraceEnd event from the collector.
+func (s *plugin) TraceEnd(trace types.Trace) error {
 	if trace.ID == "" {
 		return fmt.Errorf("not found: trace id")
 	}

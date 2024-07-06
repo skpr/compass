@@ -12,7 +12,7 @@ func Load(path string) (Interface, error) {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 
-	symbol, err := p.Lookup("Speaker")
+	symbol, err := p.Lookup("Plugin")
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup symbol: %w", err)
 	}

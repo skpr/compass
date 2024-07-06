@@ -32,11 +32,10 @@ func main() {
 	)
 
 	cmd := &cobra.Command{
-		Use:                   "compass-find-lib",
-		DisableFlagsInUseLine: true,
-		Short:                 "Run the helper script",
-		Long:                  cmdLong,
-		Example:               cmdExample,
+		Use:     "compass-find-lib",
+		Short:   "Run the helper script",
+		Long:    cmdLong,
+		Example: cmdExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
