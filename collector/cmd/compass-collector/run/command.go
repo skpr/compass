@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/skpr/compass/collector/internal/collector"
+	"github.com/skpr/compass/collector/internal/envget"
 	"github.com/skpr/compass/collector/plugin"
 )
 
@@ -42,7 +43,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&flagPlugin, "plugin", os.Getenv("COMPASS_COLLECTOR_PLUGIN"), "Plugin for processing tracing data")
+	cmd.PersistentFlags().StringVar(&flagPlugin, "plugin", envget.GetString("COMPASS_COLLECTOR_PLUGIN", "stdout"), "Plugin for processing tracing data")
 	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
 
 	return cmd
