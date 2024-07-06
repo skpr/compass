@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"time"
 
@@ -136,7 +137,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 				if eventType == "function" {
 					err = manager.AddFunction(requestID, name, executionTime, time.Minute)
 					if err != nil {
-						return fmt.Errorf("failed to add function to event manager: %w", err)
+						log.Printf("failed to add function to event manager: %s", err)
 					}
 
 					continue
@@ -145,7 +146,8 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 				if eventType == "request" {
 					functions, err := manager.FlushRequest(requestID)
 					if err != nil {
-						return fmt.Errorf("failed to add function to event manager: %w", err)
+						log.Printf("failed to add function to event manager: %s", err)
+						continue
 					}
 
 					trace := types.Trace{
