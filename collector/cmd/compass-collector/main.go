@@ -27,9 +27,9 @@ var (
 
 func main() {
 	var (
-		flagPlugin  string
-		flagLibPath string
-		flagDebug   bool
+		flagPlugin   string
+		flagLibPath  string
+		flagLogLevel string
 	)
 
 	cmd := &cobra.Command{
@@ -38,20 +38,37 @@ func main() {
 		Long:    cmdLong,
 		Example: cmdExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+			lvl := new(slog.LevelVar)
+
+			switch flagLogLevel {
+			case "info":
+				lvl.Set(slog.LevelInfo)
+			case "debug":
+				lvl.Set(slog.LevelDebug)
+			case "warn":
+				lvl.Set(slog.LevelWarn)
+			case "error":
+				lvl.Set(slog.LevelError)
+			default:
+				lvl.Set(slog.LevelInfo)
+			}
+
+			logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+				Level: lvl,
+			}))
 
 			p, err := plugin.Load(flagPlugin)
 			if err != nil {
 				return fmt.Errorf("failed to load plugin: %w", err)
 			}
 
-			return collector.Run(context.TODO(), logger, flagLibPath, p, flagDebug)
+			return collector.Run(context.TODO(), logger, flagLibPath, p)
 		},
 	}
 
 	cmd.PersistentFlags().StringVar(&flagPlugin, "plugin", envget.GetString("COMPASS_COLLECTOR_PLUGIN", "/usr/lib64/compass/stdout.so"), "Plugin for processing tracing data")
 	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
-	cmd.PersistentFlags().BoolVar(&flagDebug, "debug", envget.GetBool("COMPASS_COLLECTOR_DEBUG", false), "Enable debug output")
+	cmd.PersistentFlags().StringVar(&flagLogLevel, "debug", envget.GetString("COMPASS_COLLECTOR_LOG_LEVEL", "info"), "Set the logging level")
 
 	err := cmd.Execute()
 	if err != nil {

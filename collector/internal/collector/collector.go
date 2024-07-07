@@ -34,7 +34,7 @@ const (
 
 //go:generate bpf2go -target amd64 -type event bpf program.bpf.c -- -I./headers
 
-func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin plugin.Interface, debug bool) error {
+func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin plugin.Interface) error {
 	logger.Info("Loading probes")
 
 	// Allow the current process to lock memory for eBPF resources.
@@ -135,9 +135,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 				)
 
 				if eventType == "function" {
-					if debug {
-						logger.Debug("function event has been called", "request_id", requestID, "name", name, "execution_time", executionTime)
-					}
+					logger.Debug("function event has been called", "request_id", requestID, "name", name, "execution_time", executionTime)
 
 					err = manager.AddFunction(requestID, name, executionTime, time.Minute)
 					if err != nil {
@@ -148,9 +146,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 				}
 
 				if eventType == "request" {
-					if debug {
-						logger.Debug("request event has been called", "request_id", requestID, "execution_time", executionTime)
-					}
+					logger.Debug("request event has been called", "request_id", requestID, "execution_time", executionTime)
 
 					functions, err := manager.FlushRequest(requestID)
 					if err != nil {
@@ -158,9 +154,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 						continue
 					}
 
-					if debug {
-						logger.Debug("request event has associated functions", "count", len(functions))
-					}
+					logger.Debug("request event has associated functions", "count", len(functions))
 
 					trace := types.Trace{
 						ID:                 requestID,
