@@ -159,7 +159,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 					}
 
 					if debug {
-						logger.Debug("request event has %d functions associated", len(functions))
+						logger.Debug("request event has associated functions", "count", len(functions))
 					}
 
 					trace := types.Trace{
