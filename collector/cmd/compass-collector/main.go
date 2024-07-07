@@ -29,6 +29,7 @@ func main() {
 	var (
 		flagPlugin  string
 		flagLibPath string
+		flagDebug   bool
 	)
 
 	cmd := &cobra.Command{
@@ -44,12 +45,16 @@ func main() {
 				return fmt.Errorf("failed to load plugin: %w", err)
 			}
 
-			return collector.Run(context.TODO(), logger, flagLibPath, p)
+			return collector.Run(context.TODO(), logger, flagLibPath, p, flagDebug)
 		},
 	}
 
 	cmd.PersistentFlags().StringVar(&flagPlugin, "plugin", envget.GetString("COMPASS_COLLECTOR_PLUGIN", "/usr/lib64/compass/stdout.so"), "Plugin for processing tracing data")
 	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
+	cmd.PersistentFlags().BoolVar(&flagDebug, "debug", envget.GetBool("COMPASS_COLLECTOR_DEBUG", false), "Enable debug output")
 
-	cmd.Execute()
+	err := cmd.Execute()
+	if err != nil {
+		panic(err)
+	}
 }
