@@ -2,28 +2,33 @@
 
 // # readelf -n /usr/lib/php/modules/compass.so
 //
+// Displaying notes found in: .note.gnu.build-id
+//   Owner                Data size 	Description
+//   GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+//     Build ID: cd16bd69e73b609d3ab6bf9c5657bfd024ee52f0
+//
 // Displaying notes found in: .note.stapsdt
 //   Owner                Data size 	Description
-//   stapsdt              0x00000036	NT_STAPSDT (SystemTap probe descriptors)
+//   stapsdt              0x00000039	NT_STAPSDT (SystemTap probe descriptors)
 //     Provider: compass
 //     Name: fpm_request_init
-//     Location: 0x000000000000c33d, Base: 0x0000000000058be0, Semaphore: 0x000000000006c048
+//     Location: 0x000000000000bbfa, Base: 0x000000000005e9eb, Semaphore: 0x0000000000071078
 //     Arguments: -8@%r14
-//   stapsdt              0x0000003a	NT_STAPSDT (SystemTap probe descriptors)
+//   stapsdt              0x0000003d	NT_STAPSDT (SystemTap probe descriptors)
 //     Provider: compass
 //     Name: fpm_request_shutdown
-//     Location: 0x000000000000c5f9, Base: 0x0000000000058be0, Semaphore: 0x000000000006c04a
+//     Location: 0x000000000000be96, Base: 0x000000000005e9eb, Semaphore: 0x000000000007107a
 //     Arguments: -8@%r14
-//   stapsdt              0x00000048	NT_STAPSDT (SystemTap probe descriptors)
+//   stapsdt              0x0000004b	NT_STAPSDT (SystemTap probe descriptors)
 //     Provider: compass
 //     Name: php_function_begin
-//     Location: 0x000000000000cae3, Base: 0x0000000000058be0, Semaphore: 0x000000000006c04c
-//     Arguments: -8@%r15 -8@%rdi -8@%rax
-//   stapsdt              0x00000046	NT_STAPSDT (SystemTap probe descriptors)
+//     Location: 0x000000000000c46f, Base: 0x000000000005e9eb, Semaphore: 0x000000000007107c
+//     Arguments: -8@%rcx -8@%rdi -8@%rax
+//   stapsdt              0x00000049	NT_STAPSDT (SystemTap probe descriptors)
 //     Provider: compass
 //     Name: php_function_end
-//     Location: 0x000000000000d053, Base: 0x0000000000058be0, Semaphore: 0x000000000006c04e
-//     Arguments: -8@%r15 -8@%rdi -8@%rax
+//     Location: 0x000000000000ca1f, Base: 0x000000000005e9eb, Semaphore: 0x000000000007107e
+//     Arguments: -8@%rcx -8@%rdi -8@%rax
 
 #define STRSZ 100 + 1
 
@@ -113,7 +118,7 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
 
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_function);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->r15);
+  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rcx);
   bpf_probe_read_user_str(&event->name, STRSZ, (void *)ctx->rax);
   event->execution_time = execution_time;
 
