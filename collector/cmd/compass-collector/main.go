@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
 	"log/slog"
 	"os"
+
+	"github.com/spf13/cobra"
 
 	"github.com/skpr/compass/collector/internal/collector"
 	"github.com/skpr/compass/collector/internal/envget"
