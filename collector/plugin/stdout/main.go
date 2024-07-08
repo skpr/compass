@@ -16,7 +16,7 @@ func (s *plugin) Initialize() error {
 	return nil
 }
 
-// TraceEnd event from the collector.
-func (s *plugin) TraceEnd(trace types.Trace) error {
-	return json.NewEncoder(os.Stdout).Encode(trace)
+// ProcessProfile from the collector.
+func (s *plugin) ProcessProfile(profile types.Profile) error {
+	return json.NewEncoder(os.Stdout).Encode(profile)
 }
