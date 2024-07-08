@@ -83,7 +83,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 	logger.Info("Starting event mangaer..")
 
-	manager, err := manager.New()
+	manager, err := manager.New(time.Minute)
 	if err != nil {
 		return fmt.Errorf("unable to initialize event manager: %w", err)
 	}
