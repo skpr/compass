@@ -154,7 +154,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 					Functions:          functions,
 				}
 
-				err = plugin.TraceEnd(profile)
+				err = plugin.ProcessProfile(profile)
 				if err != nil {
 					return fmt.Errorf("failed to send profile data to plugin: %w", err)
 				}
