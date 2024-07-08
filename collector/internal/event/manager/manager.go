@@ -1,47 +1,29 @@
 package manager
 
 import (
-	"context"
 	"fmt"
-	"sync"
 	"time"
+
+	"github.com/patrickmn/go-cache"
 
 	"github.com/skpr/compass/collector/internal/event/types"
 )
 
 type Client struct {
-	storage map[string]StorageItem
-	mu      sync.RWMutex
+	// Consider an interface for the storage.
+	storage *cache.Cache
 }
 
 type StorageItem struct {
-	Expiration int64
-	Functions  []types.Function
+	Functions []types.Function
 }
 
-func New() (*Client, error) {
+func New(expire time.Duration) (*Client, error) {
 	client := &Client{
-		storage: make(map[string]StorageItem),
+		storage: cache.New(expire, expire),
 	}
 
 	return client, nil
-}
-
-func (c *Client) RunWithExpiration(ctx context.Context, interval time.Duration) error {
-	ticker := time.NewTicker(interval)
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return nil
-		case <-ticker.C:
-			err := c.DeleteExpired()
-			if err != nil {
-				return err
-			}
-		}
-	}
 }
 
 func (c *Client) AddFunction(requestId, name string, executionTime uint64, expire time.Duration) error {
@@ -50,52 +32,31 @@ func (c *Client) AddFunction(requestId, name string, executionTime uint64, expir
 		ExecutionTime: executionTime,
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	var functions []types.Function
 
-	if val, ok := c.storage[requestId]; ok {
-		val.Functions = append(val.Functions, function)
-		c.storage[requestId] = val
-		return nil
+	if x, found := c.storage.Get(requestId); found {
+		functions = x.([]types.Function)
 	}
 
-	c.storage[requestId] = StorageItem{
-		Expiration: time.Now().Add(expire).UnixNano(),
-		Functions: []types.Function{
-			function,
-		},
-	}
+	functions = append(functions, function)
+
+	c.storage.Set(requestId, functions, expire)
 
 	return nil
 }
 
 func (c *Client) FlushRequest(requestId string) ([]types.Function, error) {
-	if _, ok := c.storage[requestId]; !ok {
-		return nil, fmt.Errorf("cannot find functions assocaited with request with id: %s", requestId)
+	defer c.storage.Delete(requestId)
+
+	var functions []types.Function
+
+	if x, found := c.storage.Get(requestId); found {
+		functions = x.([]types.Function)
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	request := c.storage[requestId]
-
-	// Cleanup after ourselves.
-	delete(c.storage, requestId)
-
-	return request.Functions, nil
-}
-
-func (c *Client) DeleteExpired() error {
-	now := time.Now().UnixNano()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for k, v := range c.storage {
-		if v.Expiration > 0 && now > v.Expiration {
-			delete(c.storage, k)
-		}
+	if len(functions) == 0 {
+		return nil, fmt.Errorf("no functions found for request with id: %s", requestId)
 	}
 
-	return nil
+	return functions, nil
 }
