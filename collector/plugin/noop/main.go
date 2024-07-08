@@ -13,7 +13,7 @@ func (s *plugin) Initialize() error {
 	return nil
 }
 
-// TraceEnd event from the collector.
-func (s *plugin) TraceEnd(trace types.Trace) error {
+// ProcessProfile from the collector.
+func (s *plugin) ProcessProfile(profile types.Profile) error {
 	return nil
 }

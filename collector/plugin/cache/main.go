@@ -40,18 +40,18 @@ func (s *plugin) Initialize() error {
 	return nil
 }
 
-// TraceEnd event from the collector.
-func (s *plugin) TraceEnd(trace types.Trace) error {
-	if trace.ID == "" {
-		return fmt.Errorf("not found: trace id")
+// ProcessProfile from the collector.
+func (s *plugin) ProcessProfile(profile types.Profile) error {
+	if profile.RequestID == "" {
+		return fmt.Errorf("not found: request id")
 	}
 
-	contents, err := json.Marshal(trace)
+	contents, err := json.Marshal(profile)
 	if err != nil {
 		return fmt.Errorf("failed to marshal trace data to json: %w", err)
 	}
 
-	file := fmt.Sprintf("%s/%s.json", s.directory, trace.ID)
+	file := fmt.Sprintf("%s/%s.json", s.directory, profile.RequestID)
 
 	err = os.WriteFile(file, contents, 0644)
 	if err != nil {

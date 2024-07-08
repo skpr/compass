@@ -148,13 +148,13 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 				logger.Debug("request event has associated functions", "count", len(functions))
 
-				trace := types.Trace{
-					ID:                 requestID,
+				profile := types.Profile{
+					RequestID:          requestID,
 					TotalExecutionTime: event.ExecutionTime,
 					Functions:          functions,
 				}
 
-				err = plugin.TraceEnd(trace)
+				err = plugin.TraceEnd(profile)
 				if err != nil {
 					return fmt.Errorf("failed to send profile data to plugin: %w", err)
 				}
