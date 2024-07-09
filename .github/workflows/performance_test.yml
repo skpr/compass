@@ -33,6 +33,7 @@ jobs:
           docker build -t localhost/compass:php-fpm-latest docker/compose/php-fpm
           docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:extension-latest extension
           docker build -t localhost/compass:php-fpm-ext-latest docker/compose/php-fpm-ext
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:collector-latest collector
 
       - name: 📦 Setup
         run: |

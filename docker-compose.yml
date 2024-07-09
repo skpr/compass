@@ -36,6 +36,15 @@ services:
       interval: 1s
       retries: 60
 
+  ##################
+  # Databases
+  ##################
+
+  collector:
+    image: localhost/compass:collector-latest
+    privileged: true
+    pid: host
+
 volumes:
   public-files: {}
   private-files: {}
