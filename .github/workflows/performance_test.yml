@@ -55,7 +55,14 @@ jobs:
       - name: 🧪 K6 - Execute Extension Enabled Performance Test
         run: |
           bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} extension.json
-          cp ${K6_RESULTS_DIR}/extension.json ${K6_RESULTS_DIR}/collector.json
+
+      - name: ⚙️ Enable Collector
+        run: |
+          docker compose --profile collector up -d --wait
+
+      - name: 🧪 K6 - Execute Collector Enabled Performance Test
+        run: |
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} collector.json
 
       - name: 📋 Review Test Results
         run: |

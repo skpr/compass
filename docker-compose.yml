@@ -44,6 +44,7 @@ services:
     image: localhost/compass:collector-latest
     privileged: true
     pid: host
+    profiles: [collector]
 
 volumes:
   public-files: {}
