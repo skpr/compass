@@ -23,9 +23,6 @@ jobs:
 
       - name: 📁 Init
         run: |
-          # Set permissions for checkout.
-          sudo chown -R 1000:1000 $(pwd)
-
           # Create performance testing results directory.
           sudo mkdir -p ${K6_RESULTS_DIR}
           sudo chmod 777 ${K6_RESULTS_DIR}
@@ -34,7 +31,7 @@ jobs:
         run: |
           docker build -t localhost/compass:nginx-latest docker/compose/nginx
           docker build -t localhost/compass:php-fpm-latest docker/compose/php-fpm
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:extension-latest ../extension
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:extension-latest extension
           docker build -t localhost/compass:php-fpm-ext-latest docker/compose/php-fpm-ext
 
       - name: 📦 Setup
