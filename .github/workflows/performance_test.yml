@@ -54,12 +54,13 @@ jobs:
 
       - name: 🧪 K6 - Execute Extension Enabled Performance Test
         run: |
-          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} ext.json
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} extension.json
+          cp ${K6_RESULTS_DIR}/extension.json ${K6_RESULTS_DIR}/collector.json
 
       - name: 📋 Review Test Results
         run: |
-          BUDGET=200
-          bash ${K6_SCRIPTS_DIR}/review_results.sh ${K6_RESULTS_DIR}/baseline.json ${K6_RESULTS_DIR}/ext.json ${BUDGET} ${K6_RESULTS_DIR}/comment.txt
+          cd ./performance-testing/results
+          go run ../scripts/results.go
 
       - name: 📦 Collect Test Result Comment Details
         id: comment
