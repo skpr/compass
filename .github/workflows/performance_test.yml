@@ -37,7 +37,7 @@ jobs:
       - name: 📦 Setup
         run: |
           docker compose up -d --wait
-          docker compose exec --user=roop php-fpm chown skpr:skpr /data/app/sites/default/files
+          docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/private
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
           docker compose exec php-fpm PHP_MEMORY_LIMIT=512M vendor/bin/drush si demo_umami
