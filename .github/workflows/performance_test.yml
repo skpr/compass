@@ -40,7 +40,7 @@ jobs:
           docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/private
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
-          docker compose exec php-fpm PHP_MEMORY_LIMIT=512M vendor/bin/drush si demo_umami
+          docker compose exec -e PHP_MEMORY_LIMIT=512M php-fpm vendor/bin/drush si demo_umami
       
       - name: 🧪 K6 - Execute Baseline Performance Test
         run: |
