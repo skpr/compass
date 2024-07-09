@@ -58,7 +58,7 @@ jobs:
 
       - name: ⚙️ Enable Collector
         run: |
-          docker compose --profile collector up -d --wait
+          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest docker compose --profile collector up -d --wait
 
       - name: 🧪 K6 - Execute Collector Enabled Performance Test
         run: |
