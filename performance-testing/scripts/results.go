@@ -78,7 +78,7 @@ func run() error {
 		int(baseline.Metrics.HTTPReqDuration.Avg),
 		int(extension.Metrics.HTTPReqDuration.Avg),
 		int(extensionDiff),
-		int(extension.Metrics.HTTPReqDuration.Avg),
+		int(collector.Metrics.HTTPReqDuration.Avg),
 		int(collectorDiff),
 	)
 
