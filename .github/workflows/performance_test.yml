@@ -5,6 +5,7 @@ on:
     types: [ synchronize, opened, reopened, ready_for_review ]
 
 concurrency:
+  group: performance-test-${{ github.head_ref }}
   cancel-in-progress: true
 
 env:
