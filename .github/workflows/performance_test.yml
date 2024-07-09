@@ -68,7 +68,7 @@ jobs:
           echo "results=$results" >> "$GITHUB_OUTPUT"
 
       - name: 📋 Print Logs
-        if: fail()
+        if: failure()
         run: |
           docker compose logs nginx
           docker compose logs php-fpm
