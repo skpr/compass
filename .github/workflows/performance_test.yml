@@ -69,10 +69,28 @@ jobs:
           echo "results=$results" >> "$GITHUB_OUTPUT"
 
       - name: 📋 Print Logs
-        if: failure()
+        if: always()
         run: |
-          docker compose logs nginx
-          docker compose logs php-fpm
+          mkdir -p artifact/logs
+          docker compose logs nginx > artifact/logs/nginx.log
+          docker compose logs php-fpm > artifact/logs/php-fpm.log
+          docker compose logs collector > artifact/logs/collector.log
+
+      - name: Archive Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs
+          path: |
+            artifact/logs
+
+      - name: Archive Reqults
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results
+          path: |
+            ${K6_RESULTS_DIR}
 
       - name: 📋 Post Test Results to Comment
         uses: peter-evans/create-or-update-comment@v4
