@@ -1,0 +1,111 @@
+name: 📋 Performance Test
+
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+
+concurrency:
+  group: performance-test-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  K6_SCRIPTS_DIR: ./performance-testing/scripts
+  K6_SCENARIO: ./performance-testing/scenarios/basic.js
+  K6_RESULTS_DIR: ./performance-testing/results
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v3
+
+      - name: 📁 Init
+        run: |
+          # Create performance testing results directory.
+          sudo mkdir -p ${K6_RESULTS_DIR}
+          sudo chmod 777 ${K6_RESULTS_DIR}
+
+      - name: 📦 Build Images
+        run: |
+          docker build -t localhost/compass:nginx-latest docker/compose/nginx
+          docker build -t localhost/compass:php-fpm-latest docker/compose/php-fpm
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:extension-latest extension
+          docker build -t localhost/compass:php-fpm-ext-latest docker/compose/php-fpm-ext
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:collector-latest collector
+
+      - name: 📦 Setup
+        run: |
+          docker compose up -d --wait
+          docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
+          docker compose exec --user=root php-fpm chown skpr:skpr /mnt/private
+          docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
+          docker compose exec -e PHP_MEMORY_LIMIT=512M php-fpm vendor/bin/drush si demo_umami
+      
+      - name: 🧪 K6 - Execute Baseline Performance Test
+        run: |
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} baseline.json
+
+      - name: ⚙️ Enable Extension
+        run: |
+          docker compose stop
+          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest docker compose up -d --wait
+
+      - name: 🧪 K6 - Execute Extension Enabled Performance Test
+        run: |
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} extension.json
+
+      - name: ⚙️ Enable Collector
+        run: |
+          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest docker compose --profile collector up -d --wait
+
+      - name: 🧪 K6 - Execute Collector Enabled Performance Test
+        run: |
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} collector.json
+
+      - name: 📋 Review Test Results
+        run: |
+          cd ./performance-testing/results
+          go run ../scripts/results.go
+
+      - name: 📦 Collect Test Result Comment Details
+        id: comment
+        if: always()
+        run: |
+          results=$(cat ${K6_RESULTS_DIR}/comment.txt)
+          echo "results=$results" >> "$GITHUB_OUTPUT"
+
+      - name: 📋 Print Logs
+        if: always()
+        run: |
+          mkdir -p artifact/logs
+          docker compose logs nginx > artifact/logs/nginx.log
+          docker compose logs php-fpm > artifact/logs/php-fpm.log
+          docker compose logs collector > artifact/logs/collector.log
+
+      - name: Archive Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs
+          path: |
+            artifact/logs
+
+      - name: Archive Reqults
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results
+          path: |
+            performance-testing/results
+
+      - name: 📋 Post Test Results to Comment
+        uses: peter-evans/create-or-update-comment@v4
+        if: always()
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Performance Data
+            ----------------
+            ${{ steps.comment.outputs.results }}
