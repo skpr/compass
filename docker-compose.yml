@@ -31,6 +31,10 @@ services:
   mysql-default:
     image: docker.io/skpr/mysql-empty:8.x-v3-edge
     network_mode: service:nginx
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      interval: 1s
+      retries: 60
 
 volumes:
   public-files: {}
