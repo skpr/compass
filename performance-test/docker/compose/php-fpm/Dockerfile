@@ -15,6 +15,3 @@ ADD --chown=skpr:skpr services.yml /data/app/sites/default/services.yml
 # Add drush
 RUN composer require drush/drush
 COPY drush /etc/drush
-
-COPY --from=docker.io/skpr/compass-php-extension:8.3-latest /etc/php/conf.d/00_compass.ini /etc/php/conf.d/00_compass.ini
-COPY --from=docker.io/skpr/compass-php-extension:8.3-latest /usr/lib/php/modules/compass.so /usr/lib/php/modules/compass.so

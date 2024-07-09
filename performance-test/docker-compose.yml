@@ -7,7 +7,7 @@ services:
   ##################
 
   nginx:
-    build: ./docker/compose/nginx
+    image: ${IMAGE_NGINX:-localhost/compass:nginx-latest}
     ports:
       - 8080:8080
       - 3306:3306
@@ -19,7 +19,7 @@ services:
       - temporary-files:/mnt/temporary
 
   php-fpm:
-    build: ./docker/compose/php-fpm
+    image: ${IMAGE_PHP_FPM:-localhost/compass:php-fpm-latest}
     network_mode: service:nginx
     volumes:
       - public-files:/data/app/sites/default/files
