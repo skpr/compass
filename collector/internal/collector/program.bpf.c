@@ -41,38 +41,32 @@
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 
-const char event_type_function[] = "function";
-
-const char event_type_request[] = "request";
-
-struct event {
-  u8 type[STRSZ];
-  u8 request_id[STRSZ];
-  u8 name[STRSZ];
+struct request {
+  u8 id[STRSZ];
   u64 execution_time;
 };
 
 // Force emitting structs into the ELF.
-const struct event *unused_event __attribute__((unused));
+const struct request *unused_request __attribute__((unused));
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
   __uint(max_entries, MAX_ENTRIES);
   __type(key, u32);
   __type(value, u64);
-} functions SEC(".maps");
+} functions_start SEC(".maps");
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
   __uint(max_entries, MAX_ENTRIES);
   __type(key, u32);
   __type(value, u64);
-} requests SEC(".maps");
+} requests_start SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024);
-} events SEC(".maps");
+} requests SEC(".maps");
 
 // Used to initialize tracking for a function execution.
 SEC("uprobe/compass_php_function_begin")
@@ -86,7 +80,7 @@ int uprobe_compass_php_function_begin(struct pt_regs *ctx) {
   ts = bpf_ktime_get_ns();
 
   // Store in the map so that we can pick it up again when the function ends.
-  bpf_map_update_elem(&functions, &id, &ts, BPF_ANY);
+  bpf_map_update_elem(&functions_start, &id, &ts, BPF_ANY);
 
   return 0;
 }
@@ -100,7 +94,7 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
 
   u64 *ts;
 
-  ts = bpf_map_lookup_elem(&functions, id);
+  ts = bpf_map_lookup_elem(&functions_start, id);
   if (!ts)
     return 0;
 
@@ -110,25 +104,11 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
   if (execution_time < 0)
     goto cleanup;
 
-  struct event *event;
-
-  event = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
-  if (!event)
-    goto cleanup;
-
-  // Add in the extra call information.
-  bpf_core_read(&event->type, STRSZ, &event_type_function);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rcx);
-  bpf_probe_read_user_str(&event->name, STRSZ, (void *)ctx->rax);
-  event->execution_time = execution_time;
-
-  // Send it up to user space.
-  //bpf_ringbuf_submit(event, 0);
-  // @todo, Store it in a map for pickup later.
+  // @todo, Store it in a map for the collector.
 
   // Cleanup function tracking from the map.
   cleanup:
-  bpf_map_delete_elem(&functions, id);
+  bpf_map_delete_elem(&functions_start, id);
   return 0;
 }
 
@@ -158,7 +138,7 @@ int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
 
   u64 *ts;
 
-  ts = bpf_map_lookup_elem(&requests, request_id);
+  ts = bpf_map_lookup_elem(&requests_start, request_id);
   if (!ts)
     return 0;
 
@@ -168,21 +148,20 @@ int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
   if (execution_time < 0)
     goto cleanup;
 
-  struct event *event;
+  struct request *request;
 
-  event = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
-  if (!event)
+  request = bpf_ringbuf_reserve(&requests, sizeof(struct request), 0);
+  if (!request)
     goto cleanup;
 
-  bpf_core_read(&event->type, STRSZ, &event_type_request);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->r14);
-  event->execution_time = execution_time;
+  bpf_probe_read_user_str(&request->id, STRSZ, (void *)ctx->r14);
+  request->execution_time = execution_time;
 
   // Send it up to user space.
-  bpf_ringbuf_submit(event, 0);
+  bpf_ringbuf_submit(request, 0);
 
   // Cleanup request tracking from the map.
   cleanup:
-  bpf_map_delete_elem(&requests, request_id);
+  bpf_map_delete_elem(&requests_start, request_id);
   return 0;
 }
