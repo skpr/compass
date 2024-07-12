@@ -108,13 +108,15 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
 // Used to inform the user space application that a request has shutdown.
 SEC("uprobe/compass_fpm_request_shutdown")
 int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
-  struct request *request;
+  //struct request *request;
+
+  u8 id[STRSZ];
 
   /*request = bpf_ringbuf_reserve(&requests, sizeof(struct request), 0);
   if (!request)
     return 0;*/
 
-  bpf_probe_read_user_str(&request->id, STRSZ, (void *)ctx->r14);
+  bpf_probe_read_user_str(id, STRSZ, (void *)ctx->r14);
 
   // Send it up to user space.
   // bpf_ringbuf_submit(request, 0);
