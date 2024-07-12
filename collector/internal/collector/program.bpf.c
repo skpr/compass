@@ -57,13 +57,6 @@ struct {
 } functions_start SEC(".maps");
 
 struct {
-  __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, MAX_ENTRIES);
-  __type(key, u32);
-  __type(value, u64);
-} requests_start SEC(".maps");
-
-struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024);
 } requests SEC(".maps");
@@ -112,56 +105,17 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
   return 0;
 }
 
-// Used to inform the user space application that a new request has started.
-SEC("uprobe/compass_fpm_request_init")
-int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
-  u8 request_id[STRSZ];
-
-  bpf_probe_read_user_str(request_id, STRSZ, (void *)ctx->r14);
-
-  u64 ts;
-
-  ts = bpf_ktime_get_ns();
-
-  // Store in the map so that we can pick it up again when the function ends.
-  bpf_map_update_elem(&requests_start, &request_id, &ts, BPF_ANY);
-
-  return 0;
-}
-
 // Used to inform the user space application that a request has shutdown.
 SEC("uprobe/compass_fpm_request_shutdown")
 int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
-  u8 request_id[STRSZ];
-
-  bpf_probe_read_user_str(request_id, STRSZ, (void *)ctx->r14);
-
-  u64 *ts;
-
-  ts = bpf_map_lookup_elem(&requests_start, request_id);
-  if (!ts)
-    return 0;
-
-  s64 execution_time;
-
-  execution_time = bpf_ktime_get_ns() - *ts;
-  if (execution_time < 0)
-    goto cleanup;
-
   struct request *request;
 
   request = bpf_ringbuf_reserve(&requests, sizeof(struct request), 0);
   if (!request)
-    goto cleanup;
+    return 0;
 
   bpf_probe_read_user_str(&request->id, STRSZ, (void *)ctx->r14);
-  request->execution_time = execution_time;
 
   // Send it up to user space.
   bpf_ringbuf_submit(request, 0);
-
-  // Cleanup request tracking from the map.
-  cleanup:
-  bpf_map_delete_elem(&requests_start, request_id);
-  return 0;
 }

@@ -57,12 +57,6 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 	logger.Info("Attaching probes")
 
-	probeRequestInit, err := attachProbe(ex, executablePath, ProbeProvider, ProbeNameRequestInit, objs.UprobeCompassFpmRequestInit)
-	if err != nil {
-		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameRequestInit, err)
-	}
-	defer probeRequestInit.Close()
-
 	probeRequestShutdown, err := attachProbe(ex, executablePath, ProbeProvider, ProbeNameRequestShutdown, objs.UprobeCompassFpmRequestShutdown)
 	if err != nil {
 		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameRequestShutdown, err)
