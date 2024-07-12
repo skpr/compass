@@ -124,7 +124,7 @@ int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
   ts = bpf_ktime_get_ns();
 
   // Store in the map so that we can pick it up again when the function ends.
-  bpf_map_update_elem(&requests, &request_id, &ts, BPF_ANY);
+  bpf_map_update_elem(&requests_start, &request_id, &ts, BPF_ANY);
 
   return 0;
 }
