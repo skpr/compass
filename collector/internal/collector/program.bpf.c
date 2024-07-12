@@ -95,14 +95,9 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
 
   execution_time = bpf_ktime_get_ns() - *ts;
   if (execution_time < 0)
-    goto cleanup;
+    return 0;
 
   // @todo, Store it in a map for the collector.
-
-  // Cleanup function tracking from the map.
-  cleanup:
-  bpf_map_delete_elem(&functions_start, id);
-  return 0;
 }
 
 // Used to inform the user space application that a request has shutdown.
