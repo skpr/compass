@@ -123,7 +123,8 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
   event->execution_time = execution_time;
 
   // Send it up to user space.
-  bpf_ringbuf_submit(event, 0);
+  //bpf_ringbuf_submit(event, 0);
+  // @todo, Store it in a map for pickup later.
 
   // Cleanup function tracking from the map.
   cleanup:
