@@ -95,9 +95,14 @@ int uprobe_compass_php_function_end(struct pt_regs *ctx) {
 
   execution_time = bpf_ktime_get_ns() - *ts;
   if (execution_time < 0)
-    return 0;
+    goto cleanup;
 
   // @todo, Store it in a map for the collector.
+
+  // Cleanup function tracking from the map.
+  cleanup:
+  bpf_map_delete_elem(&functions_start, id);
+  return 0;
 }
 
 // Used to inform the user space application that a request has shutdown.
@@ -105,12 +110,12 @@ SEC("uprobe/compass_fpm_request_shutdown")
 int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
   struct request *request;
 
-  request = bpf_ringbuf_reserve(&requests, sizeof(struct request), 0);
+  /*request = bpf_ringbuf_reserve(&requests, sizeof(struct request), 0);
   if (!request)
-    return 0;
+    return 0;*/
 
   bpf_probe_read_user_str(&request->id, STRSZ, (void *)ctx->r14);
 
   // Send it up to user space.
-  bpf_ringbuf_submit(request, 0);
+  // bpf_ringbuf_submit(request, 0);
 }
