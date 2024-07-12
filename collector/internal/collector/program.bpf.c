@@ -50,7 +50,7 @@ struct request {
 const struct request *unused_request __attribute__((unused));
 
 struct {
-  __uint(type, BPF_MAP_TYPE_HASH);
+  __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
   __uint(max_entries, MAX_ENTRIES);
   __type(key, u32);
   __type(value, u64);
