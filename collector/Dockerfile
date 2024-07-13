@@ -8,13 +8,11 @@ WORKDIR /go/src/github.com/skpr/compass/collector
 RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.12.3
 RUN make fmt vet test build
 
-FROM ubuntu:latest
+FROM alpine:3.19
 
 COPY --from=build /go/src/github.com/skpr/compass/collector/_output/compass-find-lib /usr/local/bin/compass-find-lib
 
-RUN apt-get update && \
-    apt-get install -y bpftrace && \
-    apt-get clean
+RUN apk add bpftrace
 
 ADD docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
