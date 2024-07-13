@@ -1,3 +1,3 @@
 #!/bin/sh
 
-compass-collector --lib-path=$(compass-find-lib)
+sed "s~FILE~$(compass-find-lib --process-name=php-fpm)~g" php_functions.bt | bpftrace -
