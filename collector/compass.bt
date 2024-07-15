@@ -13,6 +13,7 @@ usdt:FILE:compass:php_function_begin
 / @function[str(arg1)] /
 {
     printf("FUNCTION END | request_id = %s | function = %s | duration = %d\n", str(arg0), str(arg1), (nsecs - @function[str(arg0)]) / 1000);
+    delete(@function[str(arg1)])
 }
 
 usdt:FILE:compass:fpm_request_init
@@ -25,6 +26,7 @@ usdt:FILE:compass:fpm_request_shutdown
 / @request[str(arg0)] /
 {
     printf("FPM REQUEST END | request_id = %s | duration = %d\n", str(arg0), (nsecs - @request[str(arg0)]) / 1000);
+    delete(@request[str(arg0)])
 }
 
 END
