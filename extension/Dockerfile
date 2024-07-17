@@ -2,15 +2,26 @@ ARG PHP_VERSION=8.3
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest as build
 
 USER root
-RUN apk add --no-cache rust rustfmt cargo php${PHP_VERSION}-dev clang-dev
-USER skpr
 
-ADD --chown=skpr:skpr . /data
+RUN apk add autoconf \
+            gcc \
+            make \
+            musl-dev \
+            php8.3-dev \
+            binutils \
+            wget \
+            g++ \
+            python3
 
-ENV RUST_BACKTRACE=full
-RUN cargo fmt --all -- --check
-RUN cargo build --release
+ADD . /data
+
+WORKDIR /data
+
+RUN phpize && \
+    ./configure --prefix=/usr --with-php-config=/usr/bin/php-config && \
+    make && \
+    cp modules/observer.so /usr/lib/php/modules/compass.so
 
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
 COPY compass.ini /etc/php/conf.d/00_compass.ini
-COPY --from=build /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
+COPY --from=build /usr/lib/php/modules/compass.so /usr/lib/php/modules/compass.so
