@@ -50,7 +50,7 @@ static void handler_begin(zend_execute_data *execute_data) {
 
 	hash_code = strpprintf(0, "%p", execute_data);
 
-	compass_begin(ZSTR_VAL(hash_code), ZSTR_VAL(function_name));
+	compass_function_begin(ZSTR_VAL(hash_code), ZSTR_VAL(function_name));
 }
 
 static void handler_end(zend_execute_data *execute_data, zval *return_value) {
@@ -61,7 +61,7 @@ static void handler_end(zend_execute_data *execute_data, zval *return_value) {
 
 	hash_code = strpprintf(0, "%p", execute_data);
 
-	compass_end(ZSTR_VAL(hash_code), ZSTR_VAL(function_name));
+	compass_function_end(ZSTR_VAL(hash_code), ZSTR_VAL(function_name));
 }
 
 // Runs once per zend_function on its first call
