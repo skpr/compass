@@ -5,27 +5,25 @@ BEGIN
 
 uprobe:FILE:compass_function_begin
 {
-    @function[str(uptr(arg0))] = nsecs;
+    printf("FUNCTION BEGIN | hash = %s | function = %s\n", str(uptr(arg0)), str(uptr(arg1)));
 }
 
 uprobe:FILE:compass_function_end
-/ @function[str(uptr(arg0))] /
 {
-    delete(@function[str(uptr(arg0))])
+    printf("FUNCTION END | hash = %s | function = %s\n", str(uptr(arg0)), str(uptr(arg1)));
 }
 
 uprobe:FILE:compass_request_init
 {
-    // Do stuff.
+    printf("REQUEST INIT");
 }
 
 uprobe:FILE:compass_request_shutdown
 {
-    // Do stuff.
+    printf("REQUEST SHUTDOWN");
 }
 
 END
 {
-    clear(@function);
     printf("Finished tracing PHP function calls\n");
 }
