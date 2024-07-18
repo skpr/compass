@@ -90,9 +90,32 @@ pub fn on_request_shutdown() {
 }
 
 pub unsafe extern "C" fn observer_handler(
-    _execute_data: *mut sys::zend_execute_data,
+    execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
     if !is_enabled() {
+        return Default::default();
+    }
+
+    let Some(execute_data) = ExecuteData::try_from_mut_ptr(execute_data) else {
+        return Default::default();
+    };
+
+    let class = match execute_data
+        .func()
+        .get_class()
+        .map(|cls| cls.get_name().to_str().map(ToOwned::to_owned))
+        .transpose()
+    {
+        Ok(class_name) => class_name,
+        Err(_err) => {
+            // @todo, Handle the error.
+            return Default::default();
+        }
+    };
+
+    let class_name: String = class.map(|c| c.to_string()).unwrap_or_default();
+
+    if class_name == "" {
         return Default::default();
     }
 
