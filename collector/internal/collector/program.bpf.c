@@ -63,39 +63,23 @@ struct {
 // Used to initialize tracking for a function execution.
 SEC("uprobe/compass_php_function_begin")
 int uprobe_compass_php_function_begin(struct pt_regs *ctx) {
-  u8 id[STRSZ];
-
-  bpf_probe_read_user_str(id, STRSZ, (void *)ctx->rdi);
-
   return 0;
 }
 
 // Used to wrap up and send function execution data.
 SEC("uprobe/compass_php_function_end")
 int uprobe_compass_php_function_end(struct pt_regs *ctx) {
-  u8 id[STRSZ];
-
-  bpf_probe_read_user_str(id, STRSZ, (void *)ctx->rdi);
-
   return 0;
 }
 
 // Used to inform the user space application that a new request has started.
 SEC("uprobe/compass_fpm_request_init")
 int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
-  u8 request_id[STRSZ];
-
-  bpf_probe_read_user_str(request_id, STRSZ, (void *)ctx->r14);
-
   return 0;
 }
 
 // Used to inform the user space application that a request has shutdown.
 SEC("uprobe/compass_fpm_request_shutdown")
 int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
-  u8 request_id[STRSZ];
-
-  bpf_probe_read_user_str(request_id, STRSZ, (void *)ctx->r14);
-
   return 0;
 }
