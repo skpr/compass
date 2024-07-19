@@ -26,6 +26,7 @@ jobs:
 
       - name: 📁 Init
         run: |
+          cat /proc/sys/net/core/bpf_jit_enable
           # Create performance testing results directory.
           sudo mkdir -p ${K6_RESULTS_DIR}
           sudo chmod 777 ${K6_RESULTS_DIR}
