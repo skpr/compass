@@ -3,31 +3,27 @@ BEGIN
     printf("Tracing PHP function calls... Hit Ctrl-C to end.\n");
 }
 
-usdt:FILE:compass:php_function_begin
+uprobe:FILE:function_begin
 {
-    @function[str(arg1)] = nsecs;
+    printf("FUNCTION BEGIN");
 }
 
-usdt:FILE:compass:php_function_begin
-/ @function[str(arg1)] /
+uprobe:FILE:function_end
 {
-    delete(@function[str(arg1)])
+    printf("FUNCTION END");
 }
 
-usdt:FILE:compass:fpm_request_init
+uprobe:FILE:request_init
 {
-    @request[str(arg0)] = nsecs;
+    printf("REQUEST BEGIN");
 }
 
-usdt:FILE:compass:fpm_request_shutdown
-/ @request[str(arg0)] /
+uprobe:FILE:request_shutdown
 {
-    delete(@request[str(arg0)])
+    printf("REQUEST END");
 }
 
 END
 {
-    clear(@request);
-    clear(@function);
     printf("Finished tracing PHP function calls\n");
 }
