@@ -1,0 +1,29 @@
+BEGIN
+{
+    printf("Tracing FPM requests... Hit Ctrl-C to end.\n");
+}
+
+uprobe:/proc/153351/root/usr/lib/php/modules/compass.so:request_init
+{
+    printf("FPM REQUEST INIT");
+}
+
+uprobe:/proc/153351/root/usr/lib/php/modules/compass.so:request_shutdown
+{
+    printf("FPM REQUEST END");
+}
+
+uprobe:/proc/153351/root/usr/lib/php/modules/compass.so:function_begin
+{
+    printf("FUNCTION BEGIN");
+}
+
+uprobe:/proc/153351/root/usr/lib/php/modules/compass.so:function_end
+{
+    printf("FUNCTION END");
+}
+
+END
+{
+    printf("Finished tracing FPM requests\n");
+}

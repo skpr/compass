@@ -15,7 +15,6 @@ use std::ffi::CStr;
 use anyhow::Context;
 
 use once_cell::sync::Lazy;
-use probe::probe_lazy;
 
 // Used to enable Compass.
 const COMPASS_TRACE_ENABLED: &str = "compass.enabled";
@@ -62,8 +61,7 @@ pub fn on_request_init() {
 
     let request_id = get_request_id(server);
 
-    // @todo, We should be able to add more data here eg. URI / Method
-    probe_lazy!(compass, fpm_request_init, request_id.as_ptr());
+    request_init(request_id.as_ptr());
 }
 
 pub fn on_request_shutdown() {
@@ -85,8 +83,7 @@ pub fn on_request_shutdown() {
 
     let request_id = get_request_id(server);
 
-    // @todo, We should be able to add more data here eg. Response code
-    probe_lazy!(compass, fpm_request_shutdown, request_id.as_ptr());
+    request_shutdown(request_id.as_ptr());
 }
 
 pub unsafe extern "C" fn observer_handler(
@@ -136,12 +133,10 @@ unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
 
     let combined = get_combined_name(class_name, function_name);
 
-    probe_lazy!(
-        compass,
-        php_function_begin,
+    function_begin(
         request_id.as_ptr(),
         format!("{:p}", execute_data.as_ptr()).as_ptr(),
-        combined.as_ptr()
+        combined.as_ptr(),
     );
 }
 
@@ -181,12 +176,10 @@ unsafe extern "C" fn observer_end(
 
     let combined = get_combined_name(class_name, function_name);
 
-    probe_lazy!(
-        compass,
-        php_function_end,
+    function_begin(
         request_id.as_ptr(),
         format!("{:p}", execute_data.as_ptr()).as_ptr(),
-        combined.as_ptr()
+        combined.as_ptr(),
     );
 }
 
@@ -272,4 +265,24 @@ fn get_combined_name(class_name: String, function_name: String) -> String {
     }
 
     return function_name;
+}
+
+#[export_name = "request_init"]
+pub fn request_init(request_id: *const u8) {
+    // Do things.
+}
+
+#[export_name = "request_shutdown"]
+pub fn request_shutdown(request_id: *const u8) {
+    // Do things.
+}
+
+#[export_name = "function_begin"]
+pub fn function_begin(request_id: *const u8, hash: *const u8, function_name: *const u8) {
+    // Do things.
+}
+
+#[export_name = "function_end"]
+pub fn function_end(request_id: *const u8, hash: *const u8, function_name: *const u8) {
+    // Do things.
 }
