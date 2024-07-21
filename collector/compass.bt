@@ -5,7 +5,7 @@ BEGIN
 
 usdt:FILE:compass:php_function
 {
-    printf("FUNCTION CALLED | name = %s duration = %d\n", str(arg0), arg1);
+    // printf("FUNCTION CALLED | name = %s duration = %d\n", str(arg0), arg1);
 }
 
 END
