@@ -17,8 +17,6 @@ COPY --from=build /go/src/github.com/skpr/compass/collector/_output/plugin /usr/
 ADD docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-ADD compass.bt /compass.bt
-
 ENV COMPASS_PROCESS_NAME=php-fpm
 
 CMD ["/entrypoint.sh"]
