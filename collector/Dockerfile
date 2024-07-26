@@ -10,9 +10,9 @@ RUN make fmt vet test build
 
 FROM alpine:3.19
 
+COPY --from=build /go/src/github.com/skpr/compass/collector/_output/compass-collector /usr/local/bin/compass-collector
 COPY --from=build /go/src/github.com/skpr/compass/collector/_output/compass-find-lib /usr/local/bin/compass-find-lib
-
-RUN apk add bpftrace
+COPY --from=build /go/src/github.com/skpr/compass/collector/_output/plugin /usr/lib64/compass
 
 ADD docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

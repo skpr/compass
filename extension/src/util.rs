@@ -1,4 +1,8 @@
-use phper::{strings::ZStr, values::ExecuteData};
+use phper::{arrays::ZArr, eg, strings::ZStr, sys, values::ExecuteData, values::ZVal};
+
+use std::ffi::CStr;
+
+use anyhow::Context;
 
 pub fn get_function_and_class_name(
     execute_data: &mut ExecuteData,
@@ -28,4 +32,36 @@ pub fn get_combined_name(class_name: String, function_name: String) -> String {
     }
 
     return function_name;
+}
+
+// https://github.com/apache/skywalking-php/blob/master/src/request.rs#L152
+pub fn get_request_server<'a>() -> anyhow::Result<&'a ZArr> {
+    unsafe {
+        let symbol_table = ZArr::from_mut_ptr(&mut eg!(symbol_table));
+        let carrier = symbol_table
+            .get("_SERVER")
+            .and_then(|carrier| carrier.as_z_arr())
+            .context("$_SERVER is null")?;
+        Ok(carrier)
+    }
+}
+
+// Based off: https://github.com/apache/skywalking-php/blob/master/src/request.rs#L145C4-L145C27
+pub fn get_request_id(server: &ZArr) -> String {
+    server
+        .get("HTTP_X_REQUEST_ID")
+        .and_then(z_val_to_string)
+        .unwrap_or_else(|| "UNKNOWN".to_string())
+}
+
+// https://github.com/apache/skywalking-php/blob/master/src/util.rs#L63
+pub fn z_val_to_string(zv: &ZVal) -> Option<String> {
+    zv.as_z_str()
+        .and_then(|zs| zs.to_str().ok())
+        .map(|s| s.to_string())
+}
+
+// https://github.com/apache/skywalking-php/blob/master/src/util.rs#L86C1-L88C2
+pub fn get_sapi_module_name() -> &'static CStr {
+    unsafe { CStr::from_ptr(sys::sapi_module.name) }
 }

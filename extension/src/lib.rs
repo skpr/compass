@@ -1,4 +1,5 @@
 mod execute;
+mod request;
 mod util;
 
 use phper::{
@@ -27,6 +28,8 @@ pub fn get_module() -> Module {
 
     module.on_module_init(on_module_init);
 
+    module.on_request_shutdown(on_request_shutdown);
+
     module
 }
 
@@ -36,6 +39,14 @@ pub fn on_module_init() {
     }
 
     register_exec_functions();
+}
+
+pub fn on_request_shutdown() {
+    if !is_enabled() {
+        return;
+    }
+
+    request::shutdown();
 }
 
 static IS_ENABLED: Lazy<bool> = Lazy::new(|| {
