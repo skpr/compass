@@ -16,8 +16,8 @@ flowchart LR
    Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_fpm_php_function[<b>compass_fpm_php_function</b>\n<i>Probe</i>]
    Extension --> compass_fpm_request_shutdown[<b>compass_fpm_request_shutdown</b>\n<i>Probe</i>]
 
-   compass_fpm_php_function --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
-   compass_fpm_request_shutdown --> eBPF
+   compass_php_function --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
+   compass_request_shutdown --> eBPF
 
    eBPF --> Events[<b>Events</b>\n<i>Ring Buffer</i>]
 
