@@ -1,8 +1,14 @@
 name: 📋 Test
 
-on: push
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+  push:
+    branches:
+      - main
 
 concurrency:
+  group: performance-test-${{ github.head_ref }}
   cancel-in-progress: true
 
 env:
@@ -102,11 +108,10 @@ jobs:
 
       - name: 📋 Post Test Results to Comment
         uses: peter-evans/create-or-update-comment@v4
-        if: always()
+        if: ${{ github.event_name == 'pull_request' }} && always()
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             Performance Data
             ----------------
             ${{ steps.comment.outputs.results }}
-        if: github.event_name == 'pull_request'
