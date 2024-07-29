@@ -22,8 +22,6 @@
 
 #define STRSZ 100 + 1
 
-#define MAX_ENTRIES 10240
-
 #include "common.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
@@ -47,7 +45,7 @@ const struct event *unused_event __attribute__((unused));
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, MAX_ENTRIES);
+    __uint(max_entries, 256 * 4096);
 } events SEC(".maps");
 
 // Used to wrap up and send function execution data.
