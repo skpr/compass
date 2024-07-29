@@ -13,8 +13,8 @@ A tool for pointing developers in the right direction for performance issues.
 
 ```mermaid
 flowchart LR
-   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_fpm_php_function[<b>compass_fpm_php_function</b>\n<i>Probe</i>]
-   Extension --> compass_fpm_request_shutdown[<b>compass_fpm_request_shutdown</b>\n<i>Probe</i>]
+   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_php_function[<b>compass_php_function</b>\n<i>Probe</i>]
+   Extension --> compass_request_shutdown[<b>compass_request_shutdown</b>\n<i>Probe</i>]
 
    compass_php_function --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
    compass_request_shutdown --> eBPF
