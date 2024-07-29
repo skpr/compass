@@ -3,7 +3,6 @@ name: 📋 Test
 on: push
 
 concurrency:
-  group: performance-test-${{ github.head_ref }}
   cancel-in-progress: true
 
 env:
