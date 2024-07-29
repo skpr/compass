@@ -61,7 +61,7 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   bpf_core_read(&event->type, STRSZ, &event_type_function);
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
   bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->rbx);
-  bpf_probe_read(&event->execution_time, sizeof(&event->execution_time), (void *)ctx->rax);
+  event->execution_time = ctx->rax;
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
