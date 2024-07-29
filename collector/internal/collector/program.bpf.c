@@ -60,7 +60,7 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   event.execution_time = ctx->rax;
 
   // Send it up to user space.
-  bpf_ringbuf_output(&events, &event, sizeof(&event), 0);
+  bpf_ringbuf_output(&events, &event, sizeof(event), 0);
 
   return 0;
 }
@@ -75,7 +75,7 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
   bpf_probe_read_user_str(event.request_id, STRSZ, (void *)ctx->rdi);
 
   // Send it up to user space.
-  bpf_ringbuf_output(&events, &event, sizeof(&event), 0);
+  bpf_ringbuf_output(&events, &event, sizeof(event), 0);
 
   return 0;
 }
