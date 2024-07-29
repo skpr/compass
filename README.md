@@ -13,21 +13,15 @@ A tool for pointing developers in the right direction for performance issues.
 
 ```mermaid
 flowchart LR
-   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_fpm_request_init[<b>compass_fpm_request_init</b>\n<i>Probe</i>]
+   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_fpm_php_function[<b>compass_fpm_php_function</b>\n<i>Probe</i>]
    Extension --> compass_fpm_request_shutdown[<b>compass_fpm_request_shutdown</b>\n<i>Probe</i>]
-   Extension --> compass_php_function_begin[<b>compass_php_function_begin</b>\n<i>Probe</i>]
-   Extension --> compass_php_function_end[<b>compass_php_function_end</b>\n<i>Probe</i>]
 
-   compass_fpm_request_init --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
+   compass_fpm_php_function --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
    compass_fpm_request_shutdown --> eBPF
-   compass_php_function_begin --> eBPF
-   compass_php_function_end --> eBPF
 
-   eBPF --> function_end[<b>function_end</b>\n<i>Ring Buffer</i>]
-   eBPF --> request_shutdown[<b>request_shutdown</b>\n<i>Ring Buffer</i>]
+   eBPF --> Events[<b>Events</b>\n<i>Ring Buffer</i>]
 
-   function_end --> Collector[<b>Collector</b>\n<i>Go</i>]
-   request_shutdown --> Collector
+   Events --> Collector[<b>Collector</b>\n<i>Go</i>]
 
    Collector --> Stdout[<b>Stdout</b>\n<i>Go Plugin</i>]
 ```
