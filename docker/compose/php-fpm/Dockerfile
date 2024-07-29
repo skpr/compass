@@ -1,4 +1,4 @@
-FROM skpr/php-fpm:8.3-dev-v2-latest
+FROM skpr/php-fpm:8.3-v2-latest
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/
 

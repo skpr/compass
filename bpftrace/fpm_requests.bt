@@ -3,21 +3,12 @@ BEGIN
     printf("Tracing FPM requests... Hit Ctrl-C to end.\n");
 }
 
-usdt:/proc/PID/root/usr/lib/php/modules/compass.so:compass:fpm_request_init
+usdt:/proc/54011/root/usr/lib/php/modules/compass.so:compass:php_function
 {
-    printf("FPM REQUEST END | request_id = %s\n", str(arg0));
-    @request[str(arg0)] = nsecs;
-}
-
-usdt:/proc/PID/root/usr/lib/php/modules/compass.so:compass:fpm_request_shutdown
-/ @request[str(arg0)] /
-{
-    printf("FPM REQUEST END | request_id = %s | duration = %d\n", str(arg0), (nsecs - @request[str(arg0)]) / 1000);
+    printf("FUNCTION CALLED | name = %s duration = %d\n", str(arg0), arg1);
 }
 
 END
 {
-    clear(@request);
-    clear(@function);
     printf("Finished tracing FPM requests\n");
 }
