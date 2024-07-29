@@ -64,7 +64,7 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   event->execution_time = ctx->rax;
 
   // Send it up to user space.
-  bpf_ringbuf_submit(event, 0);
+  bpf_ringbuf_submit(event, 1);
 
   return 0;
 }
