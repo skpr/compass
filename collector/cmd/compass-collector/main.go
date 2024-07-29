@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -62,7 +61,7 @@ func main() {
 				return fmt.Errorf("failed to load plugin: %w", err)
 			}
 
-			return collector.Run(context.TODO(), logger, flagLibPath, p)
+			return collector.Run(cmd.Context(), logger, flagLibPath, p)
 		},
 	}
 
