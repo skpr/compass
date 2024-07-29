@@ -1,8 +1,19 @@
-use phper::{arrays::ZArr, eg, strings::ZStr, sys, values::ExecuteData, values::ZVal};
+use phper::{arrays::ZArr, eg, pg, strings::ZStr, sys, values::ExecuteData, values::ZVal};
 
 use std::ffi::CStr;
 
 use anyhow::Context;
+
+// https://github.com/apache/skywalking-php/blob/master/src/request.rs#L93
+pub fn jit_initialization() {
+    unsafe {
+        let jit_initialization: u8 = pg!(auto_globals_jit).into();
+        if jit_initialization != 0 {
+            let mut server = "_SERVER".to_string();
+            sys::zend_is_auto_global_str(server.as_mut_ptr().cast(), server.len());
+        }
+    }
+}
 
 pub fn get_function_and_class_name(
     execute_data: &mut ExecuteData,

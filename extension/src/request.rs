@@ -1,6 +1,14 @@
-use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
+use crate::util::{get_request_id, get_request_server, get_sapi_module_name, jit_initialization};
 
 use probe::probe;
+
+pub fn init() {
+    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
+        return;
+    }
+
+    jit_initialization();
+}
 
 pub fn shutdown() {
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
