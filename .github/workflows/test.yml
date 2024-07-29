@@ -1,11 +1,6 @@
 name: 📋 Test
 
-on:
-  pull_request:
-    types: [ synchronize, opened, reopened, ready_for_review ]
-  push:
-    branches:
-      - main
+on: push
 
 concurrency:
   group: performance-test-${{ github.head_ref }}
