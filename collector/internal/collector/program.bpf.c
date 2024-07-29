@@ -51,6 +51,9 @@ struct {
 // Used to wrap up and send function execution data.
 SEC("uprobe/compass_php_function")
 int uprobe_compass_php_function(struct pt_regs *ctx) {
+  if (ctx->rax < 100000)
+    return 0;
+  
   struct event *event;
 
   event = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
@@ -62,10 +65,6 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
   bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->rbx);
   event->execution_time = ctx->rax;
-
-  if (event->execution_time < 100000) {
-    return 0;
-  }
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
