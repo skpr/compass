@@ -115,3 +115,4 @@ jobs:
             Performance Data
             ----------------
             ${{ steps.comment.outputs.results }}
+        if: github.event_name == 'pull_request'
