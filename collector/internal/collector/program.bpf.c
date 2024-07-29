@@ -51,39 +51,11 @@ struct {
 // Used to wrap up and send function execution data.
 SEC("uprobe/compass_php_function")
 int uprobe_compass_php_function(struct pt_regs *ctx) {
-  struct event *event;
-
-  event = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
-  if (!event)
-    return 0;
-
-  // Add in the extra call information.
-  bpf_core_read(&event->type, STRSZ, &event_type_function);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
-  bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->rbx);
-  event->execution_time = ctx->rax;
-
-  // Send it up to user space.
-  bpf_ringbuf_submit(event, 0);
-
   return 0;
 }
 
 // Used to inform the user space application that a request has shutdown.
 SEC("uprobe/compass_request_shutdown")
 int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
-  struct event *event;
-
-  event = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
-  if (!event)
-    return 0;
-
-  // Add in the extra call information.
-  bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
-
-  // Send it up to user space.
-  bpf_ringbuf_submit(event, 0);
-
   return 0;
 }
