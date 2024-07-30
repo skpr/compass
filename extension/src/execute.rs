@@ -48,6 +48,12 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
     let combined_name = get_combined_name(class_name, function_name);
 
+    // This is the root level function, so we don't want to track it.
+    if function_name == "" && class_name == "" {
+        upstream_execute_ex(Some(execute_data));
+        return;
+    }
+
     let now = SystemTime::now();
 
     // Run the upstream function.

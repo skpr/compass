@@ -10,7 +10,6 @@ type Request struct {
 type Functions map[string]Function
 
 type Function struct {
-	Name          string `json:"name"`
 	ExecutionTime uint64 `json:"executionTime"`
 	Invocations   uint64 `json:"invocations"`
 }

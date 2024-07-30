@@ -29,7 +29,6 @@ func (c *Client) AddFunction(requestId, name string, executionTime uint64, expir
 
 	if _, found := c.requests[requestId].Functions[name]; !found {
 		c.requests[requestId].Functions[name] = types.Function{
-			Name:          name,
 			ExecutionTime: executionTime,
 			Invocations:   1,
 		}
@@ -38,7 +37,6 @@ func (c *Client) AddFunction(requestId, name string, executionTime uint64, expir
 	}
 
 	c.requests[requestId].Functions[name] = types.Function{
-		Name:          name,
 		ExecutionTime: c.requests[requestId].Functions[name].ExecutionTime + executionTime,
 		Invocations:   c.requests[requestId].Functions[name].Invocations + 1,
 	}
