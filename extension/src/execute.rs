@@ -60,6 +60,10 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
+    if elapsed < 100000 {
+        return;
+    }
+
     let server_result = get_request_server();
 
     let server = match server_result {
