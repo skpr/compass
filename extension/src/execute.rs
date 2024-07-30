@@ -6,7 +6,7 @@ use crate::util::{
 use phper::{sys, values::ExecuteData};
 
 use std::{ptr::null_mut, time::SystemTime};
-
+use nix::NixPath;
 use probe::probe;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
@@ -49,7 +49,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let combined_name = get_combined_name(class_name, function_name);
 
     // This is the root level function, so we don't want to track it.
-    if function_name == "" && class_name == "" {
+    if function_name.is_empty() && class_name.is_empty() {
         upstream_execute_ex(Some(execute_data));
         return;
     }
