@@ -3,11 +3,10 @@ use crate::util::{
     get_sapi_module_name,
 };
 
-use phper::{sys, values::ExecuteData};
+use phper::{echo, sys, values::ExecuteData};
 
-use nix::NixPath;
 use probe::probe;
-use std::{ptr::null_mut, time::SystemTime};
+use std::{ptr::null_mut, time::Instant};
 
 static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),
@@ -21,11 +20,6 @@ pub fn register_exec_functions() {
 }
 
 unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
-    // @todo, Consider making this work for other situations eg. CLI.
-    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
-        return;
-    }
-
     let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
         Some(execute_data) => execute_data,
         None => {
@@ -33,6 +27,12 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
             return;
         }
     };
+
+    // @todo, Consider making this work for other situations eg. CLI.
+    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
+        upstream_execute_ex(Some(execute_data));
+        return;
+    }
 
     let (function_name, class_name) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
@@ -44,30 +44,31 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
     let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
 
     // This is the root level function, so we don't want to track it.
-    if function_name.is_empty() && class_name.is_empty() {
+    if class_name.to_string() == "" {
+        upstream_execute_ex(Some(execute_data));
+        return;
+    }
+
+    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
+
+    if function_name.to_string() == "" {
         upstream_execute_ex(Some(execute_data));
         return;
     }
 
     let combined_name = get_combined_name(class_name, function_name);
 
-    let now = SystemTime::now();
+    let now = Instant::now();
 
     // Run the upstream function.
     upstream_execute_ex(Some(execute_data));
 
-    let elapsed = match now.elapsed() {
-        Ok(elapsed) => elapsed,
-        Err(_e) => {
-            return;
-        }
-    };
+    let elapsed = now.elapsed().as_nanos();
 
-    if elapsed.as_nanos() < 100000 {
+    if elapsed < 100000 {
         return;
     }
 
@@ -86,7 +87,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         php_function,
         request_id.as_ptr(),
         combined_name.as_ptr(),
-        elapsed.as_nanos()
+        elapsed,
     );
 }
 
