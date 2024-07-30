@@ -5,9 +5,9 @@ use crate::util::{
 
 use phper::{sys, values::ExecuteData};
 
-use std::{ptr::null_mut, time::SystemTime};
 use nix::NixPath;
 use probe::probe;
+use std::{ptr::null_mut, time::SystemTime};
 
 static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),

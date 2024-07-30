@@ -20,13 +20,22 @@ func New() (*Client, error) {
 }
 
 func (c *Client) AddFunction(requestId, name string, executionTime uint64, expire time.Duration) error {
+	// If the request does not exist, create it and add the function.
 	if _, found := c.requests[requestId]; !found {
 		c.requests[requestId] = types.Request{
-			ID:        requestId,
-			Functions: make(types.Functions),
+			ID: requestId,
+			Functions: types.Functions{
+				name: types.Function{
+					ExecutionTime: executionTime,
+					Invocations:   1,
+				},
+			},
 		}
+
+		return nil
 	}
 
+	// If the function does not exist, create it.
 	if _, found := c.requests[requestId].Functions[name]; !found {
 		c.requests[requestId].Functions[name] = types.Function{
 			ExecutionTime: executionTime,
@@ -36,6 +45,7 @@ func (c *Client) AddFunction(requestId, name string, executionTime uint64, expir
 		return nil
 	}
 
+	// Update the function.
 	c.requests[requestId].Functions[name] = types.Function{
 		ExecutionTime: c.requests[requestId].Functions[name].ExecutionTime + executionTime,
 		Invocations:   c.requests[requestId].Functions[name].Invocations + 1,
