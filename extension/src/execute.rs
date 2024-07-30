@@ -60,7 +60,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    if elapsed.as_nanos() < 100000 {
+    if elapsed.as_nanos() < 10000 {
         return;
     }
 
