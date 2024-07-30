@@ -4,71 +4,56 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/patrickmn/go-cache"
-
 	"github.com/skpr/compass/collector/internal/event/types"
 )
 
 type Client struct {
-	// Consider an interface for the storage.
-	storage *cache.Cache
+	requests types.Requests
 }
 
-func New(expire time.Duration) (*Client, error) {
+func New() (*Client, error) {
 	client := &Client{
-		storage: cache.New(expire, expire),
+		requests: make(types.Requests),
 	}
 
 	return client, nil
 }
 
 func (c *Client) AddFunction(requestId, name string, executionTime uint64, expire time.Duration) error {
-	function := types.Function{
+	if _, found := c.requests[requestId]; !found {
+		c.requests[requestId] = types.Request{
+			ID:        requestId,
+			Functions: make(types.Functions),
+		}
+	}
+
+	if _, found := c.requests[requestId].Functions[name]; !found {
+		c.requests[requestId].Functions[name] = types.Function{
+			Name:          name,
+			ExecutionTime: executionTime,
+			Invocations:   1,
+		}
+
+		return nil
+	}
+
+	c.requests[requestId].Functions[name] = types.Function{
 		Name:          name,
-		ExecutionTime: executionTime,
+		ExecutionTime: c.requests[requestId].Functions[name].ExecutionTime + executionTime,
+		Invocations:   c.requests[requestId].Functions[name].Invocations + 1,
 	}
-
-	var functions []types.Function
-
-	if x, found := c.storage.Get(requestId); found {
-		functions = x.([]types.Function)
-	}
-
-	functions = append(functions, function)
-
-	c.storage.Set(requestId, functions, expire)
 
 	return nil
 }
 
-func (c *Client) FlushRequest(requestId string) (map[string]types.FunctionSummary, error) {
-	defer c.storage.Delete(requestId)
+// FlushRequest a request which has finished.
+// @todo, Consider flushing out old unfinished requests here too (memory leak).
+func (c *Client) FlushRequest(requestId string) (types.Request, error) {
+	defer delete(c.requests, requestId)
 
-	var functions []types.Function
-
-	if x, found := c.storage.Get(requestId); found {
-		functions = x.([]types.Function)
+	if _, found := c.requests[requestId]; !found {
+		return types.Request{}, fmt.Errorf("request not found")
 	}
 
-	if len(functions) == 0 {
-		return nil, fmt.Errorf("no functions found for request with id: %s", requestId)
-	}
-
-	summary := make(map[string]types.FunctionSummary)
-
-	for _, function := range functions {
-		f := types.FunctionSummary{
-			TotalExecutionTime: function.ExecutionTime,
-			Invocations:        1,
-		}
-
-		if _, ok := summary[function.Name]; ok {
-			f.TotalExecutionTime = f.TotalExecutionTime + summary[function.Name].TotalExecutionTime
-			f.Invocations = f.Invocations + summary[function.Name].Invocations
-		}
-
-		summary[function.Name] = f
-	}
-
-	return summary, nil
+	return c.requests[requestId], nil
 }
