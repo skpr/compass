@@ -65,7 +65,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let elapsed = elapsed.as_nanos();
 
-    if elapsed > ini::function_execution_level() {
+    if ini::is_over_function_threshold(elapsed) {
         return;
     }
 

@@ -12,11 +12,10 @@ pub fn is_enabled() -> bool {
 }
 
 static FUNCTION_THRESHOLD: Lazy<u128> = Lazy::new(|| {
-    // Surely this can be slimmed down :D
     return u128::from(ini_get::<i64>(INI_FUNCTION_THRESHOLD).unsigned_abs());
 });
 
 #[inline]
-pub fn function_execution_level() -> u128 {
-    *FUNCTION_THRESHOLD
+pub fn is_over_function_threshold(elapsed: u128) -> bool {
+    elapsed > *FUNCTION_THRESHOLD
 }
