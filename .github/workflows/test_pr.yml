@@ -43,8 +43,9 @@ jobs:
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
           docker compose exec -e PHP_MEMORY_LIMIT=512M php-fpm vendor/bin/drush si demo_umami
 
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@v2
+      # Uncomment for CPU / Memory / IO statistics.
+      # - name: Collect Workflow Telemetry
+      #   uses: catchpoint/workflow-telemetry-action@v2
 
       - name: 🧪 K6 - Execute Baseline Performance Test
         run: |
