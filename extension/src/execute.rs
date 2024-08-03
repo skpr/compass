@@ -3,6 +3,8 @@ use crate::util::{
     get_sapi_module_name,
 };
 
+use crate::ini;
+
 use phper::{sys, values::ExecuteData};
 
 use std::{ptr::null_mut, time::SystemTime};
@@ -13,6 +15,7 @@ static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),
 > = None;
 
+//
 pub fn register_exec_functions() {
     unsafe {
         UPSTREAM_EXECUTE_EX = sys::zend_execute_ex;
@@ -60,6 +63,12 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
+    let elapsed = elapsed.as_nanos();
+
+    if ini::is_under_function_threshold(elapsed) {
+        return;
+    }
+
     let server_result = get_request_server();
 
     let server = match server_result {
@@ -75,7 +84,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         php_function,
         request_id.as_ptr(),
         combined_name.as_ptr(),
-        elapsed.as_nanos()
+        elapsed,
     );
 }
 

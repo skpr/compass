@@ -1,19 +1,15 @@
 mod execute;
+mod ini;
 mod request;
 mod util;
 
-use phper::{
-    ini::{ini_get, Policy},
-    modules::Module,
-    php_get_module,
-};
-
-use once_cell::sync::Lazy;
+use phper::{ini::Policy, modules::Module, php_get_module};
 
 use crate::execute::register_exec_functions;
 
 // Used to enable Compass.
-const COMPASS_TRACE_ENABLED: &str = "compass.enabled";
+const INI_ENABLED: &str = "compass.enabled";
+const INI_FUNCTION_THRESHOLD: &str = "compass.function_threshold";
 
 // This is the entrypoint of the PHP extension.
 #[php_get_module]
@@ -24,7 +20,8 @@ pub fn get_module() -> Module {
         env!("CARGO_PKG_AUTHORS"),
     );
 
-    module.add_ini(COMPASS_TRACE_ENABLED, false, Policy::All);
+    module.add_ini(INI_ENABLED, false, Policy::All);
+    module.add_ini(INI_FUNCTION_THRESHOLD, 100000, Policy::All);
 
     module.on_module_init(on_module_init);
 
@@ -35,7 +32,7 @@ pub fn get_module() -> Module {
 }
 
 pub fn on_module_init() {
-    if !is_enabled() {
+    if !ini::is_enabled() {
         return;
     }
 
@@ -43,7 +40,7 @@ pub fn on_module_init() {
 }
 
 pub fn on_request_init() {
-    if !is_enabled() {
+    if !ini::is_enabled() {
         return;
     }
 
@@ -51,18 +48,9 @@ pub fn on_request_init() {
 }
 
 pub fn on_request_shutdown() {
-    if !is_enabled() {
+    if !ini::is_enabled() {
         return;
     }
 
     request::shutdown();
-}
-
-static IS_ENABLED: Lazy<bool> = Lazy::new(|| {
-    return ini_get::<bool>(COMPASS_TRACE_ENABLED);
-});
-
-#[inline]
-pub fn is_enabled() -> bool {
-    *IS_ENABLED
 }

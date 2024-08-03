@@ -86,6 +86,7 @@ jobs:
           mkdir -p artifact/logs
           docker compose logs nginx > artifact/logs/nginx.log
           docker compose logs php-fpm > artifact/logs/php-fpm.log
+          docker compose logs mysql-default > artifact/logs/mysql-default.log
           docker compose logs collector > artifact/logs/collector.log
 
       - name: Archive Logs
