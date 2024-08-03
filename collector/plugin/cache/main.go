@@ -3,9 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/skpr/compass/collector/internal/tracing"
 	"os"
-
-	"github.com/skpr/compass/collector/internal/event/types"
 )
 
 const (
@@ -16,10 +15,12 @@ const (
 // Plugin that is exported for use by the collector.
 var Plugin plugin
 
+// Plugin for handling profile data.
 type plugin struct {
 	directory string
 }
 
+// Initialize the plugin.
 func (s *plugin) Initialize() error {
 	directory := os.Getenv(EnvDirectory)
 
@@ -41,7 +42,7 @@ func (s *plugin) Initialize() error {
 }
 
 // ProcessProfile from the collector.
-func (s *plugin) ProcessProfile(profile types.Profile) error {
+func (s *plugin) ProcessProfile(profile tracing.Profile) error {
 	if profile.RequestID == "" {
 		return fmt.Errorf("not found: request id")
 	}
