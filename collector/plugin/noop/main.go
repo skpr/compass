@@ -13,7 +13,7 @@ func (s *plugin) Initialize() error {
 	return nil
 }
 
-// ProcessRequest from the collector.
-func (s *plugin) ProcessRequest(request types.Request) error {
+// ProcessProfile from the collector.
+func (s *plugin) ProcessProfile(profile types.Profile) error {
 	return nil
 }
