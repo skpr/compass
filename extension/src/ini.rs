@@ -16,6 +16,6 @@ static FUNCTION_THRESHOLD: Lazy<u128> = Lazy::new(|| {
 });
 
 #[inline]
-pub fn is_over_function_threshold(elapsed: u128) -> bool {
-    elapsed > *FUNCTION_THRESHOLD
+pub fn is_under_function_threshold(elapsed: u128) -> bool {
+    elapsed < *FUNCTION_THRESHOLD
 }
