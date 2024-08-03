@@ -16,7 +16,7 @@ func (s *plugin) Initialize() error {
 	return nil
 }
 
-// ProcessProfile from the collector.
-func (s *plugin) ProcessProfile(profile types.Profile) error {
-	return json.NewEncoder(os.Stdout).Encode(profile)
+// ProcessRequest from the collector.
+func (s *plugin) ProcessRequest(request types.Request) error {
+	return json.NewEncoder(os.Stdout).Encode(request)
 }
