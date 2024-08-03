@@ -6,30 +6,29 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"time"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
-	"golang.org/x/sys/unix"
 
-	"github.com/skpr/compass/collector/internal/event/manager"
-	"github.com/skpr/compass/collector/internal/event/types"
 	"github.com/skpr/compass/collector/internal/usdt"
 	"github.com/skpr/compass/collector/plugin"
 )
 
 const (
-	ProbeProvider            = "compass"
+	// ProbeProvider is the provider name for the probes.
+	ProbeProvider = "compass"
+	// ProbeNameRequestShutdown is the name of the request shutdown probe.
 	ProbeNameRequestShutdown = "request_shutdown"
-	ProbeNameFunction        = "php_function"
+	// ProbeNameFunction is the name of the function probe.
+	ProbeNameFunction = "php_function"
 )
 
 //go:generate bpf2go -target amd64 -type event bpf program.bpf.c -- -I./headers
 
+// Run the collector.
 func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin plugin.Interface) error {
 	logger.Info("Loading probes")
 
@@ -54,21 +53,21 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 	logger.Info("Attaching probes")
 
-	probeFunction, err := attachProbe(ex, executablePath, ProbeProvider, ProbeNameFunction, objs.UprobeCompassPhpFunction)
+	probeFunction, err := usdt.AttachProbe(ex, executablePath, ProbeProvider, ProbeNameFunction, objs.UprobeCompassPhpFunction)
 	if err != nil {
 		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameFunction, err)
 	}
 	defer probeFunction.Close()
 
-	probeRequest, err := attachProbe(ex, executablePath, ProbeProvider, ProbeNameRequestShutdown, objs.UprobeCompassRequestShutdown)
+	probeRequest, err := usdt.AttachProbe(ex, executablePath, ProbeProvider, ProbeNameRequestShutdown, objs.UprobeCompassRequestShutdown)
 	if err != nil {
 		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameRequestShutdown, err)
 	}
 	defer probeRequest.Close()
 
-	logger.Info("Starting event mangaer..")
+	logger.Info("Starting event manager..")
 
-	manager, err := manager.New(time.Minute)
+	manager, err := NewManager(logger, plugin, time.Minute)
 	if err != nil {
 		return fmt.Errorf("unable to initialize event manager: %w", err)
 	}
@@ -99,81 +98,14 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 				continue
 			}
 
-			// Parse the perf event entry into a bpfEvent structure.
+			// Parse the event entry into a bpfEvent structure.
 			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
 				return fmt.Errorf("failed to parse event: %w", err)
 			}
 
-			var eventType = unix.ByteSliceToString(event.Type[:])
-
-			switch eventType {
-			case "function":
-				if err := processFunction(logger, manager, event); err != nil {
-					logger.Error("failed to process function: %w", err)
-				}
-			case "request_shutdown":
-				if err := processRequestShutdown(logger, manager, plugin, event); err != nil {
-					logger.Error("failed to request shutdown: %w", err)
-				}
+			if err := manager.Handle(event); err != nil {
+				return fmt.Errorf("failed to handle event: %w", err)
 			}
 		}
 	}
-}
-
-func processFunction(logger *slog.Logger, manager *manager.Client, event bpfEvent) error {
-	var (
-		requestID    = unix.ByteSliceToString(event.RequestId[:])
-		functionName = unix.ByteSliceToString(event.FunctionName[:])
-	)
-
-	logger.Debug("function event has been called", "request_id", requestID, "function_name", functionName, "execution_time", event.ExecutionTime)
-
-	err := manager.AddFunction(requestID, functionName, event.ExecutionTime, time.Minute)
-	if err != nil {
-		log.Printf("failed to add function to event manager: %s", err)
-	}
-
-	return nil
-}
-
-func processRequestShutdown(logger *slog.Logger, manager *manager.Client, plugin plugin.Interface, event bpfEvent) error {
-	var requestID = unix.ByteSliceToString(event.RequestId[:])
-
-	logger.Debug("request shutdown event has been called", "request_id", requestID)
-
-	functions, err := manager.FlushRequest(requestID)
-	if err != nil {
-		return fmt.Errorf("failed to flush request: %w", err)
-	}
-
-	logger.Debug("request event has associated functions", "count", len(functions))
-
-	profile := types.Profile{
-		RequestID: requestID,
-		Functions: functions,
-	}
-
-	err = plugin.ProcessProfile(profile)
-	if err != nil {
-		return fmt.Errorf("failed to send profile data to plugin: %w", err)
-	}
-
-	return nil
-}
-
-// Helper function to lookup the (usdt) probes location and attach our eBPF program to it.
-func attachProbe(ex *link.Executable, executable, provider, probe string, prog *ebpf.Program) (link.Link, error) {
-	locationFunctionBegin, err := usdt.GetLocationFromProbe(executable, provider, probe)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get probe location: %s: %w", probe, err)
-	}
-
-	return ex.Uprobe(getSymbol(provider, probe), prog, &link.UprobeOptions{
-		Address:      locationFunctionBegin.Location,
-		RefCtrOffset: locationFunctionBegin.SemaphoreOffsetRefctr,
-	})
-}
-
-func getSymbol(provider, function string) string {
-	return fmt.Sprintf("usdt_%s_%s", provider, function)
 }
