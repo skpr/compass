@@ -3,7 +3,7 @@ Compass
 
 A tool for pointing developers in the right direction for performance issues.
 
-<img src="/logo.png" width="100">
+<img src="/logo/logo.png" width="100">
 
 [![📋 Test](https://github.com/skpr/compass/actions/workflows/test_main.yml/badge.svg)](https://github.com/skpr/compass/actions/workflows/test_main.yml)
 
