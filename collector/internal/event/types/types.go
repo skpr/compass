@@ -1,15 +1,16 @@
 package types
 
-type Requests map[string]Request
-
-type Request struct {
-	ID        string    `json:"id"`
-	Functions Functions `json:"functions"`
+type Function struct {
+	Name          string `json:"name"`
+	ExecutionTime uint64 `json:"executionTime"`
 }
 
-type Functions map[string]Function
+type Profile struct {
+	RequestID string                     `json:"requestID"`
+	Functions map[string]FunctionSummary `json:"functions"`
+}
 
-type Function struct {
-	ExecutionTime uint64 `json:"executionTime"`
-	Invocations   uint64 `json:"invocations"`
+type FunctionSummary struct {
+	TotalExecutionTime uint64 `json:"totalExecutionTime"`
+	Invocations        uint64 `json:"invocations"`
 }

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/collector/internal/event/manager"
+	"github.com/skpr/compass/collector/internal/event/types"
 	"github.com/skpr/compass/collector/internal/usdt"
 	"github.com/skpr/compass/collector/plugin"
 )
@@ -67,7 +68,7 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 	logger.Info("Starting event mangaer..")
 
-	manager, err := manager.New()
+	manager, err := manager.New(time.Minute)
 	if err != nil {
 		return fmt.Errorf("unable to initialize event manager: %w", err)
 	}
@@ -140,14 +141,19 @@ func processRequestShutdown(logger *slog.Logger, manager *manager.Client, plugin
 
 	logger.Debug("request shutdown event has been called", "request_id", requestID)
 
-	request, err := manager.FlushRequest(requestID)
+	functions, err := manager.FlushRequest(requestID)
 	if err != nil {
 		return fmt.Errorf("failed to flush request: %w", err)
 	}
 
-	logger.Debug("request event has associated functions", "count", len(request.Functions))
+	logger.Debug("request event has associated functions", "count", len(functions))
 
-	err = plugin.ProcessRequest(request)
+	profile := types.Profile{
+		RequestID: requestID,
+		Functions: functions,
+	}
+
+	err = plugin.ProcessProfile(profile)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}
