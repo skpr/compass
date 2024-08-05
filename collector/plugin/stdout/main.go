@@ -28,18 +28,17 @@ type plugin struct {
 
 // Initialize the plugin.
 func (s *plugin) Initialize() error {
+	s.threshold = DefaultThreshold
+
 	threshold := os.Getenv(EnvThreshold)
+	if threshold != "" {
+		parsedThreshold, err := strconv.ParseInt(threshold, 10, 64)
+		if err != nil {
+			return fmt.Errorf("unable to parse environment variable %s=%s", EnvThreshold, threshold)
+		}
 
-	if threshold == "" {
-		s.threshold = DefaultThreshold
+		s.threshold = parsedThreshold
 	}
-
-	parsedThreshold, err := strconv.ParseInt(threshold, 10, 64)
-	if err != nil {
-		return fmt.Errorf("unable to parse environment variable %s=%s", EnvThreshold, threshold)
-	}
-
-	s.threshold = parsedThreshold
 
 	return nil
 }
