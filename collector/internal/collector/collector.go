@@ -28,8 +28,14 @@ const (
 
 //go:generate bpf2go -target amd64 -type event bpf program.bpf.c -- -I./headers
 
+type RunOptions struct {
+	ExecutablePath    string
+	RequestThreshold  int64
+	FunctionThreshold int64
+}
+
 // Run the collector.
-func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin plugin.Interface) error {
+func Run(ctx context.Context, logger *slog.Logger, plugin plugin.Interface, options RunOptions) error {
 	logger.Info("Loading probes")
 
 	// Allow the current process to lock memory for eBPF resources.
@@ -46,20 +52,20 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 	logger.Info("Opening executable")
 
-	ex, err := link.OpenExecutable(executablePath)
+	ex, err := link.OpenExecutable(options.ExecutablePath)
 	if err != nil {
 		return fmt.Errorf("failed to open executable: %w", err)
 	}
 
 	logger.Info("Attaching probes")
 
-	probeFunction, err := usdt.AttachProbe(ex, executablePath, ProbeProvider, ProbeNameFunction, objs.UprobeCompassPhpFunction)
+	probeFunction, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameFunction, objs.UprobeCompassPhpFunction)
 	if err != nil {
 		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameFunction, err)
 	}
 	defer probeFunction.Close()
 
-	probeRequest, err := usdt.AttachProbe(ex, executablePath, ProbeProvider, ProbeNameRequestShutdown, objs.UprobeCompassRequestShutdown)
+	probeRequest, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameRequestShutdown, objs.UprobeCompassRequestShutdown)
 	if err != nil {
 		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameRequestShutdown, err)
 	}
@@ -67,7 +73,11 @@ func Run(ctx context.Context, logger *slog.Logger, executablePath string, plugin
 
 	logger.Info("Starting event manager..")
 
-	manager, err := NewManager(logger, plugin, time.Minute)
+	manager, err := NewManager(logger, plugin, ManagerOptions{
+		Expire:            time.Minute,
+		RequestThreshold:  options.RequestThreshold,
+		FunctionThreshold: options.FunctionThreshold,
+	})
 	if err != nil {
 		return fmt.Errorf("unable to initialize event manager: %w", err)
 	}
