@@ -11,7 +11,7 @@ import (
 
 const (
 	// EnvThreshold is used to set our threshold for filtering out small function calls.
-	EnvThreshold = "COMPASS_COLLECTOR_PLUGIN_STDOUT_THRESHOLD"
+	EnvThreshold = "COMPASS_COLLECTOR_PLUGIN_STDOUT_FUNCTION_THRESHOLD"
 
 	// DefaultThreshold for filtering out function calls.
 	// This default = 1ms (in nanoseconds)
