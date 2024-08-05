@@ -2,8 +2,8 @@ package envget
 
 import "os"
 
-// GetString from environment variable with fallback.
-func GetString(key, fallback string) string {
+// String from environment variable with fallback.
+func String(key, fallback string) string {
 	val := os.Getenv(key)
 
 	if val != "" {

@@ -64,8 +64,8 @@ func main() {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&flagProcessName, "process-name", envget.GetString("COMPASS_PROCESS_NAME", ""), "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", envget.GetString("COMPASS_LIB_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
+	cmd.PersistentFlags().StringVar(&flagProcessName, "process-name", envget.String("COMPASS_PROCESS_NAME", ""), "Name of the process which will be used for discovery")
+	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", envget.String("COMPASS_LIB_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 	cmd.PersistentFlags().DurationVar(&flagPoll, "poll", time.Second, "How frequently to poll for current list of processes")
 
 	cmd.Execute()

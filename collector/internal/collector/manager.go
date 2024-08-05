@@ -29,13 +29,21 @@ type Manager struct {
 	storage *cache.Cache
 	// Plugin for sending completed requests to.
 	plugin plugin.Interface
+	// Options for the manager eg. Thresholds.
+	options ManagerOptions
+}
+
+type ManagerOptions struct {
+	Expire            time.Duration
+	RequestThreshold  int64
+	FunctionThreshold int64
 }
 
 // NewManager creates a new manager.
-func NewManager(logger *slog.Logger, plugin plugin.Interface, expire time.Duration) (*Manager, error) {
+func NewManager(logger *slog.Logger, plugin plugin.Interface, options ManagerOptions) (*Manager, error) {
 	client := &Manager{
 		logger:  logger,
-		storage: cache.New(expire, expire),
+		storage: cache.New(options.Expire, options.Expire),
 		plugin:  plugin,
 	}
 
@@ -132,10 +140,29 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 
 	c.logger.Debug("request event has associated functions", "count", len(profile.Functions))
 
+	// Don't send if less than threshold.
+	if profile.ExecutionTime < uint64(c.options.RequestThreshold) {
+		return nil
+	}
+
+	// Reduce the functions based on threshold.
+	profile.Functions = reduceFunctions(profile.Functions, c.options.FunctionThreshold)
+
 	err := c.plugin.ProcessProfile(profile)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}
 
 	return nil
+}
+
+// Helper function to reduce the profile output for stdout and cut out unnecessary noise.
+func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold int64) map[string]tracing.FunctionSummary {
+	for name, function := range functions {
+		if function.TotalExecutionTime < uint64(threshold) {
+			delete(functions, name)
+		}
+	}
+
+	return functions
 }
