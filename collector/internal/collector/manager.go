@@ -141,6 +141,9 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 	c.logger.Debug("request event has associated functions", "count", len(profile.Functions))
 
 	// Don't send if less than threshold.
+	if profile.ExecutionTime < uint64(c.options.RequestThreshold) {
+		return nil
+	}
 
 	// Reduce the functions based on threshold.
 	profile.Functions = reduceFunctions(profile.Functions, c.options.FunctionThreshold)
