@@ -8,8 +8,9 @@ type Function struct {
 
 // Profile data collected for a request.
 type Profile struct {
-	RequestID string                     `json:"requestID"`
-	Functions map[string]FunctionSummary `json:"functions"`
+	RequestID     string                     `json:"requestID"`
+	ExecutionTime uint64                     `json:"executionTime"`
+	Functions     map[string]FunctionSummary `json:"functions"`
 }
 
 // FunctionSummary provides summaries function data.
