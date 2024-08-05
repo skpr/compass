@@ -17,6 +17,8 @@ const (
 	EventFunction = "function"
 	// EventRequestShutdown is the event type for a request shutdown.
 	EventRequestShutdown = "request_shutdown"
+	// FunctionNameRoot is used to identify the root function for a requeust (it's an empty name).
+	FunctionNameRoot = ""
 )
 
 // Manager for handling events.
@@ -104,28 +106,31 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 		return fmt.Errorf("no functions found for request with id: %s", requestID)
 	}
 
-	summary := make(map[string]tracing.FunctionSummary)
+	profile := tracing.Profile{
+		RequestID: requestID,
+		Functions: make(map[string]tracing.FunctionSummary),
+	}
 
 	for _, function := range functions {
+		if function.Name == FunctionNameRoot {
+			profile.ExecutionTime = function.ExecutionTime
+			continue
+		}
+
 		f := tracing.FunctionSummary{
 			TotalExecutionTime: function.ExecutionTime,
 			Invocations:        1,
 		}
 
-		if _, ok := summary[function.Name]; ok {
-			f.TotalExecutionTime = f.TotalExecutionTime + summary[function.Name].TotalExecutionTime
-			f.Invocations = f.Invocations + summary[function.Name].Invocations
+		if _, ok := profile.Functions[function.Name]; ok {
+			f.TotalExecutionTime = f.TotalExecutionTime + profile.Functions[function.Name].TotalExecutionTime
+			f.Invocations = f.Invocations + profile.Functions[function.Name].Invocations
 		}
 
-		summary[function.Name] = f
+		profile.Functions[function.Name] = f
 	}
 
-	c.logger.Debug("request event has associated functions", "count", len(functions))
-
-	profile := tracing.Profile{
-		RequestID: requestID,
-		Functions: summary,
-	}
+	c.logger.Debug("request event has associated functions", "count", len(profile.Functions))
 
 	err := c.plugin.ProcessProfile(profile)
 	if err != nil {
