@@ -44,13 +44,22 @@ func run() error {
 		return fmt.Errorf("baseline errors (%d) are over the limit (%d)", int(baseline.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	extension, err := getReport("extension.json")
+	disabled, err := getReport("disabled.json")
 	if err != nil {
 		return fmt.Errorf("failed to load extension report: %w", err)
 	}
 
-	if extension.RootGroup.Checks.OK.Fails > FailLimit {
-		return fmt.Errorf("extension errors (%d) are over the limit (%d)", int(extension.RootGroup.Checks.OK.Fails), FailLimit)
+	if disabled.RootGroup.Checks.OK.Fails > FailLimit {
+		return fmt.Errorf("extension errors (%d) are over the limit (%d)", int(disabled.RootGroup.Checks.OK.Fails), FailLimit)
+	}
+
+	enabled, err := getReport("enabled.json")
+	if err != nil {
+		return fmt.Errorf("failed to load extension report: %w", err)
+	}
+
+	if enabled.RootGroup.Checks.OK.Fails > FailLimit {
+		return fmt.Errorf("extension errors (%d) are over the limit (%d)", int(enabled.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
 	collector, err := getReport("collector.json")
@@ -64,8 +73,13 @@ func run() error {
 
 	var errs []error
 
-	extensionDiff := extension.Metrics.HTTPReqDuration.Avg - baseline.Metrics.HTTPReqDuration.Avg
-	if extensionDiff > RequestLimit {
+	disabledDiff := disabled.Metrics.HTTPReqDuration.Avg - baseline.Metrics.HTTPReqDuration.Avg
+	if disabledDiff > RequestLimit {
+		errs = append(errs, fmt.Errorf("extension report exceeded the request limit"))
+	}
+
+	enabledDiff := enabled.Metrics.HTTPReqDuration.Avg - baseline.Metrics.HTTPReqDuration.Avg
+	if enabledDiff > RequestLimit {
 		errs = append(errs, fmt.Errorf("extension report exceeded the request limit"))
 	}
 
@@ -74,10 +88,12 @@ func run() error {
 		errs = append(errs, fmt.Errorf("collector report exceeded the request limit"))
 	}
 
-	comment := fmt.Sprintf("Without Extension = %dms  |  With Extension = %dms (Diff = %dms) |  With Collector = %dms (Diff = %dms)",
+	comment := fmt.Sprintf("Without Extension = %dms  |  Extension Disabled = %dms (Diff = %dms)  |  Extension Enabled = %dms (Diff = %dms) |  With Collector = %dms (Diff = %dms)",
 		int(baseline.Metrics.HTTPReqDuration.Avg),
-		int(extension.Metrics.HTTPReqDuration.Avg),
-		int(extensionDiff),
+		int(disabled.Metrics.HTTPReqDuration.Avg),
+		int(disabledDiff),
+		int(enabled.Metrics.HTTPReqDuration.Avg),
+		int(enabledDiff),
 		int(collector.Metrics.HTTPReqDuration.Avg),
 		int(collectorDiff),
 	)
