@@ -9,7 +9,7 @@ import (
 )
 
 func TestReduce(t *testing.T) {
-	profile := reduceFunctions(map[string]tracing.FunctionSummary{
+	profile := reduceFunctions(map[string]tracing.Summary{
 		"Foo": {
 			TotalExecutionTime: 99,
 		},
@@ -18,7 +18,7 @@ func TestReduce(t *testing.T) {
 		},
 	}, 100)
 
-	want := map[string]tracing.FunctionSummary{
+	want := map[string]tracing.Summary{
 		"Bar": {
 			TotalExecutionTime: 101,
 		},
