@@ -3,6 +3,7 @@ package collector
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -116,7 +117,8 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 
 	profile := tracing.Profile{
 		RequestID: requestID,
-		Functions: make(map[string]tracing.FunctionSummary),
+		Namespace: make(map[string]tracing.Summary),
+		Function:  make(map[string]tracing.Summary),
 	}
 
 	for _, function := range functions {
@@ -125,28 +127,50 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 			continue
 		}
 
-		f := tracing.FunctionSummary{
-			TotalExecutionTime: function.ExecutionTime,
-			Invocations:        1,
+		// Add to the namespace group summary.
+		namespace := getNamespaceKey(function.Name)
+
+		if namespace != "" {
+			n := tracing.Summary{
+				TotalExecutionTime: function.ExecutionTime,
+				Invocations:        1,
+			}
+
+			if _, ok := profile.Namespace[namespace]; ok {
+				n.TotalExecutionTime = n.TotalExecutionTime + profile.Namespace[namespace].TotalExecutionTime
+				n.Invocations = n.Invocations + profile.Namespace[namespace].Invocations
+			}
+
+			profile.Namespace[namespace] = n
 		}
 
-		if _, ok := profile.Functions[function.Name]; ok {
-			f.TotalExecutionTime = f.TotalExecutionTime + profile.Functions[function.Name].TotalExecutionTime
-			f.Invocations = f.Invocations + profile.Functions[function.Name].Invocations
-		}
+		// Only send function data if the execution time is greater than the threshold.
+		if profile.ExecutionTime > uint64(c.options.RequestThreshold) {
+			f := tracing.Summary{
+				TotalExecutionTime: function.ExecutionTime,
+				Invocations:        1,
+			}
 
-		profile.Functions[function.Name] = f
+			// Add to the function summary.
+			if _, ok := profile.Function[function.Name]; ok {
+				f.TotalExecutionTime = f.TotalExecutionTime + profile.Function[function.Name].TotalExecutionTime
+				f.Invocations = f.Invocations + profile.Function[function.Name].Invocations
+			}
+
+			profile.Function[function.Name] = f
+		}
 	}
 
-	c.logger.Debug("request event has associated functions", "count", len(profile.Functions))
+	c.logger.Debug("request event has been processed", "functions", len(profile.Function))
 
-	// Don't send if less than threshold.
+	// Only send function data if the execution time is greater than the threshold.
+	// We do a catch all here to ensure we didn't miss anything before.
 	if profile.ExecutionTime < uint64(c.options.RequestThreshold) {
-		return nil
+		profile.Function = nil
 	}
 
 	// Reduce the functions based on threshold.
-	profile.Functions = reduceFunctions(profile.Functions, c.options.FunctionThreshold)
+	profile.Function = reduceFunctions(profile.Function, c.options.FunctionThreshold)
 
 	err := c.plugin.ProcessProfile(profile)
 	if err != nil {
@@ -157,7 +181,7 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 }
 
 // Helper function to reduce the profile output for stdout and cut out unnecessary noise.
-func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold int64) map[string]tracing.FunctionSummary {
+func reduceFunctions(functions map[string]tracing.Summary, threshold int64) map[string]tracing.Summary {
 	for name, function := range functions {
 		if function.TotalExecutionTime < uint64(threshold) {
 			delete(functions, name)
@@ -165,4 +189,15 @@ func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold int
 	}
 
 	return functions
+}
+
+// Return identifier for the namespace.
+func getNamespaceKey(namespace string) string {
+	sl := strings.Split(namespace, "\\")
+
+	if len(sl) == 0 {
+		return ""
+	}
+
+	return sl[0]
 }
