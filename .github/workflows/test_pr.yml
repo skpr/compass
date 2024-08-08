@@ -51,6 +51,15 @@ jobs:
         run: |
           bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} baseline.json
 
+      - name: ⚙️ Install Extension + Not Enabled
+        run: |
+          docker compose stop
+          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest COMPASS_ENABLED=false docker compose up -d --wait
+
+      - name: 🧪 K6 - Execute Extension Installed (Not Enabled) Performance Test
+        run: |
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} disabled.json
+
       - name: ⚙️ Enable Extension
         run: |
           docker compose stop
@@ -58,7 +67,7 @@ jobs:
 
       - name: 🧪 K6 - Execute Extension Enabled Performance Test
         run: |
-          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} extension.json
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} ${K6_RESULTS_DIR} enabled.json
 
       - name: ⚙️ Enable Collector
         run: |

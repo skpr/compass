@@ -23,6 +23,8 @@ services:
       - public-files:/data/app/sites/default/files
       - private-files:/mnt/private
       - temporary-files:/mnt/temporary
+    environment:
+      - COMPASS_ENABLED=${COMPASS_ENABLED:-true}
 
   ##################
   # Databases
