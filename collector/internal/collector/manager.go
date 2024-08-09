@@ -35,8 +35,8 @@ type Manager struct {
 
 type ManagerOptions struct {
 	Expire            time.Duration
-	RequestThreshold  int64
-	FunctionThreshold int64
+	RequestThreshold  float64
+	FunctionThreshold float64
 }
 
 // NewManager creates a new manager.
@@ -75,7 +75,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := tracing.Function{
 		Name:          unix.ByteSliceToString(event.FunctionName[:]),
-		ExecutionTime: event.ExecutionTime,
+		ExecutionTime: float64(event.ExecutionTime) / 1e6,
 	}
 
 	c.logger.Debug("function event has been called",
@@ -141,7 +141,7 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 	c.logger.Debug("request event has associated functions", "count", len(profile.Functions))
 
 	// Don't send if less than threshold.
-	if profile.ExecutionTime < uint64(c.options.RequestThreshold) {
+	if profile.ExecutionTime < c.options.RequestThreshold {
 		return nil
 	}
 
@@ -157,9 +157,9 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 }
 
 // Helper function to reduce the profile output for stdout and cut out unnecessary noise.
-func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold int64) map[string]tracing.FunctionSummary {
+func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold float64) map[string]tracing.FunctionSummary {
 	for name, function := range functions {
-		if function.TotalExecutionTime < uint64(threshold) {
+		if function.TotalExecutionTime < threshold {
 			delete(functions, name)
 		}
 	}

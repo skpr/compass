@@ -30,8 +30,8 @@ const (
 
 type RunOptions struct {
 	ExecutablePath    string
-	RequestThreshold  int64
-	FunctionThreshold int64
+	RequestThreshold  float64 ``
+	FunctionThreshold float64
 }
 
 // Run the collector.
