@@ -45,6 +45,7 @@ func NewManager(logger *slog.Logger, plugin plugin.Interface, options ManagerOpt
 		logger:  logger,
 		storage: cache.New(options.Expire, options.Expire),
 		plugin:  plugin,
+		options: options,
 	}
 
 	return client, nil
