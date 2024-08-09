@@ -158,11 +158,13 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 
 // Helper function to reduce the profile output for stdout and cut out unnecessary noise.
 func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold float64) map[string]tracing.FunctionSummary {
+	var reduced = make(map[string]tracing.FunctionSummary)
+
 	for name, function := range functions {
-		if function.TotalExecutionTime < threshold {
-			delete(functions, name)
+		if function.TotalExecutionTime > threshold {
+			reduced[name] = function
 		}
 	}
 
-	return functions
+	return reduced
 }
