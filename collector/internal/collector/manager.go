@@ -75,7 +75,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := tracing.Function{
 		Name:          unix.ByteSliceToString(event.FunctionName[:]),
-		ExecutionTime: event.ExecutionTime / 1e6,
+		ExecutionTime: float64(event.ExecutionTime) / 1e6,
 	}
 
 	c.logger.Debug("function event has been called",
