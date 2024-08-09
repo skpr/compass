@@ -30,7 +30,7 @@ const (
 
 type RunOptions struct {
 	ExecutablePath    string
-	RequestThreshold  float64 ``
+	RequestThreshold  float64
 	FunctionThreshold float64
 }
 
