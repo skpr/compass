@@ -5,7 +5,7 @@ on:
     types: [ synchronize, opened, reopened, ready_for_review ]
 
 concurrency:
-  group: performance-test-${{ github.head_ref }}
+  group: test-${{ github.head_ref }}
   cancel-in-progress: true
 
 env:
@@ -14,9 +14,56 @@ env:
   K6_RESULTS_DIR: ./performance-testing/results
 
 jobs:
-  run:
+  collector:
+    name: Test Extension
     runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v3
 
+      - name: 📦 Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.21'
+
+      - name: 📋 Lint
+        run: |
+          cd collector
+          go install github.com/mgechev/revive@latest
+          make lint
+
+      - name: 📋 Test
+        run:
+          cd collector
+          make test
+
+  extension:
+    name: Test Extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v3
+
+      - name: 📦 Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+
+      - name: 📋 Lint
+        run: |
+          cd extension
+          make lint
+
+  performance:
+    name: Test Performance
+    needs:
+      - collector
+      - extension
+
+    # Only execute this job if we allow it
+    if: contains(github.event.pull_request.labels.*.name, 'needs-performance-test')
+
+    runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v3
