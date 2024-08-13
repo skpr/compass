@@ -43,10 +43,6 @@ jobs:
     needs:
       - collector
       - extension
-
-    # Only execute this job if we allow it
-    if: contains(github.event.pull_request.labels.*.name, 'needs-performance-test')
-
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Git clone the repository
