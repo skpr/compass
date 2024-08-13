@@ -1,3 +1,4 @@
+// Package main provides an entrypoint for the helper script.
 package main
 
 import (
@@ -36,7 +37,7 @@ func main() {
 		Short:   "Run the helper script",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 			logger.Info("Script started")

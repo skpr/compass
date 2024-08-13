@@ -1,3 +1,4 @@
+// Package noop implements a no-op plugin for the collector.
 package main
 
 import (
@@ -16,6 +17,6 @@ func (s *plugin) Initialize() error {
 }
 
 // ProcessProfile from the collector.
-func (s *plugin) ProcessProfile(profile tracing.Profile) error {
+func (s *plugin) ProcessProfile(_ tracing.Profile) error {
 	return nil
 }

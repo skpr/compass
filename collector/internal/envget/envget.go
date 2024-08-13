@@ -1,3 +1,4 @@
+// Package envget is used to get environment variables with fallbacks.
 package envget
 
 import "os"

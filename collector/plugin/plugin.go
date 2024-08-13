@@ -1,3 +1,4 @@
+// Package plugin is for extending the collector.
 package plugin
 
 import (

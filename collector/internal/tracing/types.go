@@ -1,3 +1,4 @@
+// Package tracing implements the tracing types needed for data collection.
 package tracing
 
 // Function being called by PHP.

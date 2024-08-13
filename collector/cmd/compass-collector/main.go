@@ -1,3 +1,4 @@
+// Package main provides the entrypoint for the collector.
 package main
 
 import (
@@ -38,7 +39,7 @@ func main() {
 		Short:   "Run the collector",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			lvl := new(slog.LevelVar)
 
 			switch flagLogLevel {

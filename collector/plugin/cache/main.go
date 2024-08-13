@@ -1,10 +1,12 @@
+// Package cache implements a plugin for storing profiles to a common cache.
 package main
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/skpr/compass/collector/internal/tracing"
 	"os"
+
+	"github.com/skpr/compass/collector/internal/tracing"
 )
 
 const (

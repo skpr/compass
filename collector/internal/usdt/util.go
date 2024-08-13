@@ -10,6 +10,7 @@ import (
 	"os"
 )
 
+// Note represents a SystemTap note.
 type Note struct {
 	Location              uint64
 	Base                  uint64
