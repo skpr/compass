@@ -1,4 +1,4 @@
-name: 📋 Test
+name: 📋 Build and Test
 
 on:
   pull_request:
@@ -14,39 +14,15 @@ env:
   K6_RESULTS_DIR: ./performance-testing/results
 
 jobs:
-  collector:
-    name: Collector
-    runs-on: ubuntu-latest
-    steps:
-      - name: ⬇️ Git clone the repository
-        uses: actions/checkout@v3
-
-      - name: 📋 Docker Build (Lint / Test / Build)
-        run: |
-          cd collector
-          docker build -t test .
-
-  extension:
-    name: Extension
-    runs-on: ubuntu-latest
-    steps:
-      - name: ⬇️ Git clone the repository
-        uses: actions/checkout@v3
-
-      - name: 📋 Docker Build (Lint / Test / Build)
-        run: |
-          cd extension
-          docker build -t test .
-
-  performance:
-    name: Performance
+  test:
+    name: Test
     needs:
       - collector
       - extension
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Git clone the repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 📁 Init
         run: |

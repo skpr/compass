@@ -23,11 +23,11 @@ build:
 	docker build --no-cache --build-arg=PHP_VERSION=8.3 -t $(IMAGE_COLLECTOR) collector
 
 up:
-	ifeq ($(EXTENSION_INSTALLED),true)
-		IMAGE_PHP_FPM=$(IMAGE_FPM_WITH_EXTENSION) COMPASS_ENABLED=$(EXTENSION_ENABLED) docker compose --profile $(DOCKER_COMPOSE_PROFILE) up -d --wait
-	else
-		IMAGE_PHP_FPM=$(IMAGE_FPM) COMPASS_ENABLED=$(EXTENSION_ENABLED) docker compose --profile $(DOCKER_COMPOSE_PROFILE) up -d --wait
-	endif
+ifeq ($(EXTENSION_INSTALLED),true)
+	IMAGE_PHP_FPM=$(IMAGE_FPM_WITH_EXTENSION) COMPASS_ENABLED=$(EXTENSION_ENABLED) docker compose --profile $(DOCKER_COMPOSE_PROFILE) up -d --wait
+else
+	IMAGE_PHP_FPM=$(IMAGE_FPM) COMPASS_ENABLED=$(EXTENSION_ENABLED) docker compose --profile $(DOCKER_COMPOSE_PROFILE) up -d --wait
+endif
 
 install:
 	docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
