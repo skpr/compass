@@ -33,6 +33,7 @@ type Manager struct {
 	options ManagerOptions
 }
 
+// ManagerOptions for configuring the manager.
 type ManagerOptions struct {
 	Expire            time.Duration
 	RequestThreshold  float64

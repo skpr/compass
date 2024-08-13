@@ -1,3 +1,4 @@
+// Package stdout implements a simple plugin that prints to stdout in json format.
 package main
 
 import (

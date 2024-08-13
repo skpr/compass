@@ -1,3 +1,4 @@
+// Package usdt provides the ability to attach probes to a binary.
 package usdt
 
 import (

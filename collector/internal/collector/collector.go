@@ -1,3 +1,4 @@
+// Package collector implements the collection of PHP telemetry data.
 package collector
 
 import (
@@ -28,6 +29,7 @@ const (
 
 //go:generate bpf2go -target amd64 -type event bpf program.bpf.c -- -I./headers
 
+// RunOptions for configuring the collector.
 type RunOptions struct {
 	ExecutablePath    string
 	RequestThreshold  float64

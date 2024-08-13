@@ -15,6 +15,9 @@ services:
       - public-files:/data/app/sites/default/files
       - private-files:/mnt/private
       - temporary-files:/mnt/temporary
+    profiles:
+      - "no-collector"
+      - "all"
 
   php-fpm:
     image: ${IMAGE_PHP_FPM:-localhost/compass:php-fpm-latest}
@@ -25,6 +28,9 @@ services:
       - temporary-files:/mnt/temporary
     environment:
       - COMPASS_ENABLED=${COMPASS_ENABLED:-true}
+    profiles:
+      - "no-collector"
+      - "all"
 
   ##################
   # Databases
@@ -37,6 +43,9 @@ services:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       interval: 1s
       retries: 60
+    profiles:
+      - "no-collector"
+      - "all"
 
   ##################
   # Databases
@@ -46,7 +55,8 @@ services:
     image: localhost/compass:collector-latest
     privileged: true
     pid: host
-    profiles: [collector]
+    profiles:
+      - "all"
 
 volumes:
   public-files: {}

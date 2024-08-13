@@ -1,12 +1,11 @@
-name: 📋 Test
+name: 📋 Build and Test
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
 
 concurrency:
-  group: performance-test-${{ github.head_ref }}
+  group: test-${{ github.head_ref }}
   cancel-in-progress: true
 
 env:
@@ -15,12 +14,12 @@ env:
   K6_RESULTS_DIR: ./performance-testing/results
 
 jobs:
-  run:
+  test:
+    name: Test
     runs-on: ubuntu-latest
-
     steps:
       - name: ⬇️ Git clone the repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 📁 Init
         run: |
@@ -30,19 +29,11 @@ jobs:
 
       - name: 📦 Build Images
         run: |
-          docker build -t localhost/compass:nginx-latest docker/compose/nginx
-          docker build -t localhost/compass:php-fpm-latest docker/compose/php-fpm
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:extension-latest extension
-          docker build -t localhost/compass:php-fpm-ext-latest docker/compose/php-fpm-ext
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:collector-latest collector
+          make build
 
       - name: 📦 Setup
         run: |
-          docker compose up -d --wait
-          docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
-          docker compose exec --user=root php-fpm chown skpr:skpr /mnt/private
-          docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
-          docker compose exec -e PHP_MEMORY_LIMIT=512M php-fpm vendor/bin/drush si demo_umami
+          make up install DOCKER_COMPOSE_PROFILE=no-collector EXTENSION_INSTALLED=false EXTENSION_ENABLED=false 
 
       # Uncomment for CPU / Memory / IO statistics.
       # - name: Collect Workflow Telemetry
@@ -54,8 +45,7 @@ jobs:
 
       - name: ⚙️ Install Extension + Not Enabled
         run: |
-          docker compose stop
-          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest COMPASS_ENABLED=false docker compose up -d --wait
+          make stop up DOCKER_COMPOSE_PROFILE=no-collector EXTENSION_ENABLED=false 
 
       - name: 🧪 K6 - Execute Extension Installed (Not Enabled) Performance Test
         run: |
@@ -63,8 +53,7 @@ jobs:
 
       - name: ⚙️ Enable Extension
         run: |
-          docker compose stop
-          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest docker compose up -d --wait
+          make stop up DOCKER_COMPOSE_PROFILE=no-collector 
 
       - name: 🧪 K6 - Execute Extension Enabled Performance Test
         run: |
@@ -72,7 +61,7 @@ jobs:
 
       - name: ⚙️ Enable Collector
         run: |
-          IMAGE_PHP_FPM=localhost/compass:php-fpm-ext-latest docker compose --profile collector up -d --wait
+          make up
 
       - name: 🧪 K6 - Execute Collector Enabled Performance Test
         run: |
@@ -114,3 +103,13 @@ jobs:
           name: results
           path: |
             performance-testing/results
+
+      - name: 📋 Post Test Results to Comment
+        uses: peter-evans/create-or-update-comment@v4
+        if: ${{ github.event_name == 'pull_request' }} && always()
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Performance Data
+            ----------------
+            ${{ steps.comment.outputs.results }}
