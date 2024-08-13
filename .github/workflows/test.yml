@@ -33,7 +33,7 @@ jobs:
 
       - name: 📦 Setup
         run: |
-          DOCKER_COMPOSE_PROFILE=no-collector EXTENSION_INSTALLED=false EXTENSION_ENABLED=false make up install
+          make up install DOCKER_COMPOSE_PROFILE=no-collector EXTENSION_INSTALLED=false EXTENSION_ENABLED=false 
 
       # Uncomment for CPU / Memory / IO statistics.
       # - name: Collect Workflow Telemetry
@@ -45,7 +45,7 @@ jobs:
 
       - name: ⚙️ Install Extension + Not Enabled
         run: |
-          DOCKER_COMPOSE_PROFILE=no-collector EXTENSION_ENABLED=false make stop up
+          make stop up DOCKER_COMPOSE_PROFILE=no-collector EXTENSION_ENABLED=false 
 
       - name: 🧪 K6 - Execute Extension Installed (Not Enabled) Performance Test
         run: |
@@ -53,7 +53,7 @@ jobs:
 
       - name: ⚙️ Enable Extension
         run: |
-          DOCKER_COMPOSE_PROFILE=no-collector make stop up
+          make stop up DOCKER_COMPOSE_PROFILE=no-collector 
 
       - name: 🧪 K6 - Execute Extension Enabled Performance Test
         run: |
