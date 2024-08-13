@@ -24,6 +24,12 @@ pub fn register_exec_functions() {
 }
 
 unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
+    // @todo, Consider making this work for other situations eg. CLI.
+    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
+        upstream_execute_ex(None);
+        return;
+    }
+
     let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
         Some(execute_data) => execute_data,
         None => {
@@ -31,11 +37,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
             return;
         }
     };
-
-    // @todo, Consider making this work for other situations eg. CLI.
-    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
-        return;
-    }
 
     let (function_name, class_name) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
