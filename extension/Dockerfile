@@ -8,6 +8,7 @@ USER skpr
 ADD --chown=skpr:skpr . /data
 
 ENV RUST_BACKTRACE=full
+RUN cargo fmt --all -- --check
 RUN cargo build --release
 
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest

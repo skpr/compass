@@ -6,7 +6,8 @@ RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
 ADD . /go/src/github.com/skpr/compass/collector
 WORKDIR /go/src/github.com/skpr/compass/collector
 RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.12.3
-RUN make build
+RUN go install github.com/mgechev/revive@latest
+RUN make lint test build
 
 FROM alpine:3.19
 

@@ -15,7 +15,7 @@ env:
 
 jobs:
   collector:
-    name: Test Extension
+    name: Collector
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Git clone the repository
@@ -26,19 +26,13 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: 📋 Lint
+      - name: 📋 Docker Build (Lint / Test / Build)
         run: |
           cd collector
-          go install github.com/mgechev/revive@latest
-          make lint
-
-      - name: 📋 Test
-        run:
-          cd collector
-          make test
+          docker build -t test .
 
   extension:
-    name: Test Extension
+    name: Extension
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Git clone the repository
@@ -49,13 +43,13 @@ jobs:
         with:
           components: rustfmt
 
-      - name: 📋 Lint
+      - name: 📋 Docker Build (Lint / Test / Build)
         run: |
           cd extension
-          make lint
+          docker build -t test .
 
   performance:
-    name: Test Performance
+    name: Performance
     needs:
       - collector
       - extension
