@@ -5,8 +5,6 @@ A tool for pointing developers in the right direction for performance issues.
 
 <img src="/logo/compass.png" width="100">
 
-[![📋 Build and Test](https://github.com/skpr/compass/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/skpr/compass/actions/workflows/test.yml)
-
 ----
 
 ## Architecture
