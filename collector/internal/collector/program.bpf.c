@@ -57,11 +57,16 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   if (!event)
     return 0;
 
-  // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_function);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
-  bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->r14);
-  event->execution_time = ctx->rbx;
+
+  char *request_id = (char *) PT_REGS_PARM1(ctx);
+  bpf_probe_read_user_str(&event->request_id, STRSZ, request_id);
+
+  char *function_name = (char *) PT_REGS_PARM2(ctx);
+  bpf_probe_read_user_str(&event->function_name, STRSZ, function_name);
+
+  u64 *execution_time = (u64 *) PT_REGS_PARM3(ctx);
+  event->execution_time = *execution_time;
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
@@ -80,7 +85,9 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
 
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
+
+  char *request_id = (char *) PT_REGS_PARM1(ctx);
+  bpf_probe_read_user_str(&event->request_id, STRSZ, request_id);
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
