@@ -21,11 +21,6 @@ jobs:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v3
 
-      - name: 📦 Install Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.21'
-
       - name: 📋 Docker Build (Lint / Test / Build)
         run: |
           cd collector
@@ -37,11 +32,6 @@ jobs:
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v3
-
-      - name: 📦 Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt
 
       - name: 📋 Docker Build (Lint / Test / Build)
         run: |
