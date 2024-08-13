@@ -16,9 +16,6 @@ env:
 jobs:
   test:
     name: Test
-    needs:
-      - collector
-      - extension
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Git clone the repository
