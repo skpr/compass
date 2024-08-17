@@ -11,6 +11,10 @@ ENV RUST_BACKTRACE=full
 RUN cargo fmt --all -- --check
 RUN cargo build --release
 
+# Validate arguments.
+ADD --chmod=777 validate.sh /tmp/validate.sh
+RUN /tmp/validate.sh /data/target/release/libcompass_extension.so
+
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
 
 USER root
