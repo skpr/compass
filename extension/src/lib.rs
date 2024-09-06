@@ -7,9 +7,7 @@ use phper::{ini::Policy, modules::Module, php_get_module};
 
 use crate::execute::register_exec_functions;
 
-// Used to enable Compass.
-const INI_ENABLED: &str = "compass.enabled";
-const INI_FUNCTION_THRESHOLD: &str = "compass.function_threshold";
+use crate::ini::{INI_ENABLED, INI_FUNCTION_THRESHOLD, INI_HEADER_KEY, INI_HEADER_MODE};
 
 // This is the entrypoint of the PHP extension.
 #[php_get_module]
@@ -21,7 +19,9 @@ pub fn get_module() -> Module {
     );
 
     module.add_ini(INI_ENABLED, false, Policy::All);
+    module.add_ini(INI_HEADER_MODE, "".to_string(), Policy::All);
     module.add_ini(INI_FUNCTION_THRESHOLD, 100000, Policy::All);
+    module.add_ini(INI_HEADER_KEY, "".to_string(), Policy::All);
 
     module.on_module_init(on_module_init);
 

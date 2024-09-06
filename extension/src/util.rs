@@ -65,6 +65,13 @@ pub fn get_request_id(server: &ZArr) -> String {
         .unwrap_or_else(|| "UNKNOWN".to_string())
 }
 
+pub fn get_header_key(server: &ZArr) -> String {
+    server
+        .get("HTTP_X_COMPASS_KEY")
+        .and_then(z_val_to_string)
+        .unwrap_or_else(|| "UNKNOWN".to_string())
+}
+
 // https://github.com/apache/skywalking-php/blob/master/src/util.rs#L63
 pub fn z_val_to_string(zv: &ZVal) -> Option<String> {
     zv.as_z_str()
@@ -75,4 +82,16 @@ pub fn z_val_to_string(zv: &ZVal) -> Option<String> {
 // https://github.com/apache/skywalking-php/blob/master/src/util.rs#L86C1-L88C2
 pub fn get_sapi_module_name() -> &'static CStr {
     unsafe { CStr::from_ptr(sys::sapi_module.name) }
+}
+
+pub fn block_by_mode_header_only(header_only_set: bool, header_is_set: bool, header_matches: bool) -> bool {
+    if !header_only_set {
+        return false;
+    }
+
+    if !header_is_set {
+        return true;
+    }
+
+    !header_matches
 }

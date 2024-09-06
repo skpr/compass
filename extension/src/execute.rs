@@ -1,9 +1,9 @@
 use crate::util::{
-    get_combined_name, get_function_and_class_name, get_request_id, get_request_server,
-    get_sapi_module_name,
+    get_combined_name, get_function_and_class_name, get_header_key, get_request_id,
+    get_request_server, get_sapi_module_name,
 };
 
-use crate::ini;
+use crate::{ini, util};
 
 use phper::{sys, values::ExecuteData};
 
@@ -26,6 +26,21 @@ pub fn register_exec_functions() {
 unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     // @todo, Consider making this work for other situations eg. CLI.
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
+        upstream_execute_ex(None);
+        return;
+    }
+
+    let server_result = get_request_server();
+
+    let server = match server_result {
+        Ok(carrier) => carrier,
+        // @todo, This should not panic.
+        Err(error) => panic!("Problem getting the server: {:?}", error),
+    };
+
+    let header_matches = ini::header_key_matches(get_header_key(server));
+
+    if util::block_by_mode_header_only(ini::mode_is_header_only(), ini::header_key_is_set(), !header_matches) {
         upstream_execute_ex(None);
         return;
     }
@@ -66,17 +81,13 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let elapsed = elapsed.as_nanos();
 
-    if ini::is_under_function_threshold(elapsed) {
+    if block_probe_event(
+        ini::header_key_is_set(),
+        header_matches,
+        ini::is_under_function_threshold(elapsed),
+    ) {
         return;
     }
-
-    let server_result = get_request_server();
-
-    let server = match server_result {
-        Ok(carrier) => carrier,
-        // @todo, This should not panic.
-        Err(error) => panic!("Problem getting the server: {:?}", error),
-    };
 
     let request_id = get_request_id(server);
 
@@ -87,6 +98,14 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         combined_name.as_ptr(),
         elapsed,
     );
+}
+
+fn block_probe_event(header_is_set: bool, header_matches: bool, is_under_threshold: bool) -> bool {
+    if header_is_set && header_matches {
+        return false;
+    };
+
+    is_under_threshold
 }
 
 #[inline]

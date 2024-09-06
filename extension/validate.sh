@@ -28,7 +28,8 @@ FILE=$1
 if readelf -n ${FILE} | grep -q 'Arguments: -8@%rdi'; then
   echo "request_shutdown args are correct"
 else
-  echo "request_shutdown args are incorrect"
+  echo "request_shutdown args are incorrect. We found:"
+  readelf -n ${FILE}
   exit 1
 fi
 
@@ -36,6 +37,7 @@ fi
 if readelf -n ${FILE} | grep -q 'Arguments: -8@%rdi -8@%r14 -8@%rbx'; then
   echo "php_function args are correct"
 else
-  echo "php_function args are incorrect"
+  echo "php_function args are incorrect. We found:"
+  readelf -n ${FILE}
   exit 1
 fi
