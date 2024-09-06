@@ -59,6 +59,15 @@ func (c *Manager) Handle(event bpfEvent) error {
 		requestID = unix.ByteSliceToString(event.RequestId[:])
 	)
 
+	if requestID == "" {
+		return fmt.Errorf("empty request id")
+	}
+
+	// We typically see this type of request ID for the PHP-FPM stats endpoint.
+	if requestID == "UNKNOWN" {
+		return fmt.Errorf("unknown request id: %s", requestID)
+	}
+
 	switch eventType {
 	case EventFunction:
 		if err := c.handleFunction(requestID, event); err != nil {
