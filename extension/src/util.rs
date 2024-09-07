@@ -65,6 +65,13 @@ pub fn get_request_id(server: &ZArr) -> String {
         .unwrap_or_else(|| "UNKNOWN".to_string())
 }
 
+pub fn get_header_key(server: &ZArr) -> String {
+    server
+        .get("HTTP_X_COMPASS")
+        .and_then(z_val_to_string)
+        .unwrap_or_else(|| "UNKNOWN".to_string())
+}
+
 // https://github.com/apache/skywalking-php/blob/master/src/util.rs#L63
 pub fn z_val_to_string(zv: &ZVal) -> Option<String> {
     zv.as_z_str()

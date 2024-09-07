@@ -1,4 +1,8 @@
-use crate::util::{get_request_id, get_request_server, get_sapi_module_name, jit_initialization};
+use crate::util::{
+    get_header_key, get_request_id, get_request_server, get_sapi_module_name, jit_initialization,
+};
+
+use crate::header;
 
 use probe::probe;
 
@@ -22,6 +26,10 @@ pub fn shutdown() {
         // @todo, This should not panic.
         Err(error) => panic!("Problem getting the server: {:?}", error),
     };
+
+    if header::block_execution(get_header_key(server)) {
+        return;
+    }
 
     let request_id = get_request_id(server);
 
