@@ -13,7 +13,7 @@ RUN /data/validate.sh /data/target/release/libcompass_extension.so
 
 FROM golang:1.22-alpine as collector
 RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
-ADD . /go/src/github.com/skpr/compass/collector
+ADD collector /go/src/github.com/skpr/compass/collector
 WORKDIR /go/src/github.com/skpr/compass/collector
 RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.16.0
 RUN go install github.com/mgechev/revive@latest
