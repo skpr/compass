@@ -53,6 +53,7 @@ services:
 
   collector:
     image: localhost/compass:latest
+    user: root
     privileged: true
     pid: host
     profiles:
