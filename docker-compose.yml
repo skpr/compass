@@ -52,7 +52,7 @@ services:
   ##################
 
   collector:
-    image: localhost/compass:collector-latest
+    image: localhost/compass:latest
     privileged: true
     pid: host
     profiles:
