@@ -30,7 +30,7 @@ COPY --from=extension /data/target/release/libcompass_extension.so /usr/lib/php/
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass-collector /usr/local/bin/compass-collector
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass-find-lib /usr/local/bin/compass-find-lib
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/plugin /usr/lib64/compass
-ADD collector/docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+ADD collector/docker/entrypoint.sh /usr/local/bin/compass-collector-entrypoint
+RUN chmod +x /usr/local/bin/compass-collector-entrypoint
 ENV COMPASS_PROCESS_NAME=php-fpm
-CMD ["/entrypoint.sh"]
+CMD ["/usr/local/bin/compass-collector-entrypoint"]
