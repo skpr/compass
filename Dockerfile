@@ -20,9 +20,6 @@ RUN go install github.com/mgechev/revive@latest
 RUN make lint test build
 
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
-USER root
-RUN apk add binutils
-USER skpr
 # Extension
 COPY extension/compass.ini /etc/php/conf.d/00_compass.ini
 COPY --from=extension /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
@@ -31,6 +28,9 @@ COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass-
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass-find-lib /usr/local/bin/compass-find-lib
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/plugin /usr/lib64/compass
 ADD collector/docker/entrypoint.sh /usr/local/bin/compass-collector-entrypoint
+USER root
 RUN chmod +x /usr/local/bin/compass-collector-entrypoint
+RUN apk add binutils
+USER skpr
 ENV COMPASS_PROCESS_NAME=php-fpm
 CMD ["/usr/local/bin/compass-collector-entrypoint"]
