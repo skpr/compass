@@ -52,7 +52,8 @@ services:
   ##################
 
   collector:
-    image: localhost/compass:collector-latest
+    image: localhost/compass:latest
+    user: root
     privileged: true
     pid: host
     profiles:

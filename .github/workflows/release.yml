@@ -1,4 +1,4 @@
-name: "📋 Collector: Release"
+name: "📋 Release"
 
 on:
   push:
@@ -32,8 +32,12 @@ jobs:
 
       - name: 📦 Build
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ github.repository }}:collector-latest collector
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${{ env.REGISTRY }}/${{ github.repository }}:8.3-latest .
+          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${{ env.REGISTRY }}/${{ github.repository }}:8.2-latest .
+          docker build --no-cache --build-arg=PHP_VERSION=8.1 -t ${{ env.REGISTRY }}/${{ github.repository }}:8.1-latest .
 
       - name: ☁️ Push
         run: |
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}:collector-latest
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:8.3-latest
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:8.2-latest
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:8.1-latest
