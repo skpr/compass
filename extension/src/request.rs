@@ -2,7 +2,7 @@ use crate::util::{
     get_header_key, get_request_id, get_request_server, get_sapi_module_name, jit_initialization,
 };
 
-use crate::{header};
+use crate::header;
 
 use probe::probe;
 
