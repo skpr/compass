@@ -30,6 +30,14 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
+    let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
+        Some(execute_data) => execute_data,
+        None => {
+            upstream_execute_ex(None);
+            return;
+        }
+    };
+
     let server_result = get_request_server();
 
     let server = match server_result {
@@ -39,17 +47,9 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     };
 
     if header::block_execution(get_header_key(server)) {
-        upstream_execute_ex(None);
+        upstream_execute_ex(Some(execute_data));
         return;
     }
-
-    let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
-        Some(execute_data) => execute_data,
-        None => {
-            upstream_execute_ex(None);
-            return;
-        }
-    };
 
     let (function_name, class_name) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
