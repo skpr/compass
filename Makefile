@@ -16,7 +16,7 @@ build:
 	docker build -t $(IMAGE_NGINX) docker/compose/nginx
 	docker build -t $(IMAGE_FPM) docker/compose/php-fpm
 	# Building Compass.
-	docker build --no-cache --build-arg=PHP_VERSION=8.3 -t $(IMAGE_COMPASS) collector
+	docker build --no-cache --build-arg=PHP_VERSION=8.3 -t $(IMAGE_COMPASS) .
 	# Building extension.
 	docker build -t $(IMAGE_FPM_WITH_EXTENSION) docker/compose/php-fpm-ext
 	
