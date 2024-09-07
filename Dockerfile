@@ -8,8 +8,8 @@ ENV RUST_BACKTRACE=full
 RUN cargo fmt --all -- --check
 RUN cargo build --release
 # Validate arguments.
-ADD --chmod=777 validate.sh /tmp/validate.sh
-RUN /tmp/validate.sh /data/target/release/libcompass_extension.so
+RUN chmod +x /data/validate.sh
+RUN /data/validate.sh /data/target/release/libcompass_extension.so
 
 FROM golang:1.22-alpine as collector
 RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
