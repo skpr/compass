@@ -67,7 +67,7 @@ pub fn get_request_id(server: &ZArr) -> String {
 
 pub fn get_header_key(server: &ZArr) -> String {
     server
-        .get("HTTP_X_COMPASS_KEY")
+        .get("HTTP_X_COMPASS")
         .and_then(z_val_to_string)
         .unwrap_or_else(|| "UNKNOWN".to_string())
 }
