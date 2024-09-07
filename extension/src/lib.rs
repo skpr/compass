@@ -1,13 +1,14 @@
+mod enabled;
 mod execute;
-mod ini;
+mod header;
+mod mode;
 mod request;
+mod threshold;
 mod util;
 
 use phper::{ini::Policy, modules::Module, php_get_module};
 
 use crate::execute::register_exec_functions;
-
-use crate::ini::{INI_ENABLED, INI_FUNCTION_THRESHOLD, INI_HEADER_KEY, INI_HEADER_MODE};
 
 // This is the entrypoint of the PHP extension.
 #[php_get_module]
@@ -18,10 +19,10 @@ pub fn get_module() -> Module {
         env!("CARGO_PKG_AUTHORS"),
     );
 
-    module.add_ini(INI_ENABLED, false, Policy::All);
-    module.add_ini(INI_HEADER_MODE, "".to_string(), Policy::All);
-    module.add_ini(INI_FUNCTION_THRESHOLD, 100000, Policy::All);
-    module.add_ini(INI_HEADER_KEY, "".to_string(), Policy::All);
+    module.add_ini(enabled::INI_CONFIG, false, Policy::All);
+    module.add_ini(mode::INI_CONFIG, "".to_string(), Policy::All);
+    module.add_ini(header::INI_CONFIG, "".to_string(), Policy::All);
+    module.add_ini(threshold::INI_CONFIG, 100000, Policy::All);
 
     module.on_module_init(on_module_init);
 
@@ -32,7 +33,7 @@ pub fn get_module() -> Module {
 }
 
 pub fn on_module_init() {
-    if !ini::is_enabled() {
+    if !enabled::is_enabled() {
         return;
     }
 
@@ -40,7 +41,7 @@ pub fn on_module_init() {
 }
 
 pub fn on_request_init() {
-    if !ini::is_enabled() {
+    if !enabled::is_enabled() {
         return;
     }
 
@@ -48,7 +49,7 @@ pub fn on_request_init() {
 }
 
 pub fn on_request_shutdown() {
-    if !ini::is_enabled() {
+    if !enabled::is_enabled() {
         return;
     }
 

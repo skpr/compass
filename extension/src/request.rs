@@ -2,7 +2,7 @@ use crate::util::{
     get_header_key, get_request_id, get_request_server, get_sapi_module_name, jit_initialization,
 };
 
-use crate::ini;
+use crate::{enabled, header};
 
 use crate::util;
 
@@ -21,7 +21,7 @@ pub fn init() {
         Err(error) => panic!("Problem getting the server: {:?}", error),
     };
 
-    if util::block_by_mode_header_only(ini::mode_is_header_only(), ini::header_key_is_set(), !ini::header_key_matches(get_header_key(server))) {
+    if header::block_execution(get_header_key(server)) {
         return;
     }
 
@@ -41,7 +41,7 @@ pub fn shutdown() {
         Err(error) => panic!("Problem getting the server: {:?}", error),
     };
 
-    if util::block_by_mode_header_only(ini::mode_is_header_only(), ini::header_key_is_set(), !ini::header_key_matches(get_header_key(server))) {
+    if header::block_execution(get_header_key(server)) {
         return;
     }
 

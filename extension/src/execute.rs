@@ -3,7 +3,7 @@ use crate::util::{
     get_request_server, get_sapi_module_name,
 };
 
-use crate::{ini, util};
+use crate::{header, mode, threshold};
 
 use phper::{sys, values::ExecuteData};
 
@@ -38,9 +38,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         Err(error) => panic!("Problem getting the server: {:?}", error),
     };
 
-    let header_matches = ini::header_key_matches(get_header_key(server));
-
-    if util::block_by_mode_header_only(ini::mode_is_header_only(), ini::header_key_is_set(), !header_matches) {
+    if header::block_execution(get_header_key(server)) {
         upstream_execute_ex(None);
         return;
     }
@@ -82,9 +80,8 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let elapsed = elapsed.as_nanos();
 
     if block_probe_event(
-        ini::header_key_is_set(),
-        header_matches,
-        ini::is_under_function_threshold(elapsed),
+        mode::header_enabled(),
+        threshold::is_under_function_threshold(elapsed),
     ) {
         return;
     }
@@ -100,8 +97,9 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     );
 }
 
-fn block_probe_event(header_is_set: bool, header_matches: bool, is_under_threshold: bool) -> bool {
-    if header_is_set && header_matches {
+// Helper function to allow all probes if the header mode is enabled.
+fn block_probe_event(header_mode_enabled: bool, is_under_threshold: bool) -> bool {
+    if header_mode_enabled {
         return false;
     };
 
