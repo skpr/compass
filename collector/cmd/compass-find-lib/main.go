@@ -69,7 +69,10 @@ func main() {
 	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", envget.String("COMPASS_LIB_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 	cmd.PersistentFlags().DurationVar(&flagPoll, "poll", time.Second*5, "How frequently to poll for current list of processes")
 
-	cmd.Execute()
+	err := cmd.Execute()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Helper function to wait for parent process and return the pid.
