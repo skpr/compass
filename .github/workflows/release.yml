@@ -32,9 +32,9 @@ jobs:
 
       - name: 📦 Build
         run: |
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.3
-          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.2
-          docker build --no-cache --build-arg=PHP_VERSION=8.1 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.1
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.3 .
+          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.2 .
+          docker build --no-cache --build-arg=PHP_VERSION=8.1 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.1 .
 
       - name: ☁️ Push
         run: |
