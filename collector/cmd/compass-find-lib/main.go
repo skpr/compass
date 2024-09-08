@@ -42,7 +42,7 @@ func main() {
 
 			logger.Info("Script started")
 
-			pid, err := waitForParentProcess(flagProcessName, flagPoll)
+			pid, err := waitForParentProcess(logger, flagProcessName, flagPoll)
 			if err != nil {
 				return err
 			}
@@ -67,27 +67,32 @@ func main() {
 
 	cmd.PersistentFlags().StringVar(&flagProcessName, "process-name", envget.String("COMPASS_PROCESS_NAME", ""), "Name of the process which will be used for discovery")
 	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", envget.String("COMPASS_LIB_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
-	cmd.PersistentFlags().DurationVar(&flagPoll, "poll", time.Second, "How frequently to poll for current list of processes")
+	cmd.PersistentFlags().DurationVar(&flagPoll, "poll", time.Second*5, "How frequently to poll for current list of processes")
 
 	cmd.Execute()
 }
 
 // Helper function to wait for parent process and return the pid.
-func waitForParentProcess(name string, duration time.Duration) (int32, error) {
+func waitForParentProcess(logger *slog.Logger, name string, duration time.Duration) (int32, error) {
 	for {
 		time.Sleep(duration)
+
+		logger.Info("Polling for list of processes")
 
 		processes, err := process.Processes()
 		if err != nil {
 			return 0, fmt.Errorf("failed to get process list: %w", err)
 		}
 
-		pid, ok, err := findParentProcess(processes, name)
+		logger.Info("Looking for parent processes")
+
+		pid, ok, processNames, err := findParentProcess(processes, name)
 		if err != nil {
 			return 0, fmt.Errorf("failed to find parent process from list: %w", err)
 		}
 
 		if !ok {
+			logger.Info(fmt.Sprintf("Parent process %s not found in list %s", name, processNames))
 			continue
 		}
 
@@ -96,12 +101,16 @@ func waitForParentProcess(name string, duration time.Duration) (int32, error) {
 }
 
 // Helper function to find the parent process
-func findParentProcess(list []*process.Process, name string) (int32, bool, error) {
+func findParentProcess(list []*process.Process, name string) (int32, bool, []string, error) {
+	var names []string
+
 	for _, p := range list {
 		n, err := p.Name()
 		if err != nil {
-			return 0, false, fmt.Errorf("error getting process name: %w", err)
+			return 0, false, names, fmt.Errorf("error getting process name: %w", err)
 		}
+
+		names = append(names, n)
 
 		if n != name {
 			continue
@@ -113,9 +122,9 @@ func findParentProcess(list []*process.Process, name string) (int32, bool, error
 		}
 
 		if len(children) > 0 {
-			return p.Pid, true, nil
+			return p.Pid, true, names, nil
 		}
 	}
 
-	return 0, false, nil
+	return 0, false, names, nil
 }
