@@ -3,7 +3,7 @@ name: "📋 Release"
 on:
   push:
     branches:
-      - main
+      - '[0-9]+.[0-9]+.[0-9]+'
 
 env:
   REGISTRY: ghcr.io
@@ -32,12 +32,12 @@ jobs:
 
       - name: 📦 Build
         run: |
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${{ env.REGISTRY }}/${{ github.repository }}:8.3-latest .
-          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${{ env.REGISTRY }}/${{ github.repository }}:8.2-latest .
-          docker build --no-cache --build-arg=PHP_VERSION=8.1 -t ${{ env.REGISTRY }}/${{ github.repository }}:8.1-latest .
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.3
+          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.2
+          docker build --no-cache --build-arg=PHP_VERSION=8.1 -t ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.1
 
       - name: ☁️ Push
         run: |
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}:8.3-latest
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}:8.2-latest
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}:8.1-latest
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.3
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.2
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}-php8.1
