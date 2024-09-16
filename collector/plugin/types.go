@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/skpr/compass/collector/internal/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing"
 )
 
 // Interface for handling profile data.
