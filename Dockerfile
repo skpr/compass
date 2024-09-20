@@ -11,7 +11,7 @@ RUN cargo build --release
 RUN chmod +x /data/validate.sh
 RUN /data/validate.sh /data/target/release/libcompass_extension.so
 
-FROM golang:1.22-alpine as collector
+FROM golang:1.23-alpine as collector
 RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
 ADD collector /go/src/github.com/skpr/compass/collector
 WORKDIR /go/src/github.com/skpr/compass/collector
