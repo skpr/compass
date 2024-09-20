@@ -1,3 +1,4 @@
+// Package breakdown for handling the breakdown component.
 package breakdown
 
 import "github.com/skpr/compass/collector/cmd/compass/watch/app/profile"

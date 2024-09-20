@@ -1,3 +1,4 @@
+// Package color for handling the color applied to the CLI.
 package color
 
 const (
@@ -7,5 +8,4 @@ const (
 	Grey = "#808080"
 	// Orange which aligns with the Skpr theme.
 	Orange = "#EE5622"
-	Black  = "#181818"
 )

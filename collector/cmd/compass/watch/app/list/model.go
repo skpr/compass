@@ -1,3 +1,4 @@
+// Package list for handling the list component.
 package list
 
 import (

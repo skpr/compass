@@ -1,3 +1,4 @@
+// Package styles for handling the styles applied to the CLI.
 package styles
 
 import (

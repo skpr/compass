@@ -1,3 +1,4 @@
+// Package watch for handling the watch command.
 package watch
 
 import (
@@ -44,7 +45,7 @@ func NewCommand() *cobra.Command {
 		Args:                  cobra.ExactArgs(0),
 		Long:                  cmdLong,
 		Example:               cmdExample,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return o.Run(o.Addr)
 		},
 	}

@@ -1,3 +1,4 @@
+// Package profile for handling the profile component.
 package profile
 
 import (

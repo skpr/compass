@@ -1,3 +1,4 @@
+// Package app for handling the main application.
 package app
 
 import "github.com/skpr/compass/collector/cmd/compass/watch/app/profile"
