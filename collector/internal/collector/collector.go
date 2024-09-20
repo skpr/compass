@@ -106,18 +106,18 @@ func Run(ctx context.Context, logger *slog.Logger, plugin plugin.Interface, opti
 					return err
 				}
 
-				logger.Info("failed to read from perf event reader:", err)
+				logger.Error("failed to read from perf event reader:", slog.Any("err", err))
 				continue
 			}
 
 			// Parse the event entry into a bpfEvent structure.
 			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
-				logger.Error("failed to read event:", err)
+				logger.Error("failed to read event", slog.Any("err", err))
 				continue
 			}
 
 			if err := manager.Handle(event); err != nil {
-				logger.Error("failed to handle event:", err)
+				logger.Error("failed to handle event", slog.Any("err", err))
 				continue
 			}
 		}
