@@ -3,6 +3,7 @@ package app
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/skpr/compass/collector/cmd/compass/watch/app/profile"
 	"github.com/skpr/compass/collector/pkg/tracing"
 )
 
@@ -18,34 +19,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// For switching between profiles.
 		case "left":
-			if m.selectedProfile > 0 {
-				m.selectedProfile--
-				m.profileScroll = 0
+			if m.profileSelected > 0 {
+				m.profileSelected--
+				m.breakdownScroll = 0
 			}
 		case "right":
-			if m.selectedProfile < len(m.profiles)-1 {
-				m.selectedProfile++
-				m.profileScroll = 0
+			if m.profileSelected < len(m.profiles)-1 {
+				m.profileSelected++
+				m.breakdownScroll = 0
 			}
 
 		// For scrolling the profile.
 		case "up":
-			if m.profileScroll > 0 {
-				m.profileScroll--
+			if m.breakdownScroll > 0 {
+				m.breakdownScroll--
 			}
 		case "down":
-			if len(m.profiles) < m.selectedProfile {
+			if len(m.profiles) < m.profileSelected {
 				return m, nil
 			}
 
-			if m.profileScroll+TableRows < len(m.profiles[m.selectedProfile].Functions)-1 {
-				m.profileScroll++
+			if m.breakdownScroll+BreakdownRows < len(m.profiles[m.profileSelected].Functions)-1 {
+				m.breakdownScroll++
 			}
 		}
 
 	// When a new profile is received, add it to the list of profiles.
 	case tracing.Profile:
-		m.profiles = append(m.profiles, WrapProfile(msg))
+		m.profiles = append(m.profiles, profile.Wrap(msg))
 		return m, nil
 
 	// Window was resized.
