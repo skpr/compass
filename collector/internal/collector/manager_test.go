@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/skpr/compass/collector/internal/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing"
 )
 
 func TestReduce(t *testing.T) {

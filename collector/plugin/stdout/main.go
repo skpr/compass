@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/skpr/compass/collector/internal/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing"
 )
 
 // Plugin that is exported for use by the collector.

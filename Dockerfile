@@ -11,7 +11,7 @@ RUN cargo build --release
 RUN chmod +x /data/validate.sh
 RUN /data/validate.sh /data/target/release/libcompass_extension.so
 
-FROM golang:1.22-alpine as collector
+FROM golang:1.23-alpine as collector
 RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
 ADD collector /go/src/github.com/skpr/compass/collector
 WORKDIR /go/src/github.com/skpr/compass/collector
@@ -26,6 +26,7 @@ COPY --from=extension /data/target/release/libcompass_extension.so /usr/lib/php/
 # Collector
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass-collector /usr/local/bin/compass-collector
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass-find-lib /usr/local/bin/compass-find-lib
+COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/compass /usr/local/bin/compass
 COPY --from=collector /go/src/github.com/skpr/compass/collector/_output/plugin /usr/lib64/compass
 ADD collector/docker/entrypoint.sh /usr/local/bin/compass-collector-entrypoint
 USER root

@@ -8,7 +8,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
-	"github.com/skpr/compass/collector/internal/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing"
 	"github.com/skpr/compass/collector/plugin"
 )
 

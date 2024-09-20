@@ -1,0 +1,142 @@
+{
+  "requestID": "xxxxxxxxxxxxxxxxxxxxxxxx",
+  "executionTime": 300,
+  "functions": {
+    "Drupal::config": {
+      "totalExecutionTime": 289,
+      "invocations": 1
+    },
+    "Drupal::service": {
+      "totalExecutionTime": 100,
+      "invocations": 2
+    },
+    "Drupal\\Component\\DependencyInjection\\Container::createService": {
+      "totalExecutionTime": 50,
+      "invocations": 58
+    },
+    "Drupal\\Component\\DependencyInjection\\Container::get": {
+      "totalExecutionTime": 20,
+      "invocations": 63
+    },
+    "Drupal\\Component\\DependencyInjection\\Container::resolveServicesAndParameters": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "foo": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "bar": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "baz": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "nick": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "james": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "email": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "emily": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "sam": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "bar1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "baz1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "nick1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "james1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "email1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "emily1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "sam1": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "bar2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "baz2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "nick2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "james2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "email2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "emily2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "sam2": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "bar3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "baz3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "nick3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "james3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "email3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "emily3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    },
+    "sam3": {
+      "totalExecutionTime": 40,
+      "invocations": 53
+    }
+  }
+}
