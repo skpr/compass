@@ -58,6 +58,9 @@ services:
     pid: host
     profiles:
       - "all"
+    environment:
+      - COMPASS_COLLECTOR_STDOUT_REQUEST_THRESHOLD=1
+      - COMPASS_COLLECTOR_PLUGIN=/usr/lib64/compass/cli.so
 
 volumes:
   public-files: {}

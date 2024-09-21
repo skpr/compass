@@ -1,11 +1,13 @@
+// Package aggregated for streamlined profiling data.
 package aggregated
 
 import "github.com/skpr/compass/collector/pkg/tracing/complete"
 
-// Convert the upstream (full) profile to a stdout acceptable profile.
+// FromCompleteProfile will convert a complete profile to an aggregated profile.
 func FromCompleteProfile(upstream complete.Profile) Profile {
 	profile := Profile{
 		RequestID:     upstream.RequestID,
+		IngestedTime:  upstream.IngestedTime,
 		ExecutionTime: upstream.ExecutionTime,
 		Functions:     make(map[string]Function),
 	}
@@ -18,9 +20,11 @@ func FromCompleteProfile(upstream complete.Profile) Profile {
 			}
 		}
 
+		executionTime := (call.EndTime - call.StartTime) / 1000
+
 		profile.Functions[call.Name] = Function{
 			Name:          call.Name,
-			ExecutionTime: profile.Functions[call.Name].ExecutionTime + call.EndTime - call.StartTime,
+			ExecutionTime: profile.Functions[call.Name].ExecutionTime + executionTime,
 			Invocations:   profile.Functions[call.Name].Invocations + 1,
 		}
 	}

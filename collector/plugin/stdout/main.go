@@ -65,9 +65,9 @@ func (s *plugin) Initialize() error {
 
 // ProcessProfile from the collector.
 func (s *plugin) ProcessProfile(profile complete.Profile) error {
-	if profile.ExecutionTime > s.requestThreshold {
+	/*if profile.ExecutionTime < s.requestThreshold {
 		return nil
-	}
+	}*/
 
 	return json.NewEncoder(os.Stdout).Encode(aggregated.FromCompleteProfile(profile))
 }

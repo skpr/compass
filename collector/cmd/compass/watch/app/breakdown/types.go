@@ -1,5 +1,6 @@
 package breakdown
 
+// Row used for sorting.
 type Row struct {
 	Name          string
 	ExecutionTime int64

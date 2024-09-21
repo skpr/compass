@@ -84,8 +84,8 @@ func (c *Manager) Handle(event bpfEvent) error {
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := complete.FunctionCall{
 		Name:      unix.ByteSliceToString(event.FunctionName[:]),
-		StartTime: time.Now().Unix(),
-		EndTime:   time.Now().Unix(),
+		StartTime: int64(event.StartTime),
+		EndTime:   int64(event.EndTime),
 	}
 
 	c.logger.Debug("function event has been called",
@@ -126,12 +126,13 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 	}
 
 	profile := complete.Profile{
-		RequestID: requestID,
+		RequestID:    requestID,
+		IngestedTime: time.Now(),
 	}
 
 	for _, call := range calls {
 		if call.Name == FunctionNameRoot {
-			profile.ExecutionTime = call.EndTime - call.StartTime
+			profile.ExecutionTime = (call.EndTime - call.StartTime) / 1000
 			continue
 		}
 

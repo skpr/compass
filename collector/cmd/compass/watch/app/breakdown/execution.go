@@ -7,9 +7,9 @@ import (
 
 // A graphical representation of the execution time.
 func getExecutionGraph(totalExecutionTime, executionTime int64) string {
-	length := int(executionTime / totalExecutionTime * 20)
+	length := float64(executionTime) / float64(totalExecutionTime) * 20
 
-	if length == 0 {
+	if length < 1 {
 		length = 1
 	}
 
@@ -17,5 +17,5 @@ func getExecutionGraph(totalExecutionTime, executionTime int64) string {
 		length = 20
 	}
 
-	return fmt.Sprintf("%s (%vms)", strings.Repeat("█", length), int(executionTime))
+	return fmt.Sprintf("%s (%vms)", strings.Repeat("█", int(length)), int(executionTime))
 }

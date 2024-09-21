@@ -2,6 +2,7 @@ package info
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 
@@ -22,6 +23,7 @@ func (m Model) View() string {
 
 	columns := []table.Column{
 		{Title: "Request ID", Width: 45},
+		{Title: "Ingested Time", Width: 35},
 		{Title: "Execution Time", Width: 35},
 		{Title: "Function Calls", Width: 35},
 	}
@@ -35,6 +37,7 @@ func (m Model) View() string {
 	rows := []table.Row{
 		{
 			profile.RequestID,
+			profile.IngestedTime.Format(time.TimeOnly),
 			fmt.Sprintf("%vms", int(profile.ExecutionTime)),
 			fmt.Sprintf("%d", totalInvocations),
 		},
