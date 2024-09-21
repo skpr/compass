@@ -3,6 +3,7 @@ package app
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/skpr/compass/collector/cmd/compass/watch/app/breakdown"
 	"github.com/skpr/compass/collector/cmd/compass/watch/app/profile"
 	"github.com/skpr/compass/collector/pkg/tracing"
 )
@@ -39,7 +40,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			if m.breakdownScroll+BreakdownRows < len(m.profiles[m.profileSelected].Functions)-1 {
+			if m.breakdownScroll+breakdown.VisibleRows < len(m.profiles[m.profileSelected].Functions)-1 {
 				m.breakdownScroll++
 			}
 		}
