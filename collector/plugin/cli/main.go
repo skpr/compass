@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/skpr/compass/collector/pkg/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing/aggregated"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 const (
@@ -38,12 +39,12 @@ func (s *plugin) Initialize() error {
 }
 
 // ProcessProfile from the collector.
-func (s *plugin) ProcessProfile(profile tracing.Profile) error {
+func (s *plugin) ProcessProfile(profile complete.Profile) error {
 	if profile.RequestID == "" {
 		return fmt.Errorf("not found: request id")
 	}
 
-	body, err := json.Marshal(profile)
+	body, err := json.Marshal(aggregated.FromCompleteProfile(profile))
 	if err != nil {
 		return fmt.Errorf("failed to marshal trace data to json: %w", err)
 	}

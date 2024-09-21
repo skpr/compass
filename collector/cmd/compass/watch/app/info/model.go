@@ -2,11 +2,11 @@
 package info
 
 import (
-	"github.com/skpr/compass/collector/cmd/compass/watch/app/profile"
+	"github.com/skpr/compass/collector/pkg/tracing/aggregated"
 )
 
 // Model for storing and rendering the state of the list component.
 type Model struct {
-	Profiles []profile.Profile
+	Profiles []aggregated.Profile
 	Selected int
 }

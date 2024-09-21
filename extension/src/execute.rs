@@ -9,6 +9,8 @@ use phper::{sys, values::ExecuteData};
 
 use std::{ptr::null_mut, time::SystemTime};
 
+use chrono::prelude::*;
+
 use probe::probe;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
@@ -65,23 +67,16 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
     let combined_name = get_combined_name(class_name, function_name);
 
-    let now = SystemTime::now();
+    let start = get_unix_timestamp_micros();
 
     // Run the upstream function.
     upstream_execute_ex(Some(execute_data));
 
-    let elapsed = match now.elapsed() {
-        Ok(elapsed) => elapsed,
-        Err(_e) => {
-            return;
-        }
-    };
-
-    let elapsed = elapsed.as_nanos();
+    let end = get_unix_timestamp_micros();
 
     if block_probe_event(
         mode::header_enabled(),
-        threshold::is_under_function_threshold(elapsed),
+        threshold::is_under_function_threshold(end - start),
     ) {
         return;
     }
@@ -93,7 +88,8 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         php_function,
         request_id.as_ptr(),
         combined_name.as_ptr(),
-        elapsed,
+        start,
+        end,
     );
 }
 
@@ -115,4 +111,9 @@ fn upstream_execute_ex(execute_data: Option<&mut ExecuteData>) {
                 .unwrap_or(null_mut()))
         }
     }
+}
+
+pub fn get_unix_timestamp_micros() -> i64 {
+    let now = Utc::now();
+    now.timestamp_micros()
 }

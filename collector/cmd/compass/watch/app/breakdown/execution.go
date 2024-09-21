@@ -6,7 +6,7 @@ import (
 )
 
 // A graphical representation of the execution time.
-func getExecutionGraph(totalExecutionTime, executionTime float64) string {
+func getExecutionGraph(totalExecutionTime, executionTime int64) string {
 	length := int(executionTime / totalExecutionTime * 20)
 
 	if length == 0 {

@@ -22,7 +22,6 @@ func (m Model) View() string {
 
 	columns := []table.Column{
 		{Title: "Request ID", Width: 45},
-		{Title: "Ingestion Time", Width: 35},
 		{Title: "Execution Time", Width: 35},
 		{Title: "Function Calls", Width: 35},
 	}
@@ -36,7 +35,6 @@ func (m Model) View() string {
 	rows := []table.Row{
 		{
 			profile.RequestID,
-			profile.IngestionTime.Format("15:04:05"),
 			fmt.Sprintf("%vms", int(profile.ExecutionTime)),
 			fmt.Sprintf("%d", totalInvocations),
 		},

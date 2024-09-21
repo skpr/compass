@@ -27,11 +27,9 @@ var (
 
 func main() {
 	var (
-		flagPlugin            string
-		flagLibPath           string
-		flagLogLevel          string
-		flagRequestThreshold  float64
-		flagFunctionThreshold float64
+		flagPlugin   string
+		flagLibPath  string
+		flagLogLevel string
 	)
 
 	cmd := &cobra.Command{
@@ -65,9 +63,7 @@ func main() {
 			}
 
 			return collector.Run(cmd.Context(), logger, p, collector.RunOptions{
-				ExecutablePath:    flagLibPath,
-				RequestThreshold:  flagRequestThreshold,
-				FunctionThreshold: flagFunctionThreshold,
+				ExecutablePath: flagLibPath,
 			})
 		},
 	}
@@ -75,8 +71,6 @@ func main() {
 	cmd.PersistentFlags().StringVar(&flagPlugin, "plugin", envget.String("COMPASS_COLLECTOR_PLUGIN", "/usr/lib64/compass/stdout.so"), "Plugin for processing tracing data")
 	cmd.PersistentFlags().StringVar(&flagLibPath, "lib-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
 	cmd.PersistentFlags().StringVar(&flagLogLevel, "debug", envget.String("COMPASS_COLLECTOR_LOG_LEVEL", "info"), "Set the logging level")
-	cmd.PersistentFlags().Float64Var(&flagRequestThreshold, "request-threshold", envget.Float64("COMPASS_COLLECTOR_REQUEST_THRESHOLD", 100), "Process requests over this threshold")
-	cmd.PersistentFlags().Float64Var(&flagFunctionThreshold, "function-threshold", envget.Float64("COMPASS_COLLECTOR_FUNCTION_THRESHOLD", 10), "Process summarised functions over this threshold")
 
 	err := cmd.Execute()
 	if err != nil {
