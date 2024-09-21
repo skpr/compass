@@ -8,7 +8,4 @@ type Model struct {
 	Profiles       []profile.Profile
 	Selected       int
 	ScrollPosition int
-	VisibleRows    int
-	Height         int
-	Width          int
 }
