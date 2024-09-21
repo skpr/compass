@@ -18,9 +18,9 @@ const (
 	EnvFunctionThreshold = "COMPASS_COLLECTOR_STDOUT_FUNCTION_THRESHOLD"
 
 	// DefaultRequestThreshold for the plugin.
-	DefaultRequestThreshold = 10000
+	DefaultRequestThreshold = 100
 	// DefaultFunctionThreshold for the plugin.
-	DefaultFunctionThreshold = 1000
+	DefaultFunctionThreshold = 10
 )
 
 // Plugin that is exported for use by the collector.
@@ -64,10 +64,18 @@ func (s *plugin) Initialize() error {
 }
 
 // ProcessProfile from the collector.
-func (s *plugin) ProcessProfile(profile complete.Profile) error {
-	/*if profile.ExecutionTime < s.requestThreshold {
+func (s *plugin) ProcessProfile(completeProfile complete.Profile) error {
+	if completeProfile.ExecutionTime < s.requestThreshold {
 		return nil
-	}*/
+	}
 
-	return json.NewEncoder(os.Stdout).Encode(aggregated.FromCompleteProfile(profile))
+	profile := aggregated.FromCompleteProfile(completeProfile)
+
+	for name, function := range profile.Functions {
+		if function.ExecutionTime < s.functionThreshold {
+			delete(profile.Functions, name)
+		}
+	}
+
+	return json.NewEncoder(os.Stdout).Encode(profile)
 }
