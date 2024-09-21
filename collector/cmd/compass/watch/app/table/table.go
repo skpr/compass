@@ -1,3 +1,4 @@
+// Package table for handling the table component.
 package table
 
 import (

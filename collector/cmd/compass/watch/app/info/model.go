@@ -1,4 +1,4 @@
-// Package list for handling the list component.
+// Package info for handling the info component.
 package info
 
 import (
