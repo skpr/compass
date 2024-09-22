@@ -6,16 +6,30 @@ import (
 )
 
 // A graphical representation of the execution time.
-func getExecutionGraph(totalExecutionTime, executionTime int64) string {
-	length := float64(executionTime) / float64(totalExecutionTime) * 20
+func getExecutionGraph(requestStart, functionStartTime, totalExecuteTime, functionExecuteTime int64) string {
+	start := getExecutionGraphStart(requestStart, functionStartTime, totalExecuteTime)
+	length := getExecutionGraphUsageLength(totalExecuteTime, functionExecuteTime)
+	return fmt.Sprintf("%s%s", strings.Repeat(" ", start), strings.Repeat("█", length))
+}
+
+func getExecutionGraphStart(requestStart, functionStartTime, totalExecuteTime int64) int {
+	diff := (functionStartTime - requestStart) / 1000
+
+	length := float64(diff) / float64(totalExecuteTime) * 50
+
+	return int(length)
+}
+
+func getExecutionGraphUsageLength(totalExecuteTime, functionExecuteTime int64) int {
+	length := float64(functionExecuteTime) / float64(totalExecuteTime) * 50
 
 	if length < 1 {
 		length = 1
 	}
 
-	if length > 20 {
-		length = 20
+	if length > 50 {
+		length = 50
 	}
 
-	return fmt.Sprintf("%s (%vms)", strings.Repeat("█", int(length)), int(executionTime))
+	return int(length)
 }

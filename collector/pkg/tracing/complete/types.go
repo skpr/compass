@@ -1,12 +1,10 @@
 // Package complete implements complete tracing data.
 package complete
 
-import "time"
-
 // Profile data collected for a request.
 type Profile struct {
 	RequestID     string         `json:"requestID"`
-	IngestedTime  time.Time      `json:"ingestedTime"`
+	StartTime     int64          `json:"startTime"`
 	ExecutionTime int64          `json:"executionTime"`
 	FunctionCalls []FunctionCall `json:"functionCalls"`
 }

@@ -1,7 +1,6 @@
 package breakdown
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -26,27 +25,28 @@ func (m Model) View() string {
 
 	profile := m.Profiles[m.Selected]
 
-	if len(profile.Functions) == 0 {
+	if len(profile.FunctionCalls) == 0 {
 		return "No functions available for profile"
 	}
 
 	var rows []Row
 
-	for name, details := range profile.Functions {
+	for _, details := range profile.FunctionCalls {
 		rows = append(rows, Row{
-			Name:          name,
-			ExecutionTime: details.ExecutionTime,
-			Invocations:   details.Invocations,
+			Name:      details.Name,
+			StartTime: details.StartTime,
+			EndTime:   details.EndTime,
+			Diff:      details.EndTime - details.StartTime,
 		})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
-		return rows[i].ExecutionTime > rows[j].ExecutionTime
+		return rows[i].StartTime < rows[j].StartTime
 	})
 
 	var visible []table.Row
 
-	start, end := getPositionStartAndEnd(m.ScrollPosition, VisibleRows, len(profile.Functions))
+	start, end := getPositionStartAndEnd(m.ScrollPosition, VisibleRows, len(profile.FunctionCalls))
 
 	for i, f := range rows {
 		if i < start || i >= end {
@@ -55,15 +55,17 @@ func (m Model) View() string {
 
 		visible = append(visible, []string{
 			f.Name,
-			getExecutionGraph(profile.ExecutionTime, f.ExecutionTime),
-			fmt.Sprintf("%d", f.Invocations),
+			getExecutionGraph(profile.StartTime, f.StartTime, profile.ExecutionTime, f.Diff/1000),
+			//fmt.Sprintf("%d", f.Invocations),
+			//fmt.Sprintf("%d", f.StartTime),
+			//fmt.Sprintf("%d", f.EndTime),
+			//fmt.Sprintf("%d", f.Diff/1000),
 		})
 	}
 
 	columns := []table.Column{
-		{Title: "Function", Width: 109},
-		{Title: "Execution Time", Width: 30},
-		{Title: "Invocations", Width: 15},
+		{Title: "Function", Width: 106},
+		{Title: "Timeline", Width: 50},
 	}
 
 	// We add 2 to account for the header and the border.

@@ -1,11 +1,9 @@
 package aggregated
 
-import "time"
-
 // Profile being sent to stdout.
 type Profile struct {
 	RequestID     string              `json:"requestID"`
-	IngestedTime  time.Time           `json:"ingestedTime"`
+	StartTime     int64               `json:"startTime"`
 	ExecutionTime int64               `json:"executionTime"`
 	Functions     map[string]Function `json:"functions"`
 }

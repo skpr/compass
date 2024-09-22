@@ -7,7 +7,7 @@ import "github.com/skpr/compass/collector/pkg/tracing/complete"
 func FromCompleteProfile(upstream complete.Profile) Profile {
 	profile := Profile{
 		RequestID:     upstream.RequestID,
-		IngestedTime:  upstream.IngestedTime,
+		StartTime:     upstream.StartTime,
 		ExecutionTime: upstream.ExecutionTime,
 		Functions:     make(map[string]Function),
 	}

@@ -28,18 +28,12 @@ func (m Model) View() string {
 		{Title: "Function Calls", Width: 35},
 	}
 
-	var totalInvocations int32
-
-	for _, f := range profile.Functions {
-		totalInvocations += f.Invocations
-	}
-
 	rows := []table.Row{
 		{
 			profile.RequestID,
-			profile.IngestedTime.Format(time.TimeOnly),
+			time.UnixMicro(profile.StartTime).Format(time.TimeOnly),
 			fmt.Sprintf("%vms", int(profile.ExecutionTime)),
-			fmt.Sprintf("%d", totalInvocations),
+			fmt.Sprintf("%d", len(profile.FunctionCalls)),
 		},
 	}
 

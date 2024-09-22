@@ -77,5 +77,5 @@ func (s *plugin) ProcessProfile(completeProfile complete.Profile) error {
 		}
 	}
 
-	return json.NewEncoder(os.Stdout).Encode(profile)
+	return json.NewEncoder(os.Stdout).Encode(completeProfile)
 }

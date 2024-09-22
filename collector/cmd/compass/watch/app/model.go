@@ -2,7 +2,7 @@
 package app
 
 import (
-	"github.com/skpr/compass/collector/pkg/tracing/aggregated"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 // Model for storing the state of the application.
@@ -12,7 +12,7 @@ type Model struct {
 	// This is how we track the height and width of the terminal.
 	height int
 	// Internal storage for profiles.
-	profiles []aggregated.Profile
+	profiles []complete.Profile
 	// Index of the currently selected profile.
 	profileSelected int
 	// Index of the currently selected profile's scroll position.

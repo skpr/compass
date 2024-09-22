@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/skpr/compass/collector/pkg/tracing/aggregated"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 	"io"
 	"net/http"
 
@@ -73,7 +73,7 @@ func (o *Options) Run(addr string) error {
 			return
 		}
 
-		var profile aggregated.Profile
+		var profile complete.Profile
 
 		err = json.Unmarshal(body, &profile)
 		if err != nil {

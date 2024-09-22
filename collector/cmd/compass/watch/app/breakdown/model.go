@@ -2,12 +2,12 @@
 package breakdown
 
 import (
-	"github.com/skpr/compass/collector/pkg/tracing/aggregated"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 // Model for storing and rendering the state of the breakdown component.
 type Model struct {
-	Profiles       []aggregated.Profile
+	Profiles       []complete.Profile
 	Selected       int
 	ScrollPosition int
 }

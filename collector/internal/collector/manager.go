@@ -126,12 +126,12 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 	}
 
 	profile := complete.Profile{
-		RequestID:    requestID,
-		IngestedTime: time.Now(),
+		RequestID: requestID,
 	}
 
 	for _, call := range calls {
 		if call.Name == FunctionNameRoot {
+			profile.StartTime = call.StartTime
 			profile.ExecutionTime = (call.EndTime - call.StartTime) / 1000
 			continue
 		}

@@ -2,7 +2,7 @@
 package layout
 
 import (
-	"github.com/skpr/compass/collector/pkg/tracing/aggregated"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 // Component for rendering the layout.
@@ -15,6 +15,6 @@ type Model struct {
 	Info      Component
 	Breakdown Component
 	Help      Component
-	Profiles  []aggregated.Profile
+	Profiles  []complete.Profile
 	Selected  int
 }
