@@ -42,7 +42,7 @@ jobs:
           bash performance-testing/configuration/${{ matrix.configuration }}.sh
       - name: 🧪 K6 - Execute Baseline Performance Test
         run: |
-          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} output/results ${{ matrix.configuration }}.json
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ./performance-testing/scenarios/basic.js output/results ${{ matrix.configuration }}.json
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
