@@ -1,0 +1,85 @@
+name: 📋 Performance Test
+
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+
+concurrency:
+  group: test-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  K6_SCRIPTS_DIR: ./performance-testing/scripts
+  K6_SCENARIO: ./performance-testing/scenarios/basic.js
+  OUTPUT_RESULTS: ./_output/results
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        configuration:
+          - control   # Without Compass installed.
+          - installed # Compass installed but not enabled.
+          - enabled   # Compass enabled by collector not running.
+          - collector # Compass enabled and collector running.
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+      # Uncomment for CPU / Memory / IO statistics.
+      # - name: Collect Workflow Telemetry
+      #   uses: catchpoint/workflow-telemetry-action@v2
+      - name: 📁 Init
+        run: |
+          # Create performance testing results directory.
+          sudo mkdir -p output/logs output/results
+          sudo chmod 777 output/logs output/results
+      - name: 📦 Build Images
+        run: |
+          make build
+      - name: 📦 Setup
+        run: |
+          bash performance-testing/configuration/${{ matrix.version }}.sh
+      - name: 🧪 K6 - Execute Baseline Performance Test
+        run: |
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} output/results ${{ matrix.version }}.json
+      - name: 📋 Save Logs (Debugging)
+        if: always()
+        run: |
+          docker compose logs > output/logs/${{ matrix.version }}.log
+      - name: Archive Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs
+          path: |
+            output
+
+  results:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v4
+      - name: 📋 Review Test Results
+        run: |
+          cd output/results
+          go run ../scripts/results.go
+      - name: 📦 Collect Test Result Comment Details
+        id: comment
+        if: always()
+        run: |
+          results=$(cat ${K6_RESULTS_DIR}/comment.txt)
+          echo "results=$results" >> "$GITHUB_OUTPUT"
+      - name: 📋 Post Test Results to Comment
+        uses: peter-evans/create-or-update-comment@v4
+        if: ${{ github.event_name == 'pull_request' }} && always()
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Performance Data
+            ----------------
+            ${{ steps.comment.outputs.results }}
