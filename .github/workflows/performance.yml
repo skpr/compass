@@ -11,7 +11,6 @@ concurrency:
 env:
   K6_SCRIPTS_DIR: ./performance-testing/scripts
   K6_SCENARIO: ./performance-testing/scenarios/basic.js
-  OUTPUT_RESULTS: ./_output/results
 
 jobs:
   test:
@@ -40,14 +39,14 @@ jobs:
           make build
       - name: 📦 Setup
         run: |
-          bash performance-testing/configuration/${{ matrix.version }}.sh
+          bash performance-testing/configuration/${{ matrix.configuration }}.sh
       - name: 🧪 K6 - Execute Baseline Performance Test
         run: |
-          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} output/results ${{ matrix.version }}.json
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ${K6_SCENARIO} output/results ${{ matrix.configuration }}.json
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
-          docker compose logs > output/logs/${{ matrix.version }}.log
+          docker compose logs > output/logs/${{ matrix.configuration }}.log
       - name: Archive Logs
         uses: actions/upload-artifact@v4
         if: always()
