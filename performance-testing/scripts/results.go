@@ -90,7 +90,7 @@ func run() error {
 
 	summaryTemplate := `| Test      | Average | Diff (Compared to Control) |
 |-----------|---------|----------------------------|
-| Control   | %dms    | %dms                       |
+| Control   | %dms    |                            |
 | Installed | %dms    | %dms                       |
 | Enabled   | %dms    | %dms                       |
 | Collector | %dms    | %dms                       |`
