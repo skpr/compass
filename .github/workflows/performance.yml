@@ -59,6 +59,7 @@ jobs:
   results:
     name: Test
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
