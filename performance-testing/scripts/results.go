@@ -88,7 +88,14 @@ func run() error {
 		errs = append(errs, fmt.Errorf("collector report exceeded the request limit"))
 	}
 
-	comment := fmt.Sprintf("Without Extension = %dms  |  Extension Disabled = %dms (Diff = %dms)  |  Extension Enabled = %dms (Diff = %dms) |  With Collector = %dms (Diff = %dms)",
+	summaryTemplate := `| Test      | Average | Diff (Compared to Control) |
+|-----------|---------|----------------------------|
+| Control   | %dms    | %dms                       |
+| Installed | %dms    | %dms                       |
+| Enabled   | %dms    | %dms                       |
+| Collector | %dms    | %dms                       |`
+
+	summary := fmt.Sprintf(summaryTemplate,
 		int(control.Metrics.HTTPReqDuration.Avg),
 		int(installed.Metrics.HTTPReqDuration.Avg),
 		int(disabledDiff),
@@ -98,9 +105,9 @@ func run() error {
 		int(collectorDiff),
 	)
 
-	data := []byte(comment)
+	data := []byte(summary)
 
-	err = os.WriteFile("comment.txt", data, 0644)
+	err = os.WriteFile("summary.md", data, 0644)
 	if err != nil {
 		errs = append(errs, err)
 	}

@@ -73,19 +73,6 @@ jobs:
         run: |
           go run ./performance-testing/scripts/results.go
 
-      - name: 📦 Collect Test Result Comment Details
-        id: comment
+      - name: 📋 Post Test Results to Summary
         if: always()
-        run: |
-          results=$(cat comment.txt)
-          echo "results=$results" >> "$GITHUB_OUTPUT"
-
-      - name: 📋 Post Test Results to Comment
-        uses: peter-evans/create-or-update-comment@v4
-        if: ${{ github.event_name == 'pull_request' }} && always()
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            Performance Data
-            ----------------
-            ${{ steps.comment.outputs.results }}
+        run: cat summary.md >> $GITHUB_STEP_SUMMARY
