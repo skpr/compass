@@ -71,14 +71,13 @@ jobs:
 
       - name: 📋 Review Test Results
         run: |
-          ls -l collector/
           go run ./performance-testing/scripts/results.go
 
       - name: 📦 Collect Test Result Comment Details
         id: comment
         if: always()
         run: |
-          results=$(cat ${K6_RESULTS_DIR}/comment.txt)
+          results=$(cat comment.txt)
           echo "results=$results" >> "$GITHUB_OUTPUT"
 
       - name: 📋 Post Test Results to Comment
