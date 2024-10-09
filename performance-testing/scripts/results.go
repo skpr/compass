@@ -35,7 +35,7 @@ func main() {
 }
 
 func run() error {
-	control, err := getReport("control.json")
+	control, err := getReport("control/report.json")
 	if err != nil {
 		return fmt.Errorf("failed to load control report: %w", err)
 	}
@@ -44,7 +44,7 @@ func run() error {
 		return fmt.Errorf("control errors (%d) are over the limit (%d)", int(control.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	installed, err := getReport("installed.json")
+	installed, err := getReport("installed/report.json")
 	if err != nil {
 		return fmt.Errorf("failed to load installed report: %w", err)
 	}
@@ -53,7 +53,7 @@ func run() error {
 		return fmt.Errorf("installed errors (%d) are over the limit (%d)", int(installed.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	enabled, err := getReport("enabled.json")
+	enabled, err := getReport("enabled/report.json")
 	if err != nil {
 		return fmt.Errorf("failed to load enabled report: %w", err)
 	}
@@ -62,7 +62,7 @@ func run() error {
 		return fmt.Errorf("enabled errors (%d) are over the limit (%d)", int(enabled.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	collector, err := getReport("collector.json")
+	collector, err := getReport("collector/report.json")
 	if err != nil {
 		return fmt.Errorf("failed to load collector report: %w", err)
 	}

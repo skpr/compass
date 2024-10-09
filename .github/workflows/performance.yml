@@ -43,12 +43,12 @@ jobs:
 
       - name: 🧪 K6 - Execute Performance Test
         run: |
-          bash ./performance-testing/scripts/k6_run.sh ./performance-testing/scenarios/basic.js ./output ${{ matrix.configuration }}.json
+          bash ./performance-testing/scripts/k6_run.sh ./performance-testing/scenarios/basic.js ./output report.json
 
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
-          docker compose logs > ./output/${{ matrix.configuration }}.log
+          docker compose logs > ./output/docker.log
 
       - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
@@ -59,7 +59,7 @@ jobs:
             ./output
 
   results:
-    name: Test
+    name: Compare Results
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -71,7 +71,7 @@ jobs:
 
       - name: 📋 Review Test Results
         run: |
-          ls -l
+          ls -l collector/
           go run ./performance-testing/scripts/results.go
 
       - name: 📦 Collect Test Result Comment Details
