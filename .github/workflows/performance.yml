@@ -8,13 +8,9 @@ concurrency:
   group: test-${{ github.head_ref }}
   cancel-in-progress: true
 
-env:
-  K6_SCRIPTS_DIR: ./performance-testing/scripts
-  K6_SCENARIO: ./performance-testing/scenarios/basic.js
-
 jobs:
   test:
-    name: Test
+    name: Performance Test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -26,32 +22,39 @@ jobs:
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
+
       # Uncomment for CPU / Memory / IO statistics.
       # - name: Collect Workflow Telemetry
       #   uses: catchpoint/workflow-telemetry-action@v2
+
       - name: 📁 Init
         run: |
           # Create performance testing results directory.
           sudo mkdir -p ./output
           sudo chmod 777 ./output
+
       - name: 📦 Build Images
         run: |
           make build
+
       - name: 📦 Setup
         run: |
           bash performance-testing/configuration/${{ matrix.configuration }}.sh
-      - name: 🧪 K6 - Execute Baseline Performance Test
+
+      - name: 🧪 K6 - Execute Performance Test
         run: |
-          bash ${K6_SCRIPTS_DIR}/k6_run.sh ./performance-testing/scenarios/basic.js ./output ${{ matrix.configuration }}.json
+          bash ./performance-testing/scripts/k6_run.sh ./performance-testing/scenarios/basic.js ./output ${{ matrix.configuration }}.json
+
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
           docker compose logs > ./output/${{ matrix.configuration }}.log
-      - name: Archive Logs
+
+      - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: logs
+          name: ${{ matrix.configuration }}
           path: |
             ./output
 
@@ -62,18 +65,22 @@ jobs:
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
+
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v4
+
       - name: 📋 Review Test Results
         run: |
           cd output
           go run ../performance-testing/scripts/results.go
+
       - name: 📦 Collect Test Result Comment Details
         id: comment
         if: always()
         run: |
           results=$(cat ${K6_RESULTS_DIR}/comment.txt)
           echo "results=$results" >> "$GITHUB_OUTPUT"
+
       - name: 📋 Post Test Results to Comment
         uses: peter-evans/create-or-update-comment@v4
         if: ${{ github.event_name == 'pull_request' }} && always()
