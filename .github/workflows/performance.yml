@@ -71,8 +71,8 @@ jobs:
 
       - name: 📋 Review Test Results
         run: |
-          cd output
-          go run ../performance-testing/scripts/results.go
+          ls -l
+          go run ./performance-testing/scripts/results.go
 
       - name: 📦 Collect Test Result Comment Details
         id: comment
