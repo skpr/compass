@@ -32,8 +32,8 @@ jobs:
       - name: 📁 Init
         run: |
           # Create performance testing results directory.
-          sudo mkdir -p output/logs output/results
-          sudo chmod 777 output/logs output/results
+          sudo mkdir -p ./output/logs ./output/results
+          sudo chmod 777 ./output/logs ./output/results
       - name: 📦 Build Images
         run: |
           make build
@@ -42,18 +42,18 @@ jobs:
           bash performance-testing/configuration/${{ matrix.configuration }}.sh
       - name: 🧪 K6 - Execute Baseline Performance Test
         run: |
-          bash ${K6_SCRIPTS_DIR}/k6_run.sh ./performance-testing/scenarios/basic.js output/results ${{ matrix.configuration }}.json
+          bash ${K6_SCRIPTS_DIR}/k6_run.sh ./performance-testing/scenarios/basic.js ./output/results ${{ matrix.configuration }}.json
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
-          docker compose logs > output/logs/${{ matrix.configuration }}.log
+          docker compose logs > ./output/logs/${{ matrix.configuration }}.log
       - name: Archive Logs
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: logs
           path: |
-            output
+            ./output
 
   results:
     name: Test
