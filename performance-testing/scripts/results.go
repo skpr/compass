@@ -35,34 +35,34 @@ func main() {
 }
 
 func run() error {
-	baseline, err := getReport("baseline.json")
+	control, err := getReport("control/report.json")
 	if err != nil {
-		return fmt.Errorf("failed to load baseline report: %w", err)
+		return fmt.Errorf("failed to load control report: %w", err)
 	}
 
-	if baseline.RootGroup.Checks.OK.Fails > FailLimit {
-		return fmt.Errorf("baseline errors (%d) are over the limit (%d)", int(baseline.RootGroup.Checks.OK.Fails), FailLimit)
+	if control.RootGroup.Checks.OK.Fails > FailLimit {
+		return fmt.Errorf("control errors (%d) are over the limit (%d)", int(control.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	disabled, err := getReport("disabled.json")
+	installed, err := getReport("installed/report.json")
 	if err != nil {
-		return fmt.Errorf("failed to load extension report: %w", err)
+		return fmt.Errorf("failed to load installed report: %w", err)
 	}
 
-	if disabled.RootGroup.Checks.OK.Fails > FailLimit {
-		return fmt.Errorf("extension errors (%d) are over the limit (%d)", int(disabled.RootGroup.Checks.OK.Fails), FailLimit)
+	if installed.RootGroup.Checks.OK.Fails > FailLimit {
+		return fmt.Errorf("installed errors (%d) are over the limit (%d)", int(installed.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	enabled, err := getReport("enabled.json")
+	enabled, err := getReport("enabled/report.json")
 	if err != nil {
-		return fmt.Errorf("failed to load extension report: %w", err)
+		return fmt.Errorf("failed to load enabled report: %w", err)
 	}
 
 	if enabled.RootGroup.Checks.OK.Fails > FailLimit {
-		return fmt.Errorf("extension errors (%d) are over the limit (%d)", int(enabled.RootGroup.Checks.OK.Fails), FailLimit)
+		return fmt.Errorf("enabled errors (%d) are over the limit (%d)", int(enabled.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	collector, err := getReport("collector.json")
+	collector, err := getReport("collector/report.json")
 	if err != nil {
 		return fmt.Errorf("failed to load collector report: %w", err)
 	}
@@ -73,24 +73,31 @@ func run() error {
 
 	var errs []error
 
-	disabledDiff := disabled.Metrics.HTTPReqDuration.Avg - baseline.Metrics.HTTPReqDuration.Avg
+	disabledDiff := installed.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
 	if disabledDiff > RequestLimit {
 		errs = append(errs, fmt.Errorf("extension report exceeded the request limit"))
 	}
 
-	enabledDiff := enabled.Metrics.HTTPReqDuration.Avg - baseline.Metrics.HTTPReqDuration.Avg
+	enabledDiff := enabled.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
 	if enabledDiff > RequestLimit {
 		errs = append(errs, fmt.Errorf("extension report exceeded the request limit"))
 	}
 
-	collectorDiff := collector.Metrics.HTTPReqDuration.Avg - baseline.Metrics.HTTPReqDuration.Avg
+	collectorDiff := collector.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
 	if collectorDiff > RequestLimit {
 		errs = append(errs, fmt.Errorf("collector report exceeded the request limit"))
 	}
 
-	comment := fmt.Sprintf("Without Extension = %dms  |  Extension Disabled = %dms (Diff = %dms)  |  Extension Enabled = %dms (Diff = %dms) |  With Collector = %dms (Diff = %dms)",
-		int(baseline.Metrics.HTTPReqDuration.Avg),
-		int(disabled.Metrics.HTTPReqDuration.Avg),
+	summaryTemplate := `| Test      | Average | Diff (Compared to Control) |
+|-----------|---------|----------------------------|
+| Control   | %dms    |                            |
+| Installed | %dms    | %dms                       |
+| Enabled   | %dms    | %dms                       |
+| Collector | %dms    | %dms                       |`
+
+	summary := fmt.Sprintf(summaryTemplate,
+		int(control.Metrics.HTTPReqDuration.Avg),
+		int(installed.Metrics.HTTPReqDuration.Avg),
 		int(disabledDiff),
 		int(enabled.Metrics.HTTPReqDuration.Avg),
 		int(enabledDiff),
@@ -98,9 +105,9 @@ func run() error {
 		int(collectorDiff),
 	)
 
-	data := []byte(comment)
+	data := []byte(summary)
 
-	err = os.WriteFile("comment.txt", data, 0644)
+	err = os.WriteFile("summary.md", data, 0644)
 	if err != nil {
 		errs = append(errs, err)
 	}

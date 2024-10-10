@@ -1,0 +1,78 @@
+name: 📋 Performance Test
+
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+
+concurrency:
+  group: test-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        configuration:
+          - control   # Without Compass installed.
+          - installed # Compass installed but not enabled.
+          - enabled   # Compass enabled by collector not running.
+          - collector # Compass enabled and collector running.
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+
+      # Uncomment for CPU / Memory / IO statistics.
+      # - name: Collect Workflow Telemetry
+      #   uses: catchpoint/workflow-telemetry-action@v2
+
+      - name: 📁 Init
+        run: |
+          # Create performance testing results directory.
+          sudo mkdir -p ./output
+          sudo chmod 777 ./output
+
+      - name: 📦 Build Images
+        run: |
+          make build
+
+      - name: 📦 Setup
+        run: |
+          bash performance-testing/scripts/matrix/up/${{ matrix.configuration }}.sh
+
+      - name: 🧪 K6 - Execute Performance Test
+        run: |
+          bash ./performance-testing/scripts/k6_run.sh ./performance-testing/scenarios/basic.js ./output report.json
+
+      - name: 📋 Save Logs (Debugging)
+        if: always()
+        run: |
+          bash performance-testing/scripts/matrix/logs/${{ matrix.configuration }}.sh ./output
+
+      - name: 📋 Archive Output
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.configuration }}
+          path: |
+            ./output
+
+  results:
+    name: Compare Results
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v4
+
+      - name: 📋 Review Test Results
+        run: |
+          go run ./performance-testing/scripts/results.go
+
+      - name: 📋 Post Test Results to Summary
+        if: always()
+        run: cat summary.md >> $GITHUB_STEP_SUMMARY
