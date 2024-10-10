@@ -12,6 +12,10 @@ jobs:
   test:
     name: Performance Test
     runs-on: ubuntu-latest
+
+    # This is really expensive, so we only want to run it when we need to.
+    if: contains(github.event.pull_request.labels.*.name, 'performance-test-needed')
+
     strategy:
       matrix:
         configuration:
@@ -19,6 +23,7 @@ jobs:
           - installed # Compass installed but not enabled.
           - enabled   # Compass enabled by collector not running.
           - collector # Compass enabled and collector running.
+
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
@@ -62,6 +67,10 @@ jobs:
     name: Compare Results
     runs-on: ubuntu-latest
     needs: test
+
+    # This is really expensive, so we only want to run it when we need to.
+    if: contains(github.event.pull_request.labels.*.name, 'performance-test-needed')
+
     steps:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
