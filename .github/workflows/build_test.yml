@@ -5,7 +5,7 @@ on:
     types: [ synchronize, opened, reopened, ready_for_review ]
 
 concurrency:
-  group: test-${{ github.head_ref }}
+  group: build-test-${{ github.head_ref }}
   cancel-in-progress: true
 
 jobs:
