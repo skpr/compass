@@ -44,7 +44,7 @@ jobs:
 
       - name: 📦 Setup
         run: |
-          bash performance-testing/scripts/matrix/up/${{ matrix.configuration }}.sh
+          bash .github/workflows/performance/matrix/up/${{ matrix.configuration }}.sh
 
       - name: 🧪 K6 - Execute Performance Test
         run: |
@@ -53,7 +53,7 @@ jobs:
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
-          bash performance-testing/scripts/matrix/logs/${{ matrix.configuration }}.sh ./output
+          bash .github/workflows/performance/matrix/logs/${{ matrix.configuration }}.sh ./output
 
       - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
