@@ -56,16 +56,12 @@ func (m Model) View() string {
 		visible = append(visible, []string{
 			f.Name,
 			getExecutionGraph(profile.StartTime, f.StartTime, profile.ExecutionTime, f.Diff/1000),
-			//fmt.Sprintf("%d", f.Invocations),
-			//fmt.Sprintf("%d", f.StartTime),
-			//fmt.Sprintf("%d", f.EndTime),
-			//fmt.Sprintf("%d", f.Diff/1000),
 		})
 	}
 
 	columns := []table.Column{
 		{Title: "Function", Width: 106},
-		{Title: "Timeline", Width: 50},
+		{Title: "Timeline", Width: 52},
 	}
 
 	// We add 2 to account for the header and the border.

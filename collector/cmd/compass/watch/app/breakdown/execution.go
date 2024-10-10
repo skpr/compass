@@ -2,6 +2,7 @@ package breakdown
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -9,7 +10,13 @@ import (
 func getExecutionGraph(requestStart, functionStartTime, totalExecuteTime, functionExecuteTime int64) string {
 	start := getExecutionGraphStart(requestStart, functionStartTime, totalExecuteTime)
 	length := getExecutionGraphUsageLength(totalExecuteTime, functionExecuteTime)
-	return fmt.Sprintf("%s%s", strings.Repeat(" ", start), strings.Repeat("█", length))
+	remainder := 50 - start - length
+
+	block := "◼"
+
+	span := strings.Repeat(block, length)
+
+	return fmt.Sprintf("│%s%s%s│", strings.Repeat(" ", start), span, strings.Repeat(" ", remainder))
 }
 
 func getExecutionGraphStart(requestStart, functionStartTime, totalExecuteTime int64) int {
@@ -21,7 +28,7 @@ func getExecutionGraphStart(requestStart, functionStartTime, totalExecuteTime in
 }
 
 func getExecutionGraphUsageLength(totalExecuteTime, functionExecuteTime int64) int {
-	length := float64(functionExecuteTime) / float64(totalExecuteTime) * 50
+	length := math.Round(float64(functionExecuteTime) / float64(totalExecuteTime) * 50)
 
 	if length < 1 {
 		length = 1
