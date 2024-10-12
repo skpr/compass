@@ -11,17 +11,21 @@ A tool for pointing developers in the right direction for performance issues.
 
 ```mermaid
 flowchart LR
-   Extension[<b>PECL Extension</b>\n<i>Rust</i>] --> compass_php_function[<b>compass_php_function</b>\n<i>Probe</i>]
-   Extension --> compass_request_shutdown[<b>compass_request_shutdown</b>\n<i>Probe</i>]
+   Extension["PECL Extension (Rust)"] --> compass_php_function["compass_php_function (USDT)"]
+   Extension --> compass_request_shutdown["compass_request_shutdown (USDT)"]
 
-   compass_php_function --> eBPF[<b>eBPF Program</b>\n<i>CO-RE</i>]
+   compass_php_function --> eBPF[eBPF Program]
    compass_request_shutdown --> eBPF
 
-   eBPF --> Events[<b>Events</b>\n<i>Ring Buffer</i>]
+   eBPF --> Events["Events (Ring Buffer)"]
 
-   Events --> Collector[<b>Collector</b>\n<i>Go</i>]
+   Events --> Collector["Collector (Go)"]
 
-   Collector --> Stdout[<b>Stdout</b>\n<i>Go Plugin</i>]
+   Collector --> PluginStdout["Stdout (Go Plugin)"]
+   Collector --> PluginCLI["CLI (Go Plugin)"]
+   Collector --> PluginNoop["Noop (Go Plugin)"]
+
+   PluginCLI --> CLI
 ```
 
 ## Components
