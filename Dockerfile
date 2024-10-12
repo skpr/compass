@@ -33,5 +33,9 @@ USER root
 RUN chmod +x /usr/local/bin/compass-collector-entrypoint
 RUN apk add binutils
 USER skpr
+ENV COMPASS_ENABLED="false"
+ENV COMPASS_MODE=""
+ENV COMPASS_HEADER=""
+ENV COMPASS_FUNCTION_THRESHOLD="10000"
 ENV COMPASS_PROCESS_NAME=php-fpm
 CMD ["/usr/local/bin/compass-collector-entrypoint"]
