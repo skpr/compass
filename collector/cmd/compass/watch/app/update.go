@@ -4,8 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/skpr/compass/collector/cmd/compass/watch/app/breakdown"
-	"github.com/skpr/compass/collector/cmd/compass/watch/app/profile"
-	"github.com/skpr/compass/collector/pkg/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 // Update triggers on messages and updates the model.
@@ -40,14 +39,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			if m.breakdownScroll+breakdown.VisibleRows < len(m.profiles[m.profileSelected].Functions)-1 {
+			if m.breakdownScroll+breakdown.VisibleRows < len(m.profiles[m.profileSelected].FunctionCalls)-1 {
 				m.breakdownScroll++
 			}
 		}
 
 	// When a new profile is received, add it to the list of profiles.
-	case tracing.Profile:
-		m.profiles = append(m.profiles, profile.Wrap(msg))
+	case complete.Profile:
+		m.profiles = append(m.profiles, msg)
 		return m, nil
 
 	// Window was resized.

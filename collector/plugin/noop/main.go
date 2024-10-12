@@ -2,7 +2,7 @@
 package main
 
 import (
-	"github.com/skpr/compass/collector/pkg/tracing"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 // Plugin that is exported for use by the collector.
@@ -17,6 +17,6 @@ func (s *plugin) Initialize() error {
 }
 
 // ProcessProfile from the collector.
-func (s *plugin) ProcessProfile(_ tracing.Profile) error {
+func (s *plugin) ProcessProfile(_ complete.Profile) error {
 	return nil
 }

@@ -1,7 +1,7 @@
 package breakdown
 
 import (
-	"fmt"
+	"github.com/skpr/compass/collector/cmd/compass/watch/app/breakdown/graph"
 	"sort"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -26,36 +26,45 @@ func (m Model) View() string {
 
 	profile := m.Profiles[m.Selected]
 
-	if len(profile.Functions) == 0 {
+	if len(profile.FunctionCalls) == 0 {
 		return "No functions available for profile"
 	}
 
-	sort.Slice(profile.Functions, func(i, j int) bool {
-		return profile.Functions[i].TotalExecutionTime > profile.Functions[j].TotalExecutionTime
+	var rows []Row
+
+	for _, details := range profile.FunctionCalls {
+		rows = append(rows, Row{
+			Name:      details.Name,
+			StartTime: details.StartTime,
+			EndTime:   details.EndTime,
+			Diff:      details.EndTime - details.StartTime,
+		})
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].StartTime < rows[j].StartTime
 	})
 
-	var rows []table.Row
+	var visible []table.Row
 
-	start, end := getPositionStartAndEnd(m.ScrollPosition, VisibleRows, len(profile.Functions))
+	start, end := getPositionStartAndEnd(m.ScrollPosition, VisibleRows, len(profile.FunctionCalls))
 
-	for i, f := range profile.Functions {
+	for i, f := range rows {
 		if i < start || i >= end {
 			continue
 		}
 
-		rows = append(rows, []string{
+		visible = append(visible, []string{
 			f.Name,
-			getExecutionGraph(profile.ExecutionTime, f.TotalExecutionTime),
-			fmt.Sprintf("%d", f.Invocations),
+			graph.Render(profile.StartTime, f.StartTime, profile.ExecutionTime, f.Diff/1000),
 		})
 	}
 
 	columns := []table.Column{
-		{Title: "Function", Width: 109},
-		{Title: "Execution Time", Width: 30},
-		{Title: "Invocations", Width: 15},
+		{Title: "Function", Width: 106},
+		{Title: "Timeline", Width: 52},
 	}
 
 	// We add 2 to account for the header and the border.
-	return compasstable.Render(columns, rows, VisibleRows+2)
+	return compasstable.Render(columns, visible, VisibleRows+2)
 }

@@ -2,13 +2,13 @@ package collector
 
 import (
 	"fmt"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 	"log/slog"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
-	"github.com/skpr/compass/collector/pkg/tracing"
 	"github.com/skpr/compass/collector/plugin"
 )
 
@@ -35,9 +35,7 @@ type Manager struct {
 
 // ManagerOptions for configuring the manager.
 type ManagerOptions struct {
-	Expire            time.Duration
-	RequestThreshold  float64
-	FunctionThreshold float64
+	Expire time.Duration
 }
 
 // NewManager creates a new manager.
@@ -84,26 +82,28 @@ func (c *Manager) Handle(event bpfEvent) error {
 
 // Process the function event and store the data.
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
-	function := tracing.Function{
-		Name:          unix.ByteSliceToString(event.FunctionName[:]),
-		ExecutionTime: float64(event.ExecutionTime) / 1e6,
+	function := complete.FunctionCall{
+		Name:      unix.ByteSliceToString(event.FunctionName[:]),
+		StartTime: int64(event.StartTime),
+		EndTime:   int64(event.EndTime),
 	}
 
 	c.logger.Debug("function event has been called",
 		"request_id", requestID,
 		"function_name", function.Name,
-		"execution_time", function.ExecutionTime,
+		"start_time", function.StartTime,
+		"end_time", function.EndTime,
 	)
 
-	var functions []tracing.Function
+	var calls []complete.FunctionCall
 
 	if x, found := c.storage.Get(requestID); found {
-		functions = x.([]tracing.Function)
+		calls = x.([]complete.FunctionCall)
 	}
 
-	functions = append(functions, function)
+	calls = append(calls, function)
 
-	c.storage.Set(requestID, functions, cache.DefaultExpiration)
+	c.storage.Set(requestID, calls, cache.DefaultExpiration)
 
 	return nil
 }
@@ -112,52 +112,34 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 func (c *Manager) handleRequestShutdown(requestID string) error {
 	c.logger.Debug("request shutdown event has been called", "request_id", requestID)
 
-	var functions []tracing.Function
+	var calls []complete.FunctionCall
 
 	if x, found := c.storage.Get(requestID); found {
-		functions = x.([]tracing.Function)
+		calls = x.([]complete.FunctionCall)
 	}
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)
 
-	if len(functions) == 0 {
+	if len(calls) == 0 {
 		return fmt.Errorf("no functions found for request with id: %s", requestID)
 	}
 
-	profile := tracing.Profile{
+	profile := complete.Profile{
 		RequestID: requestID,
-		Functions: make(map[string]tracing.FunctionSummary),
 	}
 
-	for _, function := range functions {
-		if function.Name == FunctionNameRoot {
-			profile.ExecutionTime = function.ExecutionTime
+	for _, call := range calls {
+		if call.Name == FunctionNameRoot {
+			profile.StartTime = call.StartTime
+			profile.ExecutionTime = (call.EndTime - call.StartTime) / 1000
 			continue
 		}
 
-		f := tracing.FunctionSummary{
-			TotalExecutionTime: function.ExecutionTime,
-			Invocations:        1,
-		}
-
-		if _, ok := profile.Functions[function.Name]; ok {
-			f.TotalExecutionTime = f.TotalExecutionTime + profile.Functions[function.Name].TotalExecutionTime
-			f.Invocations = f.Invocations + profile.Functions[function.Name].Invocations
-		}
-
-		profile.Functions[function.Name] = f
+		profile.FunctionCalls = append(profile.FunctionCalls, call)
 	}
 
-	c.logger.Debug("request event has associated functions", "count", len(profile.Functions))
-
-	// Don't send if less than threshold.
-	if profile.ExecutionTime < c.options.RequestThreshold {
-		return nil
-	}
-
-	// Reduce the functions based on threshold.
-	profile.Functions = reduceFunctions(profile.Functions, c.options.FunctionThreshold)
+	c.logger.Debug("request event has associated functions", "count", len(profile.FunctionCalls))
 
 	err := c.plugin.ProcessProfile(profile)
 	if err != nil {
@@ -165,17 +147,4 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 	}
 
 	return nil
-}
-
-// Helper function to reduce the profile output for stdout and cut out unnecessary noise.
-func reduceFunctions(functions map[string]tracing.FunctionSummary, threshold float64) map[string]tracing.FunctionSummary {
-	var reduced = make(map[string]tracing.FunctionSummary)
-
-	for name, function := range functions {
-		if function.TotalExecutionTime > threshold {
-			reduced[name] = function
-		}
-	}
-
-	return reduced
 }
