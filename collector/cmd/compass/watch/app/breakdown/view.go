@@ -1,6 +1,7 @@
 package breakdown
 
 import (
+	"github.com/skpr/compass/collector/cmd/compass/watch/app/breakdown/graph"
 	"sort"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -55,7 +56,7 @@ func (m Model) View() string {
 
 		visible = append(visible, []string{
 			f.Name,
-			getExecutionGraph(profile.StartTime, f.StartTime, profile.ExecutionTime, f.Diff/1000),
+			graph.Render(profile.StartTime, f.StartTime, profile.ExecutionTime, f.Diff/1000),
 		})
 	}
 
