@@ -44,27 +44,34 @@ Below is a condensed example:
 
 ```json
 {
-  "requestID": "xxxxxxxxxxxxxxxxxxxxxxxx",
-  "functions": {
-    "Drupal::config": {
-      "totalExecutionTime": 139670,
-      "invocations": 1
+  "requestID": "55eefc9aa6008d539ef954aff41806a7",
+  "startTime": 1726972907007464,
+  "executionTime": 6054,
+  "functionCalls": [
+    {
+      "name": "Symfony\\Component\\DependencyInjection\\Compiler\\Compiler::compile",
+      "startTime": 1726972907128013,
+      "endTime": 1726972907517795
     },
-    "Drupal::service": {
-      "totalExecutionTime": 1544791,
-      "invocations": 2
+    {
+      "name": "Symfony\\Component\\DependencyInjection\\ContainerBuilder::compile",
+      "startTime": 1726972907128009,
+      "endTime": 1726972907518593
     },
-    "Drupal\\Component\\DependencyInjection\\Container::createService": {
-      "totalExecutionTime": 28472850,
-      "invocations": 58
+    {
+      "name": "Drupal\\Core\\DrupalKernel::compileContainer",
+      "startTime": 1726972907009684,
+      "endTime": 1726972907518625
     },
-    "Drupal\\Component\\DependencyInjection\\Container::get": {
-      "totalExecutionTime": 30639000,
-      "invocations": 63
+    {
+      "name": "Drupal\\Core\\DrupalKernel::initializeContainer",
+      "startTime": 1726972907008223,
+      "endTime": 1726972907612239
     },
-    "Drupal\\Component\\DependencyInjection\\Container::resolveServicesAndParameters": {
-      "totalExecutionTime": 24442445,
-      "invocations": 53
+    {
+      "name": "Drupal\\Core\\DrupalKernel::boot",
+      "startTime": 1726972907008040,
+      "endTime": 1726972907612295
     }
   }
 }
