@@ -1,3 +1,4 @@
+// Package graph for rendering the execution graph.
 package graph
 
 import (
