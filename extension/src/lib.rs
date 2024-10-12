@@ -22,7 +22,7 @@ pub fn get_module() -> Module {
     module.add_ini(enabled::INI_CONFIG, false, Policy::All);
     module.add_ini(mode::INI_CONFIG, "".to_string(), Policy::All);
     module.add_ini(header::INI_CONFIG, "".to_string(), Policy::All);
-    module.add_ini(threshold::INI_CONFIG, 10, Policy::All);
+    module.add_ini(threshold::INI_CONFIG, 100, Policy::All);
 
     module.on_module_init(on_module_init);
 
