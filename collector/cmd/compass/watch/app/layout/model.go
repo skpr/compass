@@ -1,7 +1,9 @@
 // Package layout for handling the layout component.
 package layout
 
-import "github.com/skpr/compass/collector/cmd/compass/watch/app/profile"
+import (
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
+)
 
 // Component for rendering the layout.
 type Component interface {
@@ -13,6 +15,6 @@ type Model struct {
 	Info      Component
 	Breakdown Component
 	Help      Component
-	Profiles  []profile.Profile
+	Profiles  []complete.Profile
 	Selected  int
 }

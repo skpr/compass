@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 	"io"
 	"net/http"
 
@@ -14,7 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/collector/cmd/compass/watch/app"
-	"github.com/skpr/compass/collector/pkg/tracing"
 )
 
 const cmdLong = `
@@ -73,7 +73,7 @@ func (o *Options) Run(addr string) error {
 			return
 		}
 
-		var profile tracing.Profile
+		var profile complete.Profile
 
 		err = json.Unmarshal(body, &profile)
 		if err != nil {

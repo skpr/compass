@@ -31,9 +31,7 @@ const (
 
 // RunOptions for configuring the collector.
 type RunOptions struct {
-	ExecutablePath    string
-	RequestThreshold  float64
-	FunctionThreshold float64
+	ExecutablePath string
 }
 
 // Run the collector.
@@ -76,9 +74,7 @@ func Run(ctx context.Context, logger *slog.Logger, plugin plugin.Interface, opti
 	logger.Info("Starting event manager..")
 
 	manager, err := NewManager(logger, plugin, ManagerOptions{
-		Expire:            time.Minute,
-		RequestThreshold:  options.RequestThreshold,
-		FunctionThreshold: options.FunctionThreshold,
+		Expire: time.Minute,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to initialize event manager: %w", err)
