@@ -39,10 +39,10 @@ flowchart LR
 
 ## Trace
 
-Compass provides developers with aggregated trace data for determining:
+Compass provides developers with 2 types of traces:
 
-* How many times a function was called
-* Total execution time for a function
+* Complete - All function calls.
+* Aggregated - Functions executed within the same span are combined.
 
 Below is a condensed example:
 
@@ -96,3 +96,19 @@ ghcr.io/skpr/compass:extension-8.1-latest
 ```
 ghcr.io/skpr/compass:collector-latest
 ```
+
+## Configuration
+
+| COMPONENT          | ENVIRONMENT VARIABLE                        | DEFAULT VALUE                   | Description                                                                                                                                                                     |
+|--------------------|---------------------------------------------|---------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Extension          | COMPASS_ENABLED                             | false                           | Enable the Compass extension                                                                                                                                                    |
+| Extension          | COMPASS_MODE                                |                                 | What mode the extension should operate. Empty will collect all executions. Setting to "header" will only collect executions when a specific header is set (see COMPASS_HEADER). |
+| Extension          | COMPASS_HEADER                              |                                 | Used to lock down which executions are traced. Need to set `X-Compass` for requests and needs to match this config.                                                             |
+| Extension          | COMPASS_FUNCTION_THRESHOLD                  | 10000                           | Watermark for which functions to trace.                                                                                                                                         |
+| Collector          | COMPASS_COLLECTOR_PLUGIN                    | /usr/lib64/compass/stdout.so    | Path to the plugin that should called by the collector.                                                                                                                         |
+| Collector          | COMPASS_COLLECTOR_LOG_LEVEL                 | info                            | Logging level for the collector component. Set to "debug" for debug notices.                                                                                                    |
+| Collector (Helper) | COMPASS_PROCESS_NAME                        | php-fpm                         | Name of the process to trace.                                                                                                                                                   |
+| Collector (Helper) | COMPASS_LIB_PATH                            | /usr/lib/php/modules/compass.so | Path to extension library which has probes.                                                                                                                                     |
+| Collector (Plugin) | COMPASS_COLLECTOR_CLI_ENDPOINT              | http://localhost:27624          | Endpoint to send traces to for the CLI component.                                                                                                                               |
+| Collector (Plugin) | COMPASS_COLLECTOR_STDOUT_REQUEST_THRESHOLD  | 100                             | Watermark for which requests to trace.                                                                                                                                          |
+| Collector (Plugin) | COMPASS_COLLECTOR_STDOUT_FUNCTION_THRESHOLD | 10                              | Watermark for which functions to trace.                                                                                                                                         |
