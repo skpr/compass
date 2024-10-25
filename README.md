@@ -77,7 +77,7 @@ Below is a condensed example:
       "startTime": 1726972907008040,
       "endTime": 1726972907612295
     },
-  },
+  ],
 }
 ```
 
