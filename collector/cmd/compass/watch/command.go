@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/skpr/compass/collector/pkg/tracing/complete"
 	"io"
 	"net/http"
 
@@ -15,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/collector/cmd/compass/watch/app"
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 )
 
 const cmdLong = `

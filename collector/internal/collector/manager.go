@@ -2,13 +2,13 @@ package collector
 
 import (
 	"fmt"
-	"github.com/skpr/compass/collector/pkg/tracing/complete"
 	"log/slog"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
+	"github.com/skpr/compass/collector/pkg/tracing/complete"
 	"github.com/skpr/compass/collector/plugin"
 )
 

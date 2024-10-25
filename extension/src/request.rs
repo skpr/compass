@@ -3,8 +3,8 @@ use crate::util::{
 };
 
 use crate::header;
-
 use probe::probe;
+use tracing::error;
 
 pub fn init() {
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
@@ -23,8 +23,10 @@ pub fn shutdown() {
 
     let server = match server_result {
         Ok(carrier) => carrier,
-        // @todo, This should not panic.
-        Err(error) => panic!("Problem getting the server: {:?}", error),
+        Err(_err) => {
+            error!("unable to get server info: {}", _err);
+            return;
+        }
     };
 
     if header::block_execution(get_header_key(server)) {
