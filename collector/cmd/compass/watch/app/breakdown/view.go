@@ -1,11 +1,11 @@
 package breakdown
 
 import (
-	"github.com/skpr/compass/collector/cmd/compass/watch/app/breakdown/graph"
 	"sort"
 
 	"github.com/charmbracelet/bubbles/table"
 
+	"github.com/skpr/compass/collector/cmd/compass/watch/app/breakdown/graph"
 	compasstable "github.com/skpr/compass/collector/cmd/compass/watch/app/table"
 )
 
@@ -62,7 +62,7 @@ func (m Model) View() string {
 
 	columns := []table.Column{
 		{Title: "Function", Width: 106},
-		{Title: "Timeline", Width: 52},
+		{Title: "Span", Width: 52},
 	}
 
 	// We add 2 to account for the header and the border.
