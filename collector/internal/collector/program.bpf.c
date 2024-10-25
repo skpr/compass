@@ -13,7 +13,8 @@
 //     Provider: compass
 //     Name: php_function
 //     Location: 0x000000000000fa11, Base: 0x000000000005e9eb, Semaphore: 0x0000000000000000
-//     Arguments: -8@%rdi -8@%rbx -8@%r14
+//     Arguments: -8@%rdi -8@%rbx -8@%r14 -8@%r15
+                  -8@%rdi -8@%r14 -8@%r15 -8@%rbx
 //   stapsdt              0x00000039	NT_STAPSDT (SystemTap probe descriptors)
 //     Provider: compass
 //     Name: request_shutdown
@@ -61,9 +62,9 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_function);
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
-  bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->rbx);
-  event->start_time = ctx->r14;
-  event->end_time = ctx->r15;
+  bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->r15);
+  event->start_time = ctx->r15;
+  event->end_time = ctx->rbx;
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
