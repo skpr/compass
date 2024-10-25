@@ -76,8 +76,8 @@ Below is a condensed example:
       "name": "Drupal\\Core\\DrupalKernel::boot",
       "startTime": 1726972907008040,
       "endTime": 1726972907612295
-    }
-  }
+    },
+  },
 }
 ```
 
