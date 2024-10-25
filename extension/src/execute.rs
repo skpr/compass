@@ -7,7 +7,7 @@ use crate::{header, mode, threshold};
 use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
 use probe::probe;
-use std::{ptr::null_mut, time::SystemTime};
+use std::ptr::null_mut;
 use tracing::error;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
