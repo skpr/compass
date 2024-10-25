@@ -4,20 +4,17 @@ use crate::util::{
 };
 
 use crate::{header, mode, threshold};
-
-use phper::{sys, values::ExecuteData};
-
-use std::{ptr::null_mut, time::SystemTime};
-
 use chrono::prelude::*;
-
+use phper::{sys, values::ExecuteData};
 use probe::probe;
+use std::{ptr::null_mut, time::SystemTime};
+use tracing::error;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),
 > = None;
 
-//
+// This function swaps out the PHP exec function for our own. Allowing us to wrap it.
 pub fn register_exec_functions() {
     unsafe {
         UPSTREAM_EXECUTE_EX = sys::zend_execute_ex;
@@ -25,6 +22,8 @@ pub fn register_exec_functions() {
     }
 }
 
+// This is our exec function that wraps the upstream PHP one.
+// This allows us to gather our execution timing data.
 unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
         Some(execute_data) => execute_data,
@@ -34,7 +33,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    // @todo, Consider making this work for other situations eg. CLI.
+    // @todo, Consider making this work for other situations eg. Apache, CLI etc
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
         upstream_execute_ex(Some(execute_data));
         return;
@@ -44,8 +43,11 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let server = match server_result {
         Ok(carrier) => carrier,
-        // @todo, This should not panic.
-        Err(error) => panic!("Problem getting the server: {:?}", error),
+        Err(_err) => {
+            error!("unable to get server info: {}", _err);
+            upstream_execute_ex(Some(execute_data));
+            return;
+        }
     };
 
     if header::block_execution(get_header_key(server)) {
@@ -56,8 +58,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let (function_name, class_name) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
         Err(_err) => {
-            // @todo, Log the error.
-            // error!(?err, "get function and class name failed");
+            error!("failed to get class and function name: {}", _err);
             upstream_execute_ex(Some(execute_data));
             return;
         }
