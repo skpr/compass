@@ -48,7 +48,7 @@ jobs:
       - name: 📦 Setup
         run: |
           cd .github/workflows/performance/matrix/${{ matrix.configuration }}
-          docker compose up
+          docker compose up -d --wait
           docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/private
           docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
