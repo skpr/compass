@@ -32,12 +32,6 @@ jobs:
       # - name: Collect Workflow Telemetry
       #   uses: catchpoint/workflow-telemetry-action@v2
 
-      - name: 📁 Init
-        run: |
-          # Create performance testing results directory.
-          sudo mkdir -p ./output
-          sudo chmod 777 ./output
-
       - name: 📦 Build Images
         run: |
           docker build -t localhost/compass:nginx-latest .github/workflows/performance/docker/compose/nginx
@@ -61,7 +55,10 @@ jobs:
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
-          bash .github/workflows/performance/matrix/${{ matrix.configuration }}/logs.sh ./output
+          cd .github/workflows/performance/matrix/${{ matrix.configuration }}
+          sudo mkdir -p ./output
+          sudo chmod 777 ./output
+          bash logs.sh ./output
 
       - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
@@ -69,7 +66,7 @@ jobs:
         with:
           name: ${{ matrix.configuration }}
           path: |
-            ./output
+            .github/workflows/performance/matrix/${{ matrix.configuration }}/output
 
   results:
     name: Compare Results
