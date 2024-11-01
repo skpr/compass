@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 
-	"github.com/skpr/compass/collector/manager"
 	"github.com/skpr/compass/collector/sink"
 	"github.com/skpr/compass/collector/usdt"
 )
@@ -74,7 +73,7 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 
 	logger.Info("Starting event manager..")
 
-	manager, err := manager.New(logger, plugin, manager.Options{
+	manager, err := NewManager(logger, plugin, Options{
 		Expire: time.Minute,
 	})
 	if err != nil {

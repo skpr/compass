@@ -1,3 +1,4 @@
+// Package discovery is used to discover the location of the extension.
 package discovery
 
 import (

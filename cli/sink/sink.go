@@ -1,4 +1,4 @@
-// Package sink implements a simple sink that prints to stdout.
+// Package sink implements a simple sink that stores profiles in the CLI application.
 package sink
 
 import (

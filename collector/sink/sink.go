@@ -1,3 +1,4 @@
+// Package sink is used to declare the interface used for sinks.
 package sink
 
 import (

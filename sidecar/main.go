@@ -1,4 +1,4 @@
-// Package main provides the entrypoint for the collector.
+// Package main provides the entrypoint for the sidecar.
 package main
 
 import (
@@ -25,6 +25,7 @@ var (
 		compass-sidecar --extension=/usr/lib/php/modules/something-else.so`
 )
 
+// Options for this sidecar application.
 type Options struct {
 	ProcessName       string
 	ProcessPoll       time.Duration

@@ -35,6 +35,7 @@ const cmdLong = `   _____ ____  __  __ _____         _____ _____
 
 A toolkit for pointing developers in the right direction for performance issues.`
 
+// Options for the CLI.
 type Options struct {
 	ProcessName   string
 	ProcessPoll   time.Duration
@@ -49,7 +50,7 @@ func main() {
 		Short:   "A toolkit for pointing developers in the right direction for performance issues.",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			p := tea.NewProgram(app.NewModel(), tea.WithAltScreen())
 
 			ctx, cancel := context.WithCancel(context.Background())

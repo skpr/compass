@@ -1,10 +1,11 @@
-package manager
+package collector
 
 import (
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/collector/sink"
@@ -37,8 +38,8 @@ type Options struct {
 	Expire time.Duration
 }
 
-// New creates a new manager.
-func New(logger *slog.Logger, plugin sink.Interface, options Options) (*Manager, error) {
+// NewManager creates a new manager.
+func NewManager(logger *slog.Logger, plugin sink.Interface, options Options) (*Manager, error) {
 	client := &Manager{
 		logger:  logger,
 		storage: cache.New(options.Expire, options.Expire),
