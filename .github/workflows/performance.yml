@@ -40,20 +40,28 @@ jobs:
 
       - name: 📦 Build Images
         run: |
-          make build
+          docker build -t localhost/compass:nginx-latest .github/workflows/performance/docker/compose/nginx
+          docker build -t localhost/compass:php-fpm-latest .github/workflows/performance/docker/compose/php-fpm
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:latest .
+          docker build -t localhost/compass:php-fpm-ext-latest .github/workflows/performance/docker/compose/php-fpm-ext
 
       - name: 📦 Setup
         run: |
-          bash .github/workflows/performance/matrix/up/${{ matrix.configuration }}.sh
+          cd .github/workflows/performance/matrix/logs/${{ matrix.configuration }}
+          docker compose up
+          docker compose exec --user=root php-fpm chown skpr:skpr /data/app/sites/default/files
+          docker compose exec --user=root php-fpm chown skpr:skpr /mnt/private
+          docker compose exec --user=root php-fpm chown skpr:skpr /mnt/temporary
+          docker compose exec -e PHP_MEMORY_LIMIT=512M php-fpm vendor/bin/drush si demo_umami
 
       - name: 🧪 K6 - Execute Performance Test
         run: |
-          bash ./performance-testing/scripts/k6_run.sh ./performance-testing/scenarios/basic.js ./output report.json
+          bash .github/workflows/performance/scripts/k6_run.sh .github/workflows/performance/scenarios/basic.js ./output report.json
 
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
-          bash .github/workflows/performance/matrix/logs/${{ matrix.configuration }}.sh ./output
+          bash .github/workflows/performance/matrix/${{ matrix.configuration }}/logs.sh ./output
 
       - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
@@ -80,7 +88,7 @@ jobs:
 
       - name: 📋 Review Test Results
         run: |
-          go run ./performance-testing/scripts/results.go
+          go run .github/workflows/performance/scripts/results.go
 
       - name: 📋 Post Test Results to Summary
         if: always()
