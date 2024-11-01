@@ -35,8 +35,8 @@ jobs:
       - name: 📁 Init
         run: |
           # Create performance testing results directory.
-          sudo mkdir -p .github/workflows/performance/matrix/${{ matrix.configuration }}/output
-          sudo chmod 777  .github/workflows/performance/matrix/${{ matrix.configuration }}/output
+          sudo mkdir -p /tmp/output
+          sudo chmod 777  /tmp/output
 
       - name: 📦 Build Images
         run: |
@@ -56,13 +56,13 @@ jobs:
 
       - name: 🧪 K6 - Execute Performance Test
         run: |
-          bash .github/workflows/performance/scripts/k6_run.sh .github/workflows/performance/scenarios/basic.js  .github/workflows/performance/matrix/${{ matrix.configuration }}/output report.json
+          bash .github/workflows/performance/scripts/k6_run.sh .github/workflows/performance/scenarios/basic.js  /tmp/output report.json
 
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
           cd .github/workflows/performance/matrix/${{ matrix.configuration }}
-          bash logs.sh .github/workflows/performance/matrix/${{ matrix.configuration }}/output
+          bash logs.sh /tmp/output
 
       - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
