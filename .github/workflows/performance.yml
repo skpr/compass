@@ -32,6 +32,12 @@ jobs:
       # - name: Collect Workflow Telemetry
       #   uses: catchpoint/workflow-telemetry-action@v2
 
+      - name: 📁 Init
+        run: |
+          # Create performance testing results directory.
+          sudo mkdir -p .github/workflows/performance/matrix/${{ matrix.configuration }}/output
+          sudo chmod 777  .github/workflows/performance/matrix/${{ matrix.configuration }}/output
+
       - name: 📦 Build Images
         run: |
           docker build -t localhost/compass:nginx-latest .github/workflows/performance/docker/compose/nginx
@@ -50,15 +56,13 @@ jobs:
 
       - name: 🧪 K6 - Execute Performance Test
         run: |
-          bash .github/workflows/performance/scripts/k6_run.sh .github/workflows/performance/scenarios/basic.js ./output report.json
+          bash .github/workflows/performance/scripts/k6_run.sh .github/workflows/performance/scenarios/basic.js  .github/workflows/performance/matrix/${{ matrix.configuration }}/output report.json
 
       - name: 📋 Save Logs (Debugging)
         if: always()
         run: |
           cd .github/workflows/performance/matrix/${{ matrix.configuration }}
-          sudo mkdir -p ./output
-          sudo chmod 777 ./output
-          bash logs.sh ./output
+          bash logs.sh .github/workflows/performance/matrix/${{ matrix.configuration }}/output
 
       - name: 📋 Archive Output
         uses: actions/upload-artifact@v4
@@ -66,7 +70,7 @@ jobs:
         with:
           name: ${{ matrix.configuration }}
           path: |
-            .github/workflows/performance/matrix/${{ matrix.configuration }}/output
+            ./output
 
   results:
     name: Compare Results
