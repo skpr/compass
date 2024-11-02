@@ -59,11 +59,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    if class_name.is_none() {
-        upstream_execute_ex(Some(execute_data));
-        return;
-    }
-
     let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
     let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
     let combined_name = get_combined_name(class_name, function_name);
