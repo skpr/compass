@@ -38,7 +38,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let class_name = match function
         .get_class()
-        .expect("class not found")
         .get_name()
         .to_str()
         .map(ToOwned::to_owned)
@@ -52,7 +51,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let function_name = match function
         .get_function_name()
-        .expect("function name not found")
         .to_str()
         .map(ToOwned::to_owned)
     {
