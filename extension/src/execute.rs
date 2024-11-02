@@ -75,17 +75,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     ) {
         return;
     }
-
-    let request_id = get_request_id(server);
-
-    probe!(
-        compass,
-        php_function,
-        request_id.as_ptr(),
-        combined_name.as_ptr(),
-        start,
-        end,
-    );
 }
 
 // Helper function to allow all probes if the header mode is enabled.
