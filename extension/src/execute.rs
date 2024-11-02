@@ -8,6 +8,7 @@ use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
 use probe::probe;
 use std::ptr::null_mut;
+use phper::strings::ZStr;
 use tracing::error;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
@@ -39,13 +40,34 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
-    let (function_name, class_name) = match get_function_and_class_name(execute_data) {
+    let function = execute_data.func();
+
+    let class_name = match function
+        .get_class()
+        .expect("class not found")
+        .get_name()
+        .to_str()
+        .map(ToOwned::to_owned) {
         Ok(x) => x,
         Err(_err) => {
             upstream_execute_ex(Some(execute_data));
             return;
         }
     };
+
+    let function_name = function
+        .get_function_name()
+        .map(ZStr::to_str)
+        .transpose()?
+        .map(ToOwned::to_owned);
+
+    /*let (function_name, class_name) = match get_function_and_class_name(execute_data) {
+        Ok(x) => x,
+        Err(_err) => {
+            upstream_execute_ex(Some(execute_data));
+            return;
+        }
+    };*/
 
     let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
     let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
