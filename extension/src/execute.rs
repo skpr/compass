@@ -1,8 +1,14 @@
-use crate::util::get_sapi_module_name;
+use crate::util::{
+    get_combined_name, get_function_and_class_name, get_header_key, get_request_id,
+    get_request_server, get_sapi_module_name,
+};
 
+use crate::{header, mode, threshold};
 use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
+use probe::probe;
 use std::ptr::null_mut;
+use tracing::error;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),
@@ -32,6 +38,17 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         upstream_execute_ex(Some(execute_data));
         return;
     }
+
+    let server_result = get_request_server();
+
+    let server = match server_result {
+        Ok(carrier) => carrier,
+        Err(_err) => {
+            error!("unable to get server info: {}", _err);
+            upstream_execute_ex(Some(execute_data));
+            return;
+        }
+    };
 
     upstream_execute_ex(Some(execute_data));
     return;
