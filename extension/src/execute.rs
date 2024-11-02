@@ -1,14 +1,10 @@
 use crate::util::{
-    get_combined_name, get_function_and_class_name, get_header_key, get_request_id,
-    get_request_server, get_sapi_module_name,
+    get_sapi_module_name,
 };
 
-use crate::{header, mode, threshold};
 use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
-use probe::probe;
 use std::ptr::null_mut;
-use tracing::error;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),
@@ -39,67 +35,8 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
-    let server_result = get_request_server();
-
-    let server = match server_result {
-        Ok(carrier) => carrier,
-        Err(_err) => {
-            error!("unable to get server info: {}", _err);
-            upstream_execute_ex(Some(execute_data));
-            return;
-        }
-    };
-
-    if header::block_execution(get_header_key(server)) {
-        upstream_execute_ex(Some(execute_data));
-        return;
-    }
-
-    let (function_name, class_name) = match get_function_and_class_name(execute_data) {
-        Ok(x) => x,
-        Err(_err) => {
-            error!("failed to get class and function name: {}", _err);
-            upstream_execute_ex(Some(execute_data));
-            return;
-        }
-    };
-
-    let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
-
-    // Only trace function calls that belong to a class.
-    // @todo, Consider making this configurable later.
-    if class_name == "" {
-        upstream_execute_ex(Some(execute_data));
-        return;
-    }
-
-    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
-    let combined_name = get_combined_name(class_name, function_name);
-
-    let start = get_unix_timestamp_micros();
-
-    // Run the upstream function.
     upstream_execute_ex(Some(execute_data));
-
-    let end = get_unix_timestamp_micros();
-
-    if block_probe_event(
-        mode::header_enabled(),
-        threshold::is_under_function_threshold(end - start),
-    ) {
-        return;
-    }
-
-    let request_id = get_request_id(server);
-
-    probe!(
-        compass,
-        php_function,
-        request_id.as_ptr(),
-        combined_name.as_ptr(),
-        start,
-        end,
-    );
+    return;
 }
 
 // Helper function to allow all probes if the header mode is enabled.
