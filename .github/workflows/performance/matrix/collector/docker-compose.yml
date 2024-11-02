@@ -1,0 +1,42 @@
+services:
+
+  nginx:
+    image: localhost/compass:nginx-latest
+    ports:
+      - 8080:8080
+      - 3306:3306
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - public-files:/data/app/sites/default/files
+      - private-files:/mnt/private
+      - temporary-files:/mnt/temporary
+
+  php-fpm:
+    image: localhost/compass:php-fpm-ext-latest
+    network_mode: service:nginx
+    volumes:
+      - public-files:/data/app/sites/default/files
+      - private-files:/mnt/private
+      - temporary-files:/mnt/temporary
+    environment:
+      - COMPASS_ENABLED=true
+
+  mysql-default:
+    image: docker.io/skpr/mysql-empty:8.x-v3-edge
+    network_mode: service:nginx
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      interval: 1s
+      retries: 60
+
+  collector:
+    image: localhost/compass:latest
+    user: root
+    privileged: true
+    pid: host
+
+volumes:
+  public-files: {}
+  private-files: {}
+  temporary-files: {}

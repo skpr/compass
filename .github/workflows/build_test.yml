@@ -18,4 +18,4 @@ jobs:
 
       - name: 📦 Build Images
         run: |
-          make build
+          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:latest .
