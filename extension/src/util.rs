@@ -1,4 +1,4 @@
-use phper::{arrays::ZArr, eg, pg, strings::ZStr, sys, values::ExecuteData, values::ZVal};
+use phper::{arrays::ZArr, eg, pg, sys, values::ZVal};
 
 use std::ffi::CStr;
 

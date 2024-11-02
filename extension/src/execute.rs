@@ -1,8 +1,7 @@
-use crate::util::{get_combined_name, get_function_and_class_name, get_sapi_module_name};
+use crate::util::{get_combined_name, get_sapi_module_name};
 
 use crate::{mode, threshold};
 use chrono::prelude::*;
-use phper::strings::ZStr;
 use phper::{sys, values::ExecuteData};
 use std::ptr::null_mut;
 
@@ -64,7 +63,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    let combined_name = get_combined_name(class_name, function_name);
+    let _combined_name = get_combined_name(class_name, function_name);
 
     let start = get_unix_timestamp_micros();
 
