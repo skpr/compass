@@ -51,22 +51,19 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    let function_name = function
+    let function_name = match function
         .get_function_name()
-        .map(ZStr::to_str)
-        .transpose()?
-        .map(ToOwned::to_owned);
-
-    /*let (function_name, class_name) = match get_function_and_class_name(execute_data) {
+        .expect("function name not found")
+        .to_str()
+        .map(ToOwned::to_owned)
+    {
         Ok(x) => x,
         Err(_err) => {
             upstream_execute_ex(Some(execute_data));
             return;
         }
-    };*/
+    };
 
-    let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
-    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
     let combined_name = get_combined_name(class_name, function_name);
 
     let start = get_unix_timestamp_micros();
