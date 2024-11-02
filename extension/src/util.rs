@@ -22,6 +22,8 @@ pub fn get_function_and_class_name(
 
     let class_name = function
         .get_class()
+        .unwrap()
+        .get_name()
         .map(ZStr::to_str)
         .transpose()?
         .map(ToOwned::to_owned);
