@@ -36,7 +36,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let function = execute_data.func();
 
-    let class_name = match function.get_class() {
+    let _class_name = match function.get_class() {
         Some(x) => x.get_name().to_str().map(ToOwned::to_owned),
         None => {
             upstream_execute_ex(Some(execute_data));
@@ -44,7 +44,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    let function_name = match function.get_function_name() {
+    let _function_name = match function.get_function_name() {
         Some(x) => x.to_str().map(ToOwned::to_owned),
         None => {
             upstream_execute_ex(Some(execute_data));
@@ -52,7 +52,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    let _combined_name = get_combined_name(class_name.unwrap(), function_name.unwrap());
+    //let _combined_name = get_combined_name(class_name.unwrap(), function_name.unwrap());
 
     let start = get_unix_timestamp_micros();
 
