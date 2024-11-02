@@ -20,15 +20,16 @@ pub fn get_function_and_class_name(
 ) -> anyhow::Result<(Option<String>, Option<String>)> {
     let function = execute_data.func();
 
+    let class_name = function
+        .get_class()
+        .map(|cls| cls.get_name().to_str().map(ToOwned::to_owned))
+        .transpose().expect("class name not found");
+
     let function_name = function
         .get_function_name()
         .map(ZStr::to_str)
         .transpose()?
         .map(ToOwned::to_owned);
-    let class_name = function
-        .get_class()
-        .map(|cls| cls.get_name().to_str().map(ToOwned::to_owned))
-        .transpose()?;
 
     Ok((function_name, class_name))
 }
