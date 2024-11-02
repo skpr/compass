@@ -39,7 +39,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let function = execute_data.func();
 
     let class_name = match function.get_class() {
-        Some(x) => x.get_name().to_str().map(ToOwned::to_owned),
+        Some(x) => x.get_name().to_str(),
         None => {
             upstream_execute_ex(Some(execute_data));
             return;
@@ -47,7 +47,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     };
 
     let function_name = match function.get_function_name() {
-        Some(x) => x.to_str().map(ToOwned::to_owned),
+        Some(x) => x.to_str(),
         None => {
             upstream_execute_ex(Some(execute_data));
             return;
@@ -74,7 +74,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         Ok(carrier) => carrier,
         Err(_err) => {
             error!("unable to get server info: {}", _err);
-            upstream_execute_ex(Some(execute_data));
             return;
         }
     };
