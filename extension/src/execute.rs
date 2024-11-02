@@ -47,7 +47,8 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         .expect("class not found")
         .get_name()
         .to_str()
-        .map(ToOwned::to_owned) {
+        .map(ToOwned::to_owned)
+    {
         Ok(x) => x,
         Err(_err) => {
             upstream_execute_ex(Some(execute_data));
