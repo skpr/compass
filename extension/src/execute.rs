@@ -1,9 +1,11 @@
-use crate::util::{get_combined_name, get_sapi_module_name};
+use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
 
 use crate::{mode, threshold};
 use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
+use probe::probe;
 use std::ptr::null_mut;
+use tracing::error;
 
 static mut UPSTREAM_EXECUTE_EX: Option<
     unsafe extern "C" fn(execute_data: *mut sys::zend_execute_data),
@@ -36,7 +38,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
 
     let function = execute_data.func();
 
-    let _class_name = match function.get_class() {
+    let class_name = match function.get_class() {
         Some(x) => x.get_name().to_str().map(ToOwned::to_owned),
         None => {
             upstream_execute_ex(Some(execute_data));
@@ -44,15 +46,13 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    let _function_name = match function.get_function_name() {
+    let function_name = match function.get_function_name() {
         Some(x) => x.to_str().map(ToOwned::to_owned),
         None => {
             upstream_execute_ex(Some(execute_data));
             return;
         }
     };
-
-    //let _combined_name = get_combined_name(class_name.unwrap(), function_name.unwrap());
 
     let start = get_unix_timestamp_micros();
 
@@ -67,6 +67,29 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     ) {
         return;
     }
+
+    let server_result = get_request_server();
+
+    let server = match server_result {
+        Ok(carrier) => carrier,
+        Err(_err) => {
+            error!("unable to get server info: {}", _err);
+            upstream_execute_ex(Some(execute_data));
+            return;
+        }
+    };
+
+    let request_id = get_request_id(server);
+
+    probe!(
+        compass,
+        php_function,
+        request_id.as_ptr(),
+        class_name.unwrap().as_ptr(),
+        function_name.unwrap().as_ptr(),
+        start,
+        end,
+    );
 }
 
 // Helper function to allow all probes if the header mode is enabled.
