@@ -39,17 +39,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
-    let server_result = get_request_server();
-
-    let server = match server_result {
-        Ok(carrier) => carrier,
-        Err(_err) => {
-            error!("unable to get server info: {}", _err);
-            upstream_execute_ex(Some(execute_data));
-            return;
-        }
-    };
-
     let (function_name, class_name) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
         Err(_err) => {
