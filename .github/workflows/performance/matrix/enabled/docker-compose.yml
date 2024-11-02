@@ -21,6 +21,7 @@ services:
       - temporary-files:/mnt/temporary
     environment:
       - COMPASS_ENABLED=true
+      - RUST_BACKTRACE=1
 
   mysql-default:
     image: docker.io/skpr/mysql-empty:8.x-v3-edge
