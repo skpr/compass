@@ -50,6 +50,11 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
+    if header::block_execution(get_header_key(server)) {
+        upstream_execute_ex(Some(execute_data));
+        return;
+    }
+
     upstream_execute_ex(Some(execute_data));
     return;
 }
