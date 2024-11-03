@@ -33,9 +33,13 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
+    // Run the upstream function and record the duration.
+    let start = get_unix_timestamp_micros();
+    upstream_execute_ex(Some(execute_data));
+    let end = get_unix_timestamp_micros();
+
     // @todo, Consider making this work for other situations eg. Apache, CLI etc
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
-        upstream_execute_ex(Some(execute_data));
         return;
     }
 
@@ -45,35 +49,13 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         Ok(carrier) => carrier,
         Err(_err) => {
             error!("unable to get server info: {}", _err);
-            upstream_execute_ex(Some(execute_data));
             return;
         }
     };
 
     if header::block_execution(get_header_key(server)) {
-        upstream_execute_ex(Some(execute_data));
         return;
     }
-
-    let (function_name, class_name) = match get_function_and_class_name(execute_data) {
-        Ok(x) => x,
-        Err(_err) => {
-            error!("failed to get class and function name: {}", _err);
-            upstream_execute_ex(Some(execute_data));
-            return;
-        }
-    };
-
-    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
-    let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
-    let combined_name = get_combined_name(class_name, function_name);
-
-    let start = get_unix_timestamp_micros();
-
-    // Run the upstream function.
-    upstream_execute_ex(Some(execute_data));
-
-    let end = get_unix_timestamp_micros();
 
     if block_probe_event(
         mode::header_enabled(),
@@ -83,6 +65,18 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     }
 
     let request_id = get_request_id(server);
+
+    let (function_name, class_name) = match get_function_and_class_name(execute_data) {
+        Ok(x) => x,
+        Err(_err) => {
+            error!("failed to get class and function name: {}", _err);
+            return;
+        }
+    };
+
+    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
+    let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
+    let combined_name = get_combined_name(class_name, function_name);
 
     probe!(
         compass,
