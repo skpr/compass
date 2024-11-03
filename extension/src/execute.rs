@@ -66,7 +66,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let class_name = match execute_data.func().get_class() {
         Some(x) => x.get_name().to_str(),
         None => {
-            upstream_execute_ex(Some(execute_data));
             return;
         }
     };
@@ -74,7 +73,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     let function_name = match execute_data.func().get_function_name() {
         Some(x) => x.to_str(),
         None => {
-            upstream_execute_ex(Some(execute_data));
             return;
         }
     };
