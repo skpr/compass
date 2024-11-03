@@ -82,7 +82,7 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
 
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rbx);
+  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
