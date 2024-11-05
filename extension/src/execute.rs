@@ -77,8 +77,8 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         compass,
         php_function,
         request_id.as_ptr(),
-        class_name.as_ptr(),
-        function_name.as_ptr(),
+        class_name.get_name().as_c_str_ptr(),
+        function_name.as_c_str_ptr(),
         start,
         end,
     );
