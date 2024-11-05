@@ -95,7 +95,7 @@ func main() {
 	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", 100, "Path to the Compass extension")
 
 	// Debugging.
-	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", "debug", "Set the logging level")
+	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", "info", "Set the logging level")
 
 	err := cmd.Execute()
 	if err != nil {
