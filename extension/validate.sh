@@ -34,7 +34,7 @@ else
 fi
 
 # Validate php_function args.
-if readelf -n ${FILE} | grep -q 'Arguments: -8@%rbx -8@%rdi -8@%rbp -8@%r13'; then
+if readelf -n ${FILE} | grep -q 'Arguments: -8@%rdi -8@%r15 -8@%rbx -8@%r12 -8@%r14'; then
   echo "php_function args are correct"
 else
   echo "php_function args are incorrect. We found:"
