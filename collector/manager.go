@@ -83,7 +83,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 // Process the function event and store the data.
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := complete.FunctionCall{
-		Name:      unix.ByteSliceToString(event.FunctionName[:]),
+		Name:      fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
 		StartTime: int64(event.StartTime),
 		EndTime:   int64(event.EndTime),
 	}
