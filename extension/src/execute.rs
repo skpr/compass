@@ -1,5 +1,5 @@
 use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
-use crate::{header, mode, threshold};
+use crate::{header, threshold};
 use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
 use probe::probe;
@@ -39,6 +39,10 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
+    if threshold::is_under_function_threshold(end - start) {
+        return;
+    }
+
     let server_result = get_request_server();
 
     let server = match server_result {
@@ -50,13 +54,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     };
 
     if header::block_execution(get_header_key(server)) {
-        return;
-    }
-
-    if block_probe_event(
-        mode::header_enabled(),
-        threshold::is_under_function_threshold(end - start),
-    ) {
         return;
     }
 
@@ -85,15 +82,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         start,
         end,
     );
-}
-
-// Helper function to allow all probes if the header mode is enabled.
-fn block_probe_event(header_mode_enabled: bool, is_under_threshold: bool) -> bool {
-    if header_mode_enabled {
-        return false;
-    };
-
-    is_under_threshold
 }
 
 #[inline]
