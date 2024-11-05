@@ -91,8 +91,8 @@ func main() {
 
 	// Sink configuration.
 	// @todo, Configurable.
-	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", 10, "Path to the Compass extension")
-	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", 100, "Path to the Compass extension")
+	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", 5, "Path to the Compass extension")
+	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", 50, "Path to the Compass extension")
 
 	// Debugging.
 	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", "info", "Set the logging level")
