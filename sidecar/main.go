@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/christgf/env"
 	"github.com/spf13/cobra"
 
 	"github.com/skpr/compass/collector"
@@ -21,8 +22,14 @@ var (
 		# Run the sidecar with the defaults.
 		compass-sidecar
 
-		# Run the sidecar and target a different library.
-		compass-sidecar --extension=/usr/lib/php/modules/something-else.so`
+		# Run the sidecar with all the thresholds disabled.
+		export COMPASS_FUNCTION_THRESHOLD=0
+		export COMPASS_REQUEST_THRESHOLD=0
+		compass-sidecar
+
+		# Enable debugging.
+		export COMPASS_LOG_LEVEL=info
+		compass-sidecar`
 )
 
 // Options for this sidecar application.
@@ -85,17 +92,16 @@ func main() {
 	}
 
 	// Extension discovery flags.
-	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", "php-fpm", "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().DurationVar(&o.ProcessPoll, "process-poll", time.Second*5, "How frequently to poll for current list of processes")
-	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
+	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
+	cmd.PersistentFlags().DurationVar(&o.ProcessPoll, "process-poll", env.Duration("COMPASS_PROCESS_POLL", time.Second*5), "How frequently to poll for current list of processes")
+	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
 	// Sink configuration.
-	// @todo, Configurable.
-	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", 0, "Path to the Compass extension")
-	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", 0, "Path to the Compass extension")
+	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_FUNCTION_THRESHOLD", 10), "Watermark for which functionss to trace")
+	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_REQUEST_THRESHOLD", 100), "Watermark for which requests to trace")
 
 	// Debugging.
-	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", "info", "Set the logging level")
+	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_LOG_LEVEL", "info"), "Set the logging level")
 
 	err := cmd.Execute()
 	if err != nil {

@@ -20,6 +20,9 @@ github.com/charmbracelet/x/ansi/parser
 # github.com/charmbracelet/x/term v0.2.0
 ## explicit; go 1.18
 github.com/charmbracelet/x/term
+# github.com/christgf/env v0.0.0-20230511114549-ccdc1a7b5961
+## explicit; go 1.18
+github.com/christgf/env
 # github.com/cilium/ebpf v0.16.0
 ## explicit; go 1.21
 github.com/cilium/ebpf
@@ -113,6 +116,8 @@ github.com/tklauser/numcpus
 # github.com/yusufpapurcu/wmi v1.2.4
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
+# gitlab.com/avarf/getenvs v1.0.1
+## explicit; go 1.15
 # golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2
 ## explicit; go 1.18
 golang.org/x/exp/constraints
