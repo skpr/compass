@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/christgf/env"
 	"github.com/jwalton/gchalk"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -46,7 +47,7 @@ func main() {
 	o := Options{}
 
 	cmd := &cobra.Command{
-		Use:     "compass-sidecar",
+		Use:     "compass",
 		Short:   "A toolkit for pointing developers in the right direction for performance issues.",
 		Long:    cmdLong,
 		Example: cmdExample,
@@ -89,14 +90,14 @@ func main() {
 		},
 	}
 
-	// Extension discovery flags.
-	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", "php-fpm", "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().DurationVar(&o.ProcessPoll, "process-poll", time.Second*5, "How frequently to poll for current list of processes")
-	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", "/usr/lib/php/modules/compass.so", "Path to the Compass extension")
+	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
+	cmd.PersistentFlags().DurationVar(&o.ProcessPoll, "process-poll", env.Duration("COMPASS_PROCESS_POLL", time.Second*5), "How frequently to poll for current list of processes")
+	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
 	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
 		return gchalk.WithHex(color.Orange).Bold(data)
 	})
+
 	usageTemplate := cmd.UsageTemplate()
 	usageTemplate = strings.NewReplacer(
 		`Usage:`, `{{StyleHeading "Usage:"}}`,

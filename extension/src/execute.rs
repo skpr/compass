@@ -1,9 +1,5 @@
-use crate::util::{
-    get_combined_name, get_function_and_class_name, get_header_key, get_request_id,
-    get_request_server, get_sapi_module_name,
-};
-
-use crate::{header, mode, threshold};
+use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
+use crate::{header, threshold};
 use chrono::prelude::*;
 use phper::{sys, values::ExecuteData};
 use probe::probe;
@@ -43,6 +39,10 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
+    if threshold::is_under_function_threshold(end - start) {
+        return;
+    }
+
     let server_result = get_request_server();
 
     let server = match server_result {
@@ -57,44 +57,31 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         return;
     }
 
-    if block_probe_event(
-        mode::header_enabled(),
-        threshold::is_under_function_threshold(end - start),
-    ) {
-        return;
-    }
-
-    let request_id = get_request_id(server);
-
-    let (function_name, class_name) = match get_function_and_class_name(execute_data) {
-        Ok(x) => x,
-        Err(_err) => {
-            error!("failed to get class and function name: {}", _err);
+    let class_name = match execute_data.func().get_class() {
+        Some(class_name) => class_name,
+        None => {
             return;
         }
     };
 
-    let function_name: String = function_name.map(|f| f.to_string()).unwrap_or_default();
-    let class_name: String = class_name.map(|c| c.to_string()).unwrap_or_default();
-    let combined_name = get_combined_name(class_name, function_name);
+    let function_name = match execute_data.func().get_function_name() {
+        Some(function_name) => function_name,
+        None => {
+            return;
+        }
+    };
+
+    let request_id = get_request_id(server);
 
     probe!(
         compass,
         php_function,
         request_id.as_ptr(),
-        combined_name.as_ptr(),
+        class_name.get_name().as_c_str_ptr(),
+        function_name.as_c_str_ptr(),
         start,
         end,
     );
-}
-
-// Helper function to allow all probes if the header mode is enabled.
-fn block_probe_event(header_mode_enabled: bool, is_under_threshold: bool) -> bool {
-    if header_mode_enabled {
-        return false;
-    };
-
-    is_under_threshold
 }
 
 #[inline]
