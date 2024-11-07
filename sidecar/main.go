@@ -97,11 +97,11 @@ func main() {
 	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
 	// Sink configuration.
-	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_FUNCTION_THRESHOLD", 10), "Watermark for which functionss to trace")
-	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_REQUEST_THRESHOLD", 100), "Watermark for which requests to trace")
+	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_SIDECAR_FUNCTION_THRESHOLD", 10), "Watermark for which functionss to trace")
+	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_SIDECAR_REQUEST_THRESHOLD", 100), "Watermark for which requests to trace")
 
 	// Debugging.
-	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_LOG_LEVEL", "info"), "Set the logging level")
+	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
 
 	err := cmd.Execute()
 	if err != nil {
