@@ -19,23 +19,18 @@ flowchart LR
 
    eBPF --> Events["Events (Ring Buffer)"]
 
-   Events --> Collector["Collector (Go)"]
-
-   Collector --> PluginStdout["Stdout (Go Plugin)"]
-   Collector --> PluginCLI["CLI (Go Plugin)"]
-   Collector --> PluginNoop["Noop (Go Plugin)"]
-
-   PluginCLI --> CLI
+   Events --> CLI["CLI (Go)"]
+   Events --> Sidecar["Sidecar (Go)"]
 ```
 
 ## Components
 
-| Directory | Description                                                                                      |
-|-----------|--------------------------------------------------------------------------------------------------|
-| extension | PHP extension which implements USDT probes using PHP's Oberserver APi.                           |
-| bpftrace  | bpftrace scripts for testing the extension and demonstrating how the probes can be utilised.     |
-| example   | Example for testing purposes.                                                                    |
-| collector | Listens to USDT probes, collates them and sends them to the collector plugin (stdout, file etc). |
+| Directory | Description                                                                                  |
+|-----------|----------------------------------------------------------------------------------------------|
+| bpftrace  | bpftrace scripts for testing the extension and demonstrating how the probes can be utilised. |
+| extension | PHP extension which implements USDT probes.                                                  |
+| cli       | Commandline interface that collects telemetry from USDT probes.                              |
+| sidecar   | Sidecar that collects telemetry from USDT probes and log to stdout.                          |
 
 ## Trace
 
