@@ -37,8 +37,8 @@ services:
     pid: host
     environment:
       # Set all the thresholds to 0 so we can profile every request.
-      - COMPASS_FUNCTION_THRESHOLD=0
-      - COMPASS_REQUEST_THRESHOLD=0
+      - COMPASS_SIDECAR_FUNCTION_THRESHOLD=0
+      - COMPASS_SIDECAR_REQUEST_THRESHOLD=0
 
 volumes:
   public-files: {}
