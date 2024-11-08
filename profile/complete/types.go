@@ -5,6 +5,7 @@ package complete
 type Profile struct {
 	RequestID     string         `json:"requestID"`
 	StartTime     int64          `json:"startTime"`
+	EndTime       int64          `json:"endTime"`
 	ExecutionTime int64          `json:"executionTime"`
 	FunctionCalls []FunctionCall `json:"functionCalls"`
 }

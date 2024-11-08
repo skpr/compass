@@ -61,11 +61,6 @@ func (c *Manager) Handle(event bpfEvent) error {
 		return fmt.Errorf("empty request id")
 	}
 
-	// We typically see this type of request ID for the PHP-FPM stats endpoint.
-	if requestID == "UNKNOWN" {
-		return fmt.Errorf("unknown request id: %s", requestID)
-	}
-
 	switch eventType {
 	case EventFunction:
 		if err := c.handleFunction(requestID, event); err != nil {
@@ -130,14 +125,22 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 	}
 
 	for _, call := range calls {
-		if call.Name == FunctionNameRoot {
+		if profile.StartTime == 0 {
 			profile.StartTime = call.StartTime
-			profile.ExecutionTime = (call.EndTime - call.StartTime) / 1000
-			continue
+		}
+
+		if call.StartTime < profile.StartTime {
+			profile.StartTime = call.StartTime
+		}
+
+		if call.EndTime > profile.EndTime {
+			profile.EndTime = call.EndTime
 		}
 
 		profile.FunctionCalls = append(profile.FunctionCalls, call)
 	}
+
+	profile.ExecutionTime = (profile.EndTime - profile.StartTime) / 1000
 
 	c.logger.Debug("request event has associated functions", "count", len(profile.FunctionCalls))
 
