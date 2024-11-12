@@ -20,9 +20,9 @@ services:
       - private-files:/mnt/private
       - temporary-files:/mnt/temporary
     environment:
-      - NEW_RELIC_ENABLED=false
+      - NEW_RELIC_ENABLED=true
       - NEW_RELIC_APP_NAME=Actions
-      - NEW_RELIC_LICENSE_KEY=148c8694919c5d811ff75397706be148FFFFNRAL
+      - NEW_RELIC_LICENSE_KEY=9a66b3704e1d0aa6a1527476c2e45d5eFFFFNRAL
 
   mysql-default:
     image: docker.io/skpr/mysql-empty:8.x-v3-edge
