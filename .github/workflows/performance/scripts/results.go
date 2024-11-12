@@ -71,6 +71,11 @@ func run() error {
 		return fmt.Errorf("collector errors (%d) are over the limit (%d)", int(collector.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
+	newrelic, err := getReport("newrelic/report.json")
+	if err != nil {
+		return fmt.Errorf("failed to load new relic report: %w", err)
+	}
+
 	var errs []error
 
 	disabledDiff := installed.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
@@ -88,12 +93,18 @@ func run() error {
 		errs = append(errs, fmt.Errorf("collector report exceeded the request limit"))
 	}
 
+	newrelicDiff := newrelic.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
+	if collectorDiff > RequestLimit {
+		errs = append(errs, fmt.Errorf("new relic report exceeded the request limit"))
+	}
+
 	summaryTemplate := `| Test      | Average | Diff (Compared to Control) |
 |-----------|---------|----------------------------|
 | Control   | %dms    |                            |
 | Installed | %dms    | %dms                       |
 | Enabled   | %dms    | %dms                       |
-| Collector | %dms    | %dms                       |`
+| Collector | %dms    | %dms                       |
+| New Relic | %dms    | %dms                       |`
 
 	summary := fmt.Sprintf(summaryTemplate,
 		int(control.Metrics.HTTPReqDuration.Avg),
@@ -103,6 +114,8 @@ func run() error {
 		int(enabledDiff),
 		int(collector.Metrics.HTTPReqDuration.Avg),
 		int(collectorDiff),
+		int(newrelic.Metrics.HTTPReqDuration.Avg),
+		int(newrelicDiff),
 	)
 
 	data := []byte(summary)
