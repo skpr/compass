@@ -32,6 +32,10 @@ flowchart LR
 | cli       | Commandline interface that collects telemetry from USDT probes.                              |
 | sidecar   | Sidecar that collects telemetry from USDT probes and log to stdout.                          |
 
+## CLI
+
+<img src="/docs/ui" width="100">
+
 ## Trace
 
 Compass provides developers with 2 types of traces:
