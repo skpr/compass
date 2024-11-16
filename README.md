@@ -1,7 +1,7 @@
 Compass
 =======
 
-A tool for pointing developers in the right direction for performance issues.
+A tool designed to guide developers in the right direction for identifying and resolving performance issues.
 
 <img src="/logo/compass.png" width="100">
 
