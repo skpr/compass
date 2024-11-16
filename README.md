@@ -34,7 +34,7 @@ flowchart LR
 
 ## CLI
 
-<img src="/docs/ui.png" width="100">
+<img src="/docs/ui.png">
 
 ## Trace
 
