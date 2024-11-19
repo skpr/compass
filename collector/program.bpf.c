@@ -36,6 +36,8 @@ const char event_type_request_shutdown[] = "request_shutdown";
 struct event {
   u8 type[STRSZ];
   u8 request_id[STRSZ];
+  u8 uri[STRSZ];
+  u8 method[STRSZ];
   u8 class_name[STRSZ];
   u8 function_name[STRSZ];
   u64 start_time;
@@ -84,7 +86,9 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
 
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rdi);
+  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rbx);
+  bpf_probe_read_user_str(&event->uri, STRSZ, (void *)ctx->r14);
+  bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->rdi);
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);

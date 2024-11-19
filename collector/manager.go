@@ -17,8 +17,6 @@ const (
 	EventFunction = "function"
 	// EventRequestShutdown is the event type for a request shutdown.
 	EventRequestShutdown = "request_shutdown"
-	// FunctionNameRoot is used to identify the root function for a requeust (it's an empty name).
-	FunctionNameRoot = ""
 )
 
 // Manager for handling events.
@@ -67,7 +65,12 @@ func (c *Manager) Handle(event bpfEvent) error {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(requestID); err != nil {
+		var (
+			uri    = unix.ByteSliceToString(event.Uri[:])
+			method = unix.ByteSliceToString(event.Method[:])
+		)
+
+		if err := c.handleRequestShutdown(requestID, uri, method); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -104,7 +107,7 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Manager) handleRequestShutdown(requestID string) error {
+func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 	c.logger.Debug("request shutdown event has been called", "request_id", requestID)
 
 	var calls []complete.FunctionCall
@@ -122,6 +125,8 @@ func (c *Manager) handleRequestShutdown(requestID string) error {
 
 	profile := complete.Profile{
 		RequestID: requestID,
+		URI:       uri,
+		Method:    method,
 	}
 
 	for _, call := range calls {

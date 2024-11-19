@@ -1,5 +1,6 @@
 use crate::util::{
-    get_header_key, get_request_id, get_request_server, get_sapi_module_name, jit_initialization,
+    get_header_key, get_request_id, get_request_method, get_request_server, get_request_uri,
+    get_sapi_module_name, jit_initialization,
 };
 
 use crate::header;
@@ -34,6 +35,14 @@ pub fn shutdown() {
     }
 
     let request_id = get_request_id(server);
+    let uri = get_request_uri(server);
+    let method = get_request_method(server);
 
-    probe!(compass, request_shutdown, request_id.as_ptr());
+    probe!(
+        compass,
+        request_shutdown,
+        request_id.as_ptr(),
+        uri.as_ptr(),
+        method.as_ptr()
+    );
 }

@@ -42,6 +42,22 @@ pub fn get_header_key(server: &ZArr) -> String {
         .unwrap_or_else(|| "UNKNOWN".to_string())
 }
 
+pub fn get_request_uri(server: &ZArr) -> String {
+    server
+        .get("REQUEST_URI")
+        .and_then(z_val_to_string)
+        .or_else(|| server.get("PHP_SELF").and_then(z_val_to_string))
+        .or_else(|| server.get("SCRIPT_NAME").and_then(z_val_to_string))
+        .unwrap_or_else(|| "/unknown".to_string())
+}
+
+pub fn get_request_method(server: &ZArr) -> String {
+    server
+        .get("REQUEST_METHOD")
+        .and_then(z_val_to_string)
+        .unwrap_or_else(|| "UNKNOWN".to_string())
+}
+
 // https://github.com/apache/skywalking-php/blob/master/src/util.rs#L63
 pub fn z_val_to_string(zv: &ZVal) -> Option<String> {
     zv.as_z_str()

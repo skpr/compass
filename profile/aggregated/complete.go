@@ -9,6 +9,8 @@ import (
 func FromCompleteProfile(upstream complete.Profile) Profile {
 	profile := Profile{
 		RequestID:     upstream.RequestID,
+		URI:           upstream.URI,
+		Method:        upstream.Method,
 		StartTime:     upstream.StartTime,
 		ExecutionTime: upstream.ExecutionTime,
 		Functions:     make(map[string]Function),
