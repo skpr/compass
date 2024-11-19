@@ -1,0 +1,25 @@
+services:
+
+  nginx:
+    image: skpr/nginx-drupal:dev-v2-latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker/compose/volume/data:/data
+
+  php-fpm:
+    build: ./docker/compose/service/fpm
+    network_mode: service:nginx
+    environment:
+      - COMPASS_ENABLED=true
+    volumes:
+      - ./docker/compose/volume/data:/data
+
+  compass:
+    image: local/compass:latest
+    command: /bin/bash -c "sleep infinity"
+    network_mode: service:nginx
+    # Compass needs these.
+    privileged: true
+    pid: host
+    user: root

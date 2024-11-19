@@ -1,5 +1,14 @@
 #!/usr/bin/make -f
 
+up:
+	# Building Compass.
+	docker build -t local/compass:latest .
+	docker compose build php-fpm
+	docker compose up
+
+down:
+	docker compose down
+
 lint: generate
 	revive -set_exit_status ./cli/... ./collector/... ./profile/... ./sidecar/...
 

@@ -4,7 +4,6 @@ package sink
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/profile/aggregated"
 	"github.com/skpr/compass/profile/complete"
 )
 
@@ -26,8 +25,7 @@ func (c *Client) Initialize() error {
 }
 
 // ProcessProfile from the collector.
-func (c *Client) ProcessProfile(completeProfile complete.Profile) error {
-	profile := aggregated.FromCompleteProfile(completeProfile)
+func (c *Client) ProcessProfile(profile complete.Profile) error {
 	c.p.Send(profile)
 	return nil
 }
