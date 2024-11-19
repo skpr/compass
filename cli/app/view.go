@@ -5,12 +5,17 @@ import (
 	"github.com/skpr/compass/cli/app/components/help"
 	"github.com/skpr/compass/cli/app/components/info"
 	"github.com/skpr/compass/cli/app/components/layout"
+	"github.com/skpr/compass/cli/app/components/metadata"
 )
 
 // View refreshes the display.
 func (m Model) View() string {
 	return layout.Model{
-		Info: info.Model{
+		TraceInfo: info.Model{
+			Profiles: m.profiles,
+			Selected: m.profileSelected,
+		},
+		RequestInfo: metadata.Model{
 			Profiles: m.profiles,
 			Selected: m.profileSelected,
 		},

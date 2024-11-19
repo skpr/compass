@@ -12,9 +12,10 @@ type Component interface {
 
 // Model for storing and rendering the state of the layout.
 type Model struct {
-	Info      Component
-	Breakdown Component
-	Help      Component
-	Profiles  []complete.Profile
-	Selected  int
+	TraceInfo   Component
+	RequestInfo Component
+	Breakdown   Component
+	Help        Component
+	Profiles    []complete.Profile
+	Selected    int
 }
