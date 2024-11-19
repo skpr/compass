@@ -12,6 +12,11 @@ RUN apk add cargo \
             git \
             rust \
             rustfmt \
-            php8.3-dev
+            php8.3-dev \ 
+            ca-certificates \
+            llvm \
+            clang \
+            libbpf-dev \
+            make
 
 ENV RUST_BACKTRACE=full
