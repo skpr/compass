@@ -1,3 +1,4 @@
+// Package main is for our test application.
 package main
 
 import (
