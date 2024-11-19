@@ -35,7 +35,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.breakdownScroll--
 			}
 		case "down":
-			if len(m.profiles) < m.profileSelected {
+			if len(m.profiles) <= m.profileSelected {
 				return m, nil
 			}
 
