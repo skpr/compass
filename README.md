@@ -23,6 +23,12 @@ flowchart LR
    Events --> Sidecar["Sidecar (Go)"]
 ```
 
+## Performance
+
+<img src="/docs/performance.png">
+
+
+
 ## Components
 
 | Directory | Description                                                                                  |
@@ -35,6 +41,8 @@ flowchart LR
 ## CLI
 
 <img src="/docs/ui.png">
+
+Performance data can be found in Github Actions for [this build](https://github.com/skpr/compass/pull/77).
 
 ## Trace
 
