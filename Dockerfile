@@ -1,4 +1,4 @@
-ARG PHP_VERSION=8.3
+ARG PHP_VERSION=8.4
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest AS extension
 USER root
 RUN apk add rust rustfmt cargo php${PHP_VERSION}-dev clang-dev
