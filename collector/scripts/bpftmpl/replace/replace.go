@@ -58,14 +58,12 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 func getValueFunc(arch string) (func(string) string, error) {
 	if arch == "arm64" {
 		return func(argument string) string {
-			// @todo, Determine if there are any other prefixes other than "-8@x"
 			return fmt.Sprintf("regs[%s]", strings.TrimLeft(argument, "-8@x"))
 		}, nil
 	}
 
 	if arch == "amd64" {
 		return func(argument string) string {
-			// @todo, Determine if there are any other prefixes other than "-8@%"
 			switch argument {
 			case "-8@%rax":
 				return "ax"
@@ -80,6 +78,7 @@ func getValueFunc(arch string) (func(string) string, error) {
 			case "-8@%rbp":
 				return "bp"
 			default:
+				// Preserve the "r" in the remaining eg. r15.
 				return strings.TrimLeft(argument, "-8@%")
 			}
 		}, nil
