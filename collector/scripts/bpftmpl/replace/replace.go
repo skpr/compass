@@ -64,7 +64,18 @@ func getValueFunc(arch string) (func(string) string, error) {
 	if arch == "amd64" {
 		return func(argument string) string {
 			// @todo, Determine if there are any other prefixes other than "-8@%"
-			return strings.TrimLeft(argument, "-8@%r")
+			switch argument {
+			case "-8@%rax":
+				return "ax"
+			case "-8@%rdi":
+				return "di"
+			case "-8@%rsi":
+				return "ax"
+			case "-8@%rdx":
+				return "dx"
+			default:
+				return strings.TrimLeft(argument, "-8@%")
+			}
 		}, nil
 	}
 
