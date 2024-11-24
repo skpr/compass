@@ -14,43 +14,6 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 🔐 Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: ⬇️ Git clone the repository
-        uses: actions/checkout@v4
-
-      - name: Build and Push
-        run: |
-          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:latest
-
-          docker build -t ${IMAGE}-amd64 --platform=linux/amd64 --build-arg=PHP_VERSION=8.3 .
-          docker build -t ${IMAGE}-arm64 --platform=linux/arm64 --build-arg=PHP_VERSION=8.3 .
-
-
-name: image-build
-
-on:
-  workflow_dispatch:
-
-env:
-  USER: ${{secrets.DOCKER_USER}}
-
-jobs:
-  build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
