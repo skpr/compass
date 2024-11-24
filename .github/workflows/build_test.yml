@@ -35,7 +35,7 @@ jobs:
 
       - name: Build and Push
         run: |
-          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:latest
 
           docker build -t ${IMAGE}-amd64 --platform=linux/amd64 --build-arg=PHP_VERSION=8.3 .
           docker build -t ${IMAGE}-arm64 --platform=linux/arm64 --build-arg=PHP_VERSION=8.3 .
