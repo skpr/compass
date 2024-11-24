@@ -27,9 +27,8 @@ test: generate
 
 generate:
 	cd collector
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > ./includes/vmlinux.h
 	readelf -n /usr/lib/php/modules/compass.so | go run ./scripts/bpftmpl -arch=${ARCH} -template=./template.bpf.c > ./program.bpf.c
-	GOPACKAGE=collector bpf2go -target ${ARCH} -type event bpf program.bpf.c -- -I./includes
+	GOPACKAGE=collector bpf2go -target ${ARCH} -type event bpf program.bpf.c
 
 build: generate
 	go build -a -o _output/compass github.com/skpr/compass/cli
