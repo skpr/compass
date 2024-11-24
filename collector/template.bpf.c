@@ -1,28 +1,8 @@
 //go:build ignore
 
-// # $ readelf -n /usr/lib/php/modules/compass.so
-//
-// Displaying notes found in: .note.gnu.build-id
-// Owner                Data size 	Description
-// GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
-//   Build ID: f3292e5e81429fcc9d40f29eaaff2c4789aae17c
-//
-// Displaying notes found in: .note.stapsdt
-//   Owner                Data size 	Description
-// stapsdt              0x00000039	NT_STAPSDT (SystemTap probe descriptors)
-//   Provider: compass
-//   Name: request_shutdown
-//   Location: 0x000000000000cd48, Base: 0x0000000000064517, Semaphore: 0x0000000000000000
-//   Arguments: -8@%rdi
-// stapsdt              0x0000004d	NT_STAPSDT (SystemTap probe descriptors)
-//   Provider: compass
-//   Name: php_function
-//   Location: 0x000000000000e62a, Base: 0x0000000000064517, Semaphore: 0x0000000000000000
-//   Arguments: -8@%rdi -8@%r14 -8@%r15 -8@%rbx
-
 #define STRSZ 100 + 1
 
-#include "common.h"
+#include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
@@ -63,11 +43,11 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
 
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_function);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rbx);
-  bpf_probe_read_user_str(&event->class_name, STRSZ, (void *)ctx->r14);
-  bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->rax);
-  event->start_time = ctx->r13;
-  event->end_time = ctx->rbp;
+  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_REQUEST_ID);
+  bpf_probe_read_user_str(&event->class_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_CLASS_NAME);
+  bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_FUNCTION_NAME);
+  event->start_time = ctx->PHP_FUNCTION_ARG_START_TIME;
+  event->end_time = ctx->PHP_FUNCTION_ARG_END_TIME;
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
@@ -86,9 +66,9 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
 
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
-  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->rbx);
-  bpf_probe_read_user_str(&event->uri, STRSZ, (void *)ctx->r14);
-  bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->rdi);
+  bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_REQUEST_ID);
+  bpf_probe_read_user_str(&event->uri, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_URI);
+  bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_METHOD);
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);

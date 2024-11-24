@@ -7,12 +7,11 @@ ADD --chown=skpr:skpr extension /data
 ENV RUST_BACKTRACE=full
 RUN cargo fmt --all -- --check
 RUN cargo build --release
-# Validate arguments.
-RUN chmod +x /data/validate.sh
-RUN /data/validate.sh /data/target/release/libcompass_extension.so
 
 FROM golang:1.23-alpine AS collector
-RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make
+# Copy in the extension so we can use it map the probe arguments in our collector.
+COPY --from=extension /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
+RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make alpine-sdk linux-headers
 ADD . /go/src/github.com/skpr/compass
 WORKDIR /go/src/github.com/skpr/compass
 RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.16.0

@@ -27,8 +27,6 @@ const (
 	ProbeNameFunction = "php_function"
 )
 
-//go:generate bpf2go -target amd64 -type event bpf program.bpf.c -- -I./headers
-
 // RunOptions for configuring the collector.
 type RunOptions struct {
 	ExecutablePath string
