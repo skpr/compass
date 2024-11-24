@@ -73,6 +73,10 @@ func getValueFunc(arch string) (func(string) string, error) {
 				return "ax"
 			case "-8@%rdx":
 				return "dx"
+			case "-8@%rbx":
+				return "bx"
+			case "-8@%rbp":
+				return "bp"
 			default:
 				return strings.TrimLeft(argument, "-8@%")
 			}
