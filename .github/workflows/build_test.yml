@@ -8,14 +8,34 @@ concurrency:
   group: build-test-${{ github.head_ref }}
   cancel-in-progress: true
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  test:
-    name: Build
+  build:
     runs-on: ubuntu-latest
+
     steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
 
-      - name: 📦 Build Images
+      - name: Build and Push
         run: |
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t localhost/compass:latest .
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
+
+          docker build -t ${IMAGE}-amd64 --platform=linux/amd64 --build-arg=PHP_VERSION=8.3 .
+          docker build -t ${IMAGE}-arm64 --platform=linux/arm64 --build-arg=PHP_VERSION=8.3 .
