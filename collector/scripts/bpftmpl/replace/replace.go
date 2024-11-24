@@ -1,3 +1,4 @@
+// Package replace is used to find and replace program values.
 package replace
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/skpr/compass/collector/scripts/bpftmpl/elf"
 )
 
+// UsingNotes replaces strings in the program based on provided notes.
 func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string, error) {
 	replacements := make(map[string]string, 8)
 

@@ -1,3 +1,4 @@
+// Package elf is used to handle elf output.
 package elf
 
 import (
@@ -14,7 +15,7 @@ type SystemTapNote struct {
 	Args     []string
 }
 
-// parseReadelfNotes parses the output of "readelf -n" and extracts SystemTap probe arguments
+// ReadNotes parses the output of "readelf -n" and extracts SystemTap probe arguments
 func ReadNotes(input string) ([]SystemTapNote, error) {
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	var notes []SystemTapNote
