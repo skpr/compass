@@ -2,7 +2,7 @@
 package app
 
 import (
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 // Model for storing the state of the application.
@@ -11,11 +11,11 @@ type Model struct {
 	width int
 	// This is how we track the height and width of the terminal.
 	height int
-	// Internal storage for profiles.
-	profiles []complete.Profile
-	// Index of the currently selected profile.
-	profileSelected int
-	// Index of the currently selected profile's scroll position.
+	// Internal storage for traces.
+	traces []trace.Trace
+	// Index of the currently selected trace.
+	traceSelected int
+	// Index of the currently selected trace's scroll position.
 	breakdownScroll int
 }
 

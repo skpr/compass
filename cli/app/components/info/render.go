@@ -12,15 +12,15 @@ import (
 
 // View renders the list component.
 func (m Model) View() string {
-	if len(m.Profiles) == 0 {
+	if len(m.Traces) == 0 {
 		return "No profile data available"
 	}
 
-	if len(m.Profiles) < m.Selected {
+	if len(m.Traces) < m.Selected {
 		return "Incorrect profile selected"
 	}
 
-	profile := m.Profiles[m.Selected]
+	profile := m.Traces[m.Selected]
 
 	trace := compasstable.Render([]table.Column{
 		{Title: "Request ID", Width: 45},

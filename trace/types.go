@@ -1,8 +1,8 @@
-// Package complete implements complete tracing data.
-package complete
+// Package trace implements complete tracing data.
+package trace
 
-// Profile data collected for a request.
-type Profile struct {
+// Trace data collected for a request.
+type Trace struct {
 	RequestID     string         `json:"requestID"`
 	URI           string         `json:"uri"`
 	Method        string         `json:"method"`

@@ -1,20 +1,20 @@
-// Package sink implements a simple sink that stores profiles in the CLI application.
+// Package sink implements a simple sink that stores traces in the CLI application.
 package sink
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
-// New client for handling profiles to stdout.
+// New client for handling traces to stdout.
 func New(p *tea.Program) *Client {
 	return &Client{
 		p: p,
 	}
 }
 
-// Client for handling profiles to stdout.
+// Client for handling traces to stdout.
 type Client struct {
 	p *tea.Program
 }
@@ -24,8 +24,8 @@ func (c *Client) Initialize() error {
 	return nil
 }
 
-// ProcessProfile from the collector.
-func (c *Client) ProcessProfile(profile complete.Profile) error {
+// ProcessTrace from the collector.
+func (c *Client) ProcessTrace(profile trace.Trace) error {
 	c.p.Send(profile)
 	return nil
 }

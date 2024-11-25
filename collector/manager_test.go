@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 // TestSync for storing complete profile data for our tests.
 type TestSync struct {
-	Profiles []complete.Profile
+	Traces []trace.Trace
 }
 
 // Initialize the sink.
@@ -22,8 +22,8 @@ func (t *TestSync) Initialize() error {
 }
 
 // ProcessProfile which has been collected.
-func (t *TestSync) ProcessProfile(profile complete.Profile) error {
-	t.Profiles = append(t.Profiles, profile)
+func (t *TestSync) ProcessTrace(trace trace.Trace) error {
+	t.Traces = append(t.Traces, trace)
 	return nil
 }
 
@@ -93,13 +93,13 @@ func TestHandleRequestShutdown(t *testing.T) {
 	}
 
 	// Check the profile that landed.
-	assert.Equal(t, []complete.Profile{
+	assert.Equal(t, []trace.Trace{
 		{
 			RequestID:     "123456789",
 			StartTime:     3000000,
 			EndTime:       15000000,
 			ExecutionTime: 12000,
-			FunctionCalls: []complete.FunctionCall{
+			FunctionCalls: []trace.FunctionCall{
 				{
 					Name:      "Foo::bar",
 					StartTime: 3000000,
@@ -117,5 +117,5 @@ func TestHandleRequestShutdown(t *testing.T) {
 				},
 			},
 		},
-	}, sink.Profiles)
+	}, sink.Traces)
 }

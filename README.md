@@ -21,6 +21,9 @@ flowchart LR
 
    Events --> CLI["CLI (Go)"]
    Events --> Sidecar["Sidecar (Go)"]
+
+   Sidecar --> Stdout
+   Sidecar --> OpenTelemetry
 ```
 
 ## Performance
@@ -115,3 +118,5 @@ ghcr.io/skpr/compass:collector-latest
 | Sidecar       | COMPASS_SIDECAR_REQUEST_THRESHOLD  | 100                             | Watermark for which requests to trace.                                                                                                                                          |
 | Sidecar       | COMPASS_SIDECAR_FUNCTION_THRESHOLD | 10                              | Watermark for which functions to trace.                                                                                                                                         |
 | Sidecar       | COMPASS_SIDECAR_LOG_LEVEL          | info                            | Logging level for the collector component. Set to "debug" for debug notices.                                                                                                    |
+| Sidecar       | COMPASS_SIDECAR_SINK               | stdout                          | Choose which metrics sink to use.                                                                                                                                               |
+| Sidecar       | COMPASS_SIDECAR_OTEL_ENDPOINT      | http://jaeger:4318/v1/traces    | Endpoint to send OpenTelemetry traces to.                                                                                                                                       | 

@@ -4,7 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/skpr/compass/cli/app/components/breakdown"
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 // Update triggers on messages and updates the model.
@@ -19,13 +19,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// For switching between profiles.
 		case "left":
-			if m.profileSelected > 0 {
-				m.profileSelected--
+			if m.traceSelected > 0 {
+				m.traceSelected--
 				m.breakdownScroll = 0
 			}
 		case "right":
-			if m.profileSelected < len(m.profiles)-1 {
-				m.profileSelected++
+			if m.traceSelected < len(m.traces)-1 {
+				m.traceSelected++
 				m.breakdownScroll = 0
 			}
 
@@ -35,18 +35,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.breakdownScroll--
 			}
 		case "down":
-			if len(m.profiles) <= m.profileSelected {
+			if len(m.traces) <= m.traceSelected {
 				return m, nil
 			}
 
-			if m.breakdownScroll+breakdown.VisibleRows < len(m.profiles[m.profileSelected].FunctionCalls)-1 {
+			if m.breakdownScroll+breakdown.VisibleRows < len(m.traces[m.traceSelected].FunctionCalls)-1 {
 				m.breakdownScroll++
 			}
 		}
 
 	// When a new profile is received, add it to the list of profiles.
-	case complete.Profile:
-		m.profiles = append(m.profiles, msg)
+	case trace.Trace:
+		m.traces = append(m.traces, msg)
 		return m, nil
 
 	// Window was resized.
