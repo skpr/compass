@@ -44,6 +44,7 @@ type Options struct {
 	Sink              string
 	FunctionThreshold int64
 	RequestThreshold  int64
+	OtelServiceName   string
 	OtelEndpoint      string
 }
 
@@ -86,7 +87,7 @@ func main() {
 
 			logger.Info("Starting collector")
 
-			sink, err := o.getSink()
+			sink, err := o.getSink(logger)
 			if err != nil {
 				return fmt.Errorf("failed to get sink: %w", err)
 			}
@@ -115,6 +116,7 @@ func main() {
 	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
 
 	// OpenTelemetry.
+	cmd.PersistentFlags().StringVar(&o.OtelServiceName, "otel-service-name", env.String("COMPASS_SIDECAR_OTEL_SERVICE_NAME", ""), "Configure the service name that will be associated in OpenTelemetry")
 	cmd.PersistentFlags().StringVar(&o.OtelEndpoint, "otel-endpoint", env.String("COMPASS_SIDECAR_OTEL_ENDPOINT", "http://jaeger:4318/v1/traces"), "Configure where OpenTelemetry traces are sent")
 
 	err := cmd.Execute()
@@ -123,12 +125,12 @@ func main() {
 	}
 }
 
-func (o Options) getSink() (sink.Interface, error) {
+func (o Options) getSink(logger *slog.Logger) (sink.Interface, error) {
 	switch o.Sink {
 	case "stdout":
 		return stdout.New(o.FunctionThreshold, o.RequestThreshold), nil
 	case "otel":
-		return otel.New(o.FunctionThreshold, o.RequestThreshold, o.OtelEndpoint), nil
+		return otel.New(logger, o.FunctionThreshold, o.RequestThreshold, o.OtelServiceName, o.OtelEndpoint)
 	}
 
 	return nil, fmt.Errorf("sink not found: %s", o.Sink)

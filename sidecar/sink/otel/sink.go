@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"encoding/hex"
@@ -15,16 +16,28 @@ import (
 )
 
 // New client for handling profiles to stdout.
-func New(functionThreshold, requestThreshold int64, endpoint string) *Client {
+func New(logger *slog.Logger, functionThreshold, requestThreshold int64, serviceName, endpoint string) (*Client, error) {
+	if serviceName == "" {
+		return nil, fmt.Errorf("service name not set")
+	}
+
+	if endpoint == "" {
+		return nil, fmt.Errorf("endpoint not set")
+	}
+
 	return &Client{
+		logger:            logger,
+		serviceName:       serviceName,
 		functionThreshold: functionThreshold,
 		requestThreshold:  requestThreshold,
 		endpoint:          endpoint,
-	}
+	}, nil
 }
 
 // Client for handling profiles to stdout.
 type Client struct {
+	logger            *slog.Logger
+	serviceName       string
 	functionThreshold int64
 	requestThreshold  int64
 	endpoint          string
@@ -64,7 +77,7 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 						{
 							Key: "service.name",
 							Value: AttributeValue{
-								StringValue: "example",
+								StringValue: c.serviceName,
 							},
 						},
 						{
@@ -92,6 +105,8 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 	if err != nil {
 		return err
 	}
+
+	c.logger.With("trace_id", trace.RequestID).Info("Sending trace to OpenTelemetry")
 
 	fmt.Println("sending to jaeger")
 
