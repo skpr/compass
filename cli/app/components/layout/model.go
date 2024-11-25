@@ -2,7 +2,7 @@
 package layout
 
 import (
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 // Component for rendering the layout.
@@ -15,6 +15,6 @@ type Model struct {
 	Info      Component
 	Breakdown Component
 	Help      Component
-	Profiles  []complete.Profile
+	Traces    []trace.Trace
 	Selected  int
 }

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/cli/app"
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 func main() {
@@ -19,14 +19,14 @@ func main() {
 
 	eg.Go(func() error {
 		for {
-			p.Send(complete.Profile{
+			p.Send(trace.Trace{
 				RequestID:     uuid.New().String(),
 				URI:           "/foo",
 				Method:        "GET",
 				StartTime:     3000000,
 				EndTime:       15000000,
 				ExecutionTime: 12000,
-				FunctionCalls: []complete.FunctionCall{
+				FunctionCalls: []trace.FunctionCall{
 					{
 						Name:      "Foo::bar",
 						StartTime: 3000000,

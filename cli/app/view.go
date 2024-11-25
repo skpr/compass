@@ -11,16 +11,16 @@ import (
 func (m Model) View() string {
 	return layout.Model{
 		Info: info.Model{
-			Profiles: m.profiles,
-			Selected: m.profileSelected,
+			Traces:   m.traces,
+			Selected: m.traceSelected,
 		},
 		Breakdown: breakdown.Model{
-			Profiles:       m.profiles,
-			Selected:       m.profileSelected,
+			Traces:         m.traces,
+			Selected:       m.traceSelected,
 			ScrollPosition: m.breakdownScroll,
 		},
 		Help:     help.Model{},
-		Profiles: m.profiles,
-		Selected: m.profileSelected,
+		Traces:   m.traces,
+		Selected: m.traceSelected,
 	}.View()
 }

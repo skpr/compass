@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -11,7 +12,9 @@ import (
 
 	"github.com/skpr/compass/collector"
 	"github.com/skpr/compass/collector/extension/discovery"
-	"github.com/skpr/compass/sidecar/sink"
+	"github.com/skpr/compass/collector/sink"
+	"github.com/skpr/compass/sidecar/sink/otel"
+	"github.com/skpr/compass/sidecar/sink/stdout"
 )
 
 var (
@@ -38,8 +41,10 @@ type Options struct {
 	ProcessPoll       time.Duration
 	ExtensionPath     string
 	LogLevel          string
+	Sink              string
 	FunctionThreshold int64
 	RequestThreshold  int64
+	OtelEndpoint      string
 }
 
 func main() {
@@ -81,7 +86,12 @@ func main() {
 
 			logger.Info("Starting collector")
 
-			err = collector.Run(cmd.Context(), logger, sink.New(o.FunctionThreshold, o.RequestThreshold), collector.RunOptions{
+			sink, err := o.getSink()
+			if err != nil {
+				return fmt.Errorf("failed to get sink: %w", err)
+			}
+
+			err = collector.Run(cmd.Context(), logger, sink, collector.RunOptions{
 				ExecutablePath: path,
 			})
 
@@ -97,14 +107,29 @@ func main() {
 	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
 	// Sink configuration.
+	cmd.PersistentFlags().StringVar(&o.Sink, "sink", env.String("COMPASS_SIDECAR_SINK", "stdout"), "Which sink to use for tracing data")
 	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_SIDECAR_FUNCTION_THRESHOLD", 10), "Watermark for which functionss to trace")
 	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_SIDECAR_REQUEST_THRESHOLD", 100), "Watermark for which requests to trace")
 
 	// Debugging.
 	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
 
+	// OpenTelemetry.
+	cmd.PersistentFlags().StringVar(&o.OtelEndpoint, "otel-endpoint", env.String("COMPASS_SIDECAR_OTEL_ENDPOINT", "http://jaeger:4318/v1/traces"), "Configure where OpenTelemetry traces are sent")
+
 	err := cmd.Execute()
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (o Options) getSink() (sink.Interface, error) {
+	switch o.Sink {
+	case "stdout":
+		return stdout.New(o.FunctionThreshold, o.RequestThreshold), nil
+	case "otel":
+		return otel.New(o.FunctionThreshold, o.RequestThreshold, o.OtelEndpoint), nil
+	}
+
+	return nil, fmt.Errorf("sink not found: %s", o.Sink)
 }

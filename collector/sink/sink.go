@@ -2,13 +2,13 @@
 package sink
 
 import (
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 // Interface for handling profile data.
 type Interface interface {
 	// Initialize the plugin.
 	Initialize() error
-	// ProcessProfile which has been collected.
-	ProcessProfile(complete.Profile) error
+	// ProcessTrace which has been collected.
+	ProcessTrace(trace.Trace) error
 }

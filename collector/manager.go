@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/collector/sink"
-	"github.com/skpr/compass/profile/complete"
+	"github.com/skpr/compass/trace"
 )
 
 const (
@@ -80,7 +80,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 
 // Process the function event and store the data.
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
-	function := complete.FunctionCall{
+	function := trace.FunctionCall{
 		Name:      fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
 		StartTime: int64(event.StartTime),
 		EndTime:   int64(event.EndTime),
@@ -93,10 +93,10 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 		"end_time", function.EndTime,
 	)
 
-	var calls []complete.FunctionCall
+	var calls []trace.FunctionCall
 
 	if x, found := c.storage.Get(requestID); found {
-		calls = x.([]complete.FunctionCall)
+		calls = x.([]trace.FunctionCall)
 	}
 
 	calls = append(calls, function)
@@ -110,10 +110,10 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 	c.logger.Debug("request shutdown event has been called", "request_id", requestID)
 
-	var calls []complete.FunctionCall
+	var calls []trace.FunctionCall
 
 	if x, found := c.storage.Get(requestID); found {
-		calls = x.([]complete.FunctionCall)
+		calls = x.([]trace.FunctionCall)
 	}
 
 	// Cleanup this request after we have processed it.
@@ -123,33 +123,33 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 		return fmt.Errorf("no functions found for request with id: %s", requestID)
 	}
 
-	profile := complete.Profile{
+	trace := trace.Trace{
 		RequestID: requestID,
 		URI:       uri,
 		Method:    method,
 	}
 
 	for _, call := range calls {
-		if profile.StartTime == 0 {
-			profile.StartTime = call.StartTime
+		if trace.StartTime == 0 {
+			trace.StartTime = call.StartTime
 		}
 
-		if call.StartTime < profile.StartTime {
-			profile.StartTime = call.StartTime
+		if call.StartTime < trace.StartTime {
+			trace.StartTime = call.StartTime
 		}
 
-		if call.EndTime > profile.EndTime {
-			profile.EndTime = call.EndTime
+		if call.EndTime > trace.EndTime {
+			trace.EndTime = call.EndTime
 		}
 
-		profile.FunctionCalls = append(profile.FunctionCalls, call)
+		trace.FunctionCalls = append(trace.FunctionCalls, call)
 	}
 
-	profile.ExecutionTime = (profile.EndTime - profile.StartTime) / 1000
+	trace.ExecutionTime = (trace.EndTime - trace.StartTime) / 1000
 
-	c.logger.Debug("request event has associated functions", "count", len(profile.FunctionCalls))
+	c.logger.Debug("request event has associated functions", "count", len(trace.FunctionCalls))
 
-	err := c.plugin.ProcessProfile(profile)
+	err := c.plugin.ProcessTrace(trace)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}
