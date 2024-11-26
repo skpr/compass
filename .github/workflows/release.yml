@@ -56,8 +56,22 @@ jobs:
     name: Manifest
     runs-on: ubuntu-latest
     needs: build
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
     steps:
-     - name: ☁️ Push
+      - name: 🔐 Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ☁️ Push
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
           docker manifest create ${IMAGE}-php8.3 --amend ${IMAGE}-php8.3-arm64 --amend ${IMAGE}-php8.3-amd64
