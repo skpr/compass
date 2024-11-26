@@ -17,6 +17,9 @@ RUN apk add cargo \
             llvm \
             clang \
             libbpf-dev \
-            make
+            make \
+            alpine-sdk \
+            linux-headers \
+            bpftool
 
 ENV RUST_BACKTRACE=full

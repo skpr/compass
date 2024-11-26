@@ -1,0 +1,5 @@
+bpf_arm64_bpfel.go
+bpf_arm64_bpfel.o
+bpf_x86_bpfel.go
+bpf_x86_bpfel.o
+program.bpf.c
