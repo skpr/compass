@@ -61,8 +61,8 @@ jobs:
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
           docker manifest create ${IMAGE}-php8.3 --amend ${IMAGE}-php8.3-arm64 --amend ${IMAGE}-php8.3-amd64
-	        docker manifest push ${IMAGE}-php8.3
+          docker manifest push ${IMAGE}-php8.3
           docker manifest create ${IMAGE}-php8.2 --amend ${IMAGE}-php8.2-arm64 --amend ${IMAGE}-php8.2-amd64
-	        docker manifest push ${IMAGE}-php8.2
+          docker manifest push ${IMAGE}-php8.2
           docker manifest create ${IMAGE}-php8.1 --amend ${IMAGE}-php8.1-arm64 --amend ${IMAGE}-php8.1-amd64
-	        docker manifest push ${IMAGE}-php8.1
+          docker manifest push ${IMAGE}-php8.1
