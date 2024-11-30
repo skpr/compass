@@ -73,6 +73,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
+		c.waitGroup.Add(1)
 		defer c.waitGroup.Done()
 
 		go func(requestID, uri, method string) {
