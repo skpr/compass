@@ -70,9 +70,11 @@ func (c *Manager) Handle(event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestShutdown(requestID, uri, method); err != nil {
-			return fmt.Errorf("failed to process request shutdown: %w", err)
-		}
+		go func(requestID, uri, method string) {
+			if err := c.handleRequestShutdown(requestID, uri, method); err != nil {
+				c.logger.Error(fmt.Sprintf("failed to process request shutdown: %s", err))
+			}
+		}(requestID, uri, method)
 	}
 
 	return nil
