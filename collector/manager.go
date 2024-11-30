@@ -74,9 +74,10 @@ func (c *Manager) Handle(event bpfEvent) error {
 		)
 
 		c.waitGroup.Add(1)
-		defer c.waitGroup.Done()
 
 		go func(requestID, uri, method string) {
+			defer c.waitGroup.Done()
+
 			if err := c.handleRequestShutdown(requestID, uri, method); err != nil {
 				c.logger.Error(fmt.Sprintf("failed to process request shutdown: %s", err))
 			}
