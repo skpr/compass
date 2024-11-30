@@ -92,6 +92,9 @@ func TestHandleRequestShutdown(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	err = manager.Shutdown()
+	assert.NoError(t, err)
+
 	// Check the profile that landed.
 	assert.Equal(t, []trace.Trace{
 		{

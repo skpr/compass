@@ -3,6 +3,7 @@ package collector
 import (
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -28,7 +29,8 @@ type Manager struct {
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the manager eg. Thresholds.
-	options Options
+	options   Options
+	waitGroup *sync.WaitGroup
 }
 
 // Options for configuring the manager.
@@ -39,10 +41,11 @@ type Options struct {
 // NewManager creates a new manager.
 func NewManager(logger *slog.Logger, plugin sink.Interface, options Options) (*Manager, error) {
 	client := &Manager{
-		logger:  logger,
-		storage: cache.New(options.Expire, options.Expire),
-		plugin:  plugin,
-		options: options,
+		logger:    logger,
+		storage:   cache.New(options.Expire, options.Expire),
+		plugin:    plugin,
+		options:   options,
+		waitGroup: new(sync.WaitGroup),
 	}
 
 	return client, nil
@@ -69,6 +72,8 @@ func (c *Manager) Handle(event bpfEvent) error {
 			uri    = unix.ByteSliceToString(event.Uri[:])
 			method = unix.ByteSliceToString(event.Method[:])
 		)
+
+		defer c.waitGroup.Done()
 
 		go func(requestID, uri, method string) {
 			if err := c.handleRequestShutdown(requestID, uri, method); err != nil {
@@ -156,5 +161,11 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}
 
+	return nil
+}
+
+// Shutdown the manager.
+func (c *Manager) Shutdown() error {
+	c.waitGroup.Wait()
 	return nil
 }
