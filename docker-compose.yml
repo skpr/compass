@@ -4,16 +4,12 @@ services:
     image: skpr/nginx-drupal:dev-v2-latest
     ports:
       - "8080:8080"
-    volumes:
-      - ./docker/compose/volume/data:/data
 
   php-fpm:
-    build: ./docker/compose/service/fpm
+    build: ./docker/compose
     network_mode: service:nginx
     environment:
       - COMPASS_ENABLED=true
-    volumes:
-      - ./docker/compose/volume/data:/data
 
   compass:
     image: local/compass:latest
