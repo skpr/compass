@@ -3,12 +3,10 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
-	"time"
-
 	"github.com/christgf/env"
 	"github.com/spf13/cobra"
+	"log/slog"
+	"os"
 
 	"github.com/skpr/compass/collector"
 	"github.com/skpr/compass/collector/extension/discovery"
@@ -38,7 +36,6 @@ var (
 // Options for this sidecar application.
 type Options struct {
 	ProcessName       string
-	ProcessPoll       time.Duration
 	ExtensionPath     string
 	LogLevel          string
 	Sink              string
@@ -78,7 +75,7 @@ func main() {
 
 			logger.Info("Looking for extension", "process_name", o.ProcessName)
 
-			path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath, o.ProcessPoll)
+			path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath)
 			if err != nil {
 				return err
 			}
@@ -95,6 +92,9 @@ func main() {
 			err = collector.Run(cmd.Context(), logger, sink, collector.RunOptions{
 				ExecutablePath: path,
 			})
+			if err != nil {
+				return fmt.Errorf("collector failed: %w", err)
+			}
 
 			logger.Info("Collector finished")
 
@@ -104,7 +104,6 @@ func main() {
 
 	// Extension discovery flags.
 	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().DurationVar(&o.ProcessPoll, "process-poll", env.Duration("COMPASS_PROCESS_POLL", time.Second*5), "How frequently to poll for current list of processes")
 	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
 	// Sink configuration.

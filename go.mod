@@ -3,6 +3,7 @@ module github.com/skpr/compass
 go 1.23.2
 
 require (
+	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/bubbletea v1.1.2
 	github.com/charmbracelet/lipgloss v1.0.0
