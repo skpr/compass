@@ -4,17 +4,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
-	"regexp"
-	"strings"
-	"time"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/christgf/env"
 	"github.com/jwalton/gchalk"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+	"log/slog"
+	"os"
+	"regexp"
+	"strings"
 
 	"github.com/skpr/compass/cli/app"
 	"github.com/skpr/compass/cli/app/color"
@@ -39,7 +37,6 @@ A toolkit for pointing developers in the right direction for performance issues.
 // Options for the CLI.
 type Options struct {
 	ProcessName   string
-	ProcessPoll   time.Duration
 	ExtensionPath string
 }
 
@@ -64,7 +61,7 @@ func main() {
 					Level: slog.LevelError,
 				}))
 
-				path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath, o.ProcessPoll)
+				path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath)
 				if err != nil {
 					return err
 				}
@@ -91,7 +88,6 @@ func main() {
 	}
 
 	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().DurationVar(&o.ProcessPoll, "process-poll", env.Duration("COMPASS_PROCESS_POLL", time.Second*5), "How frequently to poll for current list of processes")
 	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
 	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
