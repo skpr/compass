@@ -4,15 +4,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"regexp"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/christgf/env"
 	"github.com/jwalton/gchalk"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"log/slog"
-	"os"
-	"regexp"
-	"strings"
 
 	"github.com/skpr/compass/cli/app"
 	"github.com/skpr/compass/cli/app/color"
