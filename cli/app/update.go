@@ -3,7 +3,7 @@ package app
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/cli/app/components/breakdown"
+	"github.com/skpr/compass/cli/app/components/view/spans"
 	"github.com/skpr/compass/trace"
 )
 
@@ -29,6 +29,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.breakdownScroll = 0
 			}
 
+		case "s":
+			m.viewMode = ViewSpans
+		case "d":
+			m.viewMode = ViewDescription
+
 		// For scrolling the profile.
 		case "up":
 			if m.breakdownScroll > 0 {
@@ -39,7 +44,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			if m.breakdownScroll+breakdown.VisibleRows < len(m.traces[m.traceSelected].FunctionCalls)-1 {
+			if m.breakdownScroll+spans.VisibleRows < len(m.traces[m.traceSelected].FunctionCalls)-1 {
 				m.breakdownScroll++
 			}
 		}

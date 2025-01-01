@@ -95,10 +95,12 @@ func TestHandleRequestShutdown(t *testing.T) {
 	// Check the profile that landed.
 	assert.Equal(t, []trace.Trace{
 		{
-			RequestID:     "123456789",
-			StartTime:     3000000,
-			EndTime:       15000000,
-			ExecutionTime: 12000,
+			Metadata: trace.Metadata{
+				RequestID:     "123456789",
+				StartTime:     3000000,
+				EndTime:       15000000,
+				ExecutionTime: 12000,
+			},
 			FunctionCalls: []trace.FunctionCall{
 				{
 					Name:      "Foo::bar",

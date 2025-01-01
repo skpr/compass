@@ -1,4 +1,4 @@
-package breakdown
+package spans
 
 import (
 	"testing"

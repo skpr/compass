@@ -19,6 +19,8 @@ services:
     privileged: true
     pid: host
     user: root
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
 
   jaeger:
     image: jaegertracing/all-in-one:1.63.0

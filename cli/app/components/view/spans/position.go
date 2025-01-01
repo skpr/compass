@@ -1,4 +1,4 @@
-package breakdown
+package spans
 
 // Returns the start and end of the list that should be displayed.
 func getPositionStartAndEnd(position, visible, length int) (int, int) {
