@@ -133,6 +133,7 @@ name = "compass-extension"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bindgen",
  "chrono",
  "nix",
  "once_cell",
@@ -352,8 +353,8 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "phper"
-version = "0.13.1"
-source = "git+https://github.com/phper-framework/phper.git?rev=e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8#e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8"
+version = "0.14.0"
+source = "git+https://github.com/phper-framework/phper.git#34bdf95a327bc4a52867101fbab13613d12977a7"
 dependencies = [
  "cfg-if",
  "derive_more",
@@ -368,8 +369,8 @@ dependencies = [
 
 [[package]]
 name = "phper-alloc"
-version = "0.13.1"
-source = "git+https://github.com/phper-framework/phper.git?rev=e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8#e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8"
+version = "0.14.0"
+source = "git+https://github.com/phper-framework/phper.git#34bdf95a327bc4a52867101fbab13613d12977a7"
 dependencies = [
  "phper-build",
  "phper-sys",
@@ -377,16 +378,16 @@ dependencies = [
 
 [[package]]
 name = "phper-build"
-version = "0.13.1"
-source = "git+https://github.com/phper-framework/phper.git?rev=e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8#e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8"
+version = "0.14.0"
+source = "git+https://github.com/phper-framework/phper.git#34bdf95a327bc4a52867101fbab13613d12977a7"
 dependencies = [
  "phper-sys",
 ]
 
 [[package]]
 name = "phper-macros"
-version = "0.13.1"
-source = "git+https://github.com/phper-framework/phper.git?rev=e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8#e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8"
+version = "0.14.0"
+source = "git+https://github.com/phper-framework/phper.git#34bdf95a327bc4a52867101fbab13613d12977a7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -395,8 +396,8 @@ dependencies = [
 
 [[package]]
 name = "phper-sys"
-version = "0.13.1"
-source = "git+https://github.com/phper-framework/phper.git?rev=e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8#e5418bb6b3b8e54c9300dc38e605ab7186fe0cd8"
+version = "0.14.0"
+source = "git+https://github.com/phper-framework/phper.git#34bdf95a327bc4a52867101fbab13613d12977a7"
 dependencies = [
  "bindgen",
  "cc",
