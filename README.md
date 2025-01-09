@@ -105,6 +105,22 @@ ghcr.io/skpr/compass:extension-8.1-latest
 ghcr.io/skpr/compass:collector-latest
 ```
 
+## How to test
+
+```bash
+git clone git@github.com:skpr/compass
+cd compass
+
+# Build the project and up a stack
+make up
+
+# Run the CLI
+docker compose exec compass compass
+
+# Go to http://localhost:8080
+# Check back in the CLI
+```
+
 ## Configuration
 
 | COMPONENT     | ENVIRONMENT VARIABLE               | DEFAULT VALUE                   | Description                                                                                                                                                                     |
