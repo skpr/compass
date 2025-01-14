@@ -124,28 +124,30 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 	}
 
 	trace := trace.Trace{
-		RequestID: requestID,
-		URI:       uri,
-		Method:    method,
+		Metadata: trace.Metadata{
+			RequestID: requestID,
+			URI:       uri,
+			Method:    method,
+		},
 	}
 
 	for _, call := range calls {
-		if trace.StartTime == 0 {
-			trace.StartTime = call.StartTime
+		if trace.Metadata.StartTime == 0 {
+			trace.Metadata.StartTime = call.StartTime
 		}
 
-		if call.StartTime < trace.StartTime {
-			trace.StartTime = call.StartTime
+		if call.StartTime < trace.Metadata.StartTime {
+			trace.Metadata.StartTime = call.StartTime
 		}
 
-		if call.EndTime > trace.EndTime {
-			trace.EndTime = call.EndTime
+		if call.EndTime > trace.Metadata.EndTime {
+			trace.Metadata.EndTime = call.EndTime
 		}
 
 		trace.FunctionCalls = append(trace.FunctionCalls, call)
 	}
 
-	trace.ExecutionTime = (trace.EndTime - trace.StartTime) / 1000
+	trace.Metadata.ExecutionTime = (trace.Metadata.EndTime - trace.Metadata.StartTime) / 1000
 
 	c.logger.Debug("request event has associated functions", "count", len(trace.FunctionCalls))
 

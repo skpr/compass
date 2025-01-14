@@ -7,6 +7,6 @@ import (
 
 // Model for storing and rendering the state of the list component.
 type Model struct {
-	Traces   []trace.Trace
+	Trace    trace.Trace
 	Selected int
 }

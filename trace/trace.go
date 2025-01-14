@@ -1,43 +1,25 @@
+// Package trace implements complete tracing data.
 package trace
 
-// Dedupe the number of function calls.
-func (t Trace) Dedupe() Trace {
-	var calls []FunctionCall
-
-	for _, call := range t.FunctionCalls {
-		if !listContains(calls, call.Name) {
-			calls = append(calls, call)
-			continue
-		}
-
-		for i, c := range calls {
-			if c.Name != call.Name {
-				continue
-			}
-
-			if call.StartTime > c.StartTime && call.StartTime < c.EndTime {
-				calls[i].EndTime = c.EndTime
-				continue
-			}
-
-			if call.EndTime > c.StartTime && call.EndTime < c.EndTime {
-				calls[i].StartTime = c.StartTime
-				continue
-			}
-		}
-	}
-
-	t.FunctionCalls = calls
-
-	return t
+// Metadata associated with this trace.
+type Metadata struct {
+	RequestID     string `json:"requestID"`
+	URI           string `json:"uri"`
+	Method        string `json:"method"`
+	StartTime     int64  `json:"startTime"`
+	EndTime       int64  `json:"endTime"`
+	ExecutionTime int64  `json:"executionTime"`
 }
 
-func listContains(list []FunctionCall, name string) bool {
-	for _, item := range list {
-		if item.Name == name {
-			return true
-		}
-	}
+// Trace data collected for a request.
+type Trace struct {
+	Metadata      Metadata       `json:"metadata"`
+	FunctionCalls []FunctionCall `json:"functionCalls"`
+}
 
-	return false
+// FunctionCall provides information about the function call.
+type FunctionCall struct {
+	Name      string `json:"name"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
 }

@@ -20,12 +20,14 @@ func main() {
 	eg.Go(func() error {
 		for {
 			p.Send(trace.Trace{
-				RequestID:     uuid.New().String(),
-				URI:           "/foo",
-				Method:        "GET",
-				StartTime:     3000000,
-				EndTime:       15000000,
-				ExecutionTime: 12000,
+				Metadata: trace.Metadata{
+					RequestID:     uuid.New().String(),
+					URI:           "/foo",
+					Method:        "GET",
+					StartTime:     3000000,
+					EndTime:       15000000,
+					ExecutionTime: 12000,
+				},
 				FunctionCalls: []trace.FunctionCall{
 					{
 						Name:      "Foo::bar",
