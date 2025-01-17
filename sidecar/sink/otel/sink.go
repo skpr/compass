@@ -50,15 +50,15 @@ func (c *Client) Initialize() error {
 
 // ProcessTrace from the collector.
 func (c *Client) ProcessTrace(trace trace.Trace) error {
-	if trace.ExecutionTime < c.requestThreshold {
+	if trace.Metadata.ExecutionTime < c.requestThreshold {
 		return nil
 	}
 
 	var spans []Span
 
-	for _, function := range trace.Dedupe().FunctionCalls {
+	for _, function := range trace.FunctionCalls {
 		spans = append(spans, Span{
-			TraceID:           trace.RequestID,
+			TraceID:           trace.Metadata.RequestID,
 			SpanID:            generateSpanID(),
 			Name:              function.Name,
 			Kind:              "SPAN_KIND_INTERNAL",
@@ -83,13 +83,13 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 						{
 							Key: "uri",
 							Value: AttributeValue{
-								StringValue: trace.URI,
+								StringValue: trace.Metadata.URI,
 							},
 						},
 						{
 							Key: "method",
 							Value: AttributeValue{
-								StringValue: trace.Method,
+								StringValue: trace.Metadata.Method,
 							},
 						},
 					},
@@ -106,7 +106,7 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 		return err
 	}
 
-	c.logger.With("trace_id", trace.RequestID).Info("Sending trace to OpenTelemetry")
+	c.logger.With("trace_id", trace.Metadata.RequestID).Info("Sending trace to OpenTelemetry")
 
 	fmt.Println("sending to jaeger")
 

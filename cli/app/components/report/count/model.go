@@ -1,5 +1,5 @@
-// Package breakdown for handling the breakdown component.
-package breakdown
+// Package count for visualising the trace as a set total counts.
+package count
 
 import (
 	"github.com/skpr/compass/trace"
@@ -7,7 +7,6 @@ import (
 
 // Model for storing and rendering the state of the breakdown component.
 type Model struct {
-	Traces         []trace.Trace
-	Selected       int
+	Trace          trace.Trace
 	ScrollPosition int
 }

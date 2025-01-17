@@ -30,12 +30,9 @@ func (c *Client) Initialize() error {
 
 // ProcessTrace from the collector.
 func (c *Client) ProcessTrace(t trace.Trace) error {
-	if t.ExecutionTime < c.requestThreshold {
+	if t.Metadata.ExecutionTime < c.requestThreshold {
 		return nil
 	}
-
-	// Remove any duplicates.
-	t = t.Dedupe()
 
 	var calls []trace.FunctionCall
 

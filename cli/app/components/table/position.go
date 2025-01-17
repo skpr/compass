@@ -1,7 +1,7 @@
-package breakdown
+package table
 
-// Returns the start and end of the list that should be displayed.
-func getPositionStartAndEnd(position, visible, length int) (int, int) {
+// GetPositionStartAndEnd of the list that should be displayed.
+func GetPositionStartAndEnd(position, visible, length int) (int, int) {
 	// If the length is less than the visible amount, show all.
 	if visible > length {
 		return 0, length
