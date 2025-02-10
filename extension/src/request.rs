@@ -3,7 +3,6 @@ use crate::util::{
     get_sapi_module_name, jit_initialization,
 };
 
-use crate::header;
 use probe::probe;
 use tracing::error;
 
