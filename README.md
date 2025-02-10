@@ -36,7 +36,6 @@ Performance data can be found in Github Actions for [this build](https://github.
 
 | Directory | Description                                                                                  |
 |-----------|----------------------------------------------------------------------------------------------|
-| bpftrace  | bpftrace scripts for testing the extension and demonstrating how the probes can be utilised. |
 | extension | PHP extension which implements USDT probes.                                                  |
 | cli       | Commandline interface that collects telemetry from USDT probes.                              |
 | sidecar   | Sidecar that collects telemetry from USDT probes and log to stdout.                          |
