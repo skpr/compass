@@ -48,10 +48,11 @@ Performance data can be found in Github Actions for [this build](https://github.
 
 Compass provides developers with 2 types of traces:
 
-* Complete - All function calls.
-* Aggregated - Functions executed within the same span are combined.
+* Complete - All function calls with start and end times.
+* Segmented - Functions calls broken into segments. Used to demonstrate scale eg. CLI trace view.
+* Count - Totals number of times a function was called.
 
-Below is a condensed example:
+Below is a condensed example for a complete trace:
 
 ```json
 {
