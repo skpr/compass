@@ -53,10 +53,6 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         }
     };
 
-    if header::block_execution(get_header_key(server)) {
-        return;
-    }
-
     let class_name = match execute_data.func().get_class() {
         Some(class_name) => class_name,
         None => {

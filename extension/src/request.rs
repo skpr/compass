@@ -29,10 +29,6 @@ pub fn shutdown() {
         }
     };
 
-    if header::block_execution(get_header_key(server)) {
-        return;
-    }
-
     let request_id = get_request_id(server);
     let uri = get_request_uri(server);
     let method = get_request_method(server);
