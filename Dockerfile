@@ -24,7 +24,7 @@ FROM alpine:3.21 AS extension
     RUN cargo build --release
 
 # This stage builds the collector component which will attach to the extension and collect telemetry.
-FROM golang:1.23-alpine AS collector
+FROM golang:1.24-alpine AS collector
 
     RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make alpine-sdk linux-headers bpftool
 
