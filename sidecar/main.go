@@ -3,10 +3,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/christgf/env"
-	"github.com/spf13/cobra"
 	"log/slog"
 	"os"
+
+	"github.com/christgf/env"
+	"github.com/spf13/cobra"
 
 	"github.com/skpr/compass/collector"
 	"github.com/skpr/compass/collector/extension/discovery"
@@ -108,8 +109,8 @@ func main() {
 
 	// Sink configuration.
 	cmd.PersistentFlags().StringVar(&o.Sink, "sink", env.String("COMPASS_SIDECAR_SINK", "stdout"), "Which sink to use for tracing data")
-	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_SIDECAR_FUNCTION_THRESHOLD", 10), "Watermark for which functionss to trace")
-	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_SIDECAR_REQUEST_THRESHOLD", 100), "Watermark for which requests to trace")
+	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_SIDECAR_FUNCTION_THRESHOLD", 10000), "Watermark for which functionss to trace")
+	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_SIDECAR_REQUEST_THRESHOLD", 100000), "Watermark for which requests to trace")
 
 	// Debugging.
 	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
