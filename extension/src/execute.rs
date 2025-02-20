@@ -1,6 +1,6 @@
 use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
 use crate::{header, threshold};
-use chrono::prelude::*;
+use coarsetime::Clock;
 use phper::{sys, values::ExecuteData};
 use probe::probe;
 use std::ptr::null_mut;
@@ -30,9 +30,9 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     };
 
     // Run the upstream function and record the duration.
-    let start = get_unix_timestamp_micros();
+    let start = Clock::now_since_epoch().as_millis();
     upstream_execute_ex(Some(execute_data));
-    let end = get_unix_timestamp_micros();
+    let end = Clock::now_since_epoch().as_millis();
 
     // @todo, Consider making this work for other situations eg. Apache, CLI etc
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
@@ -93,9 +93,4 @@ fn upstream_execute_ex(execute_data: Option<&mut ExecuteData>) {
                 .unwrap_or(null_mut()))
         }
     }
-}
-
-pub fn get_unix_timestamp_micros() -> i64 {
-    let now = Utc::now();
-    now.timestamp_micros()
 }
