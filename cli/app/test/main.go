@@ -30,19 +30,19 @@ func main() {
 				},
 				FunctionCalls: []trace.FunctionCall{
 					{
-						Name:      "Foo::bar",
-						StartTime: 3000000,
-						EndTime:   15000000,
+						Name: "Foo::bar",
+						//StartTime: 3000000,
+						//EndTime:   15000000,
 					},
 					{
-						Name:      "Skpr::rocks",
-						StartTime: 5000000,
-						EndTime:   13000000,
+						Name: "Skpr::rocks",
+						//StartTime: 5000000,
+						//EndTime:   13000000,
 					},
 					{
-						Name:      "Baz::boo",
-						StartTime: 6000000,
-						EndTime:   10000000,
+						Name: "Baz::boo",
+						//StartTime: 6000000,
+						//EndTime:   10000000,
 					},
 				},
 			})

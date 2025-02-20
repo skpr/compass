@@ -24,15 +24,14 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 
 		switch note.Name {
 		case "php_function":
-			if len(note.Args) != 5 {
+			if len(note.Args) != 4 {
 				return "", fmt.Errorf("php_fuction does not have 5 args")
 			}
 
 			replacements["PHP_FUNCTION_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
 			replacements["PHP_FUNCTION_ARG_CLASS_NAME"] = valueFunc(note.Args[1])
 			replacements["PHP_FUNCTION_ARG_FUNCTION_NAME"] = valueFunc(note.Args[2])
-			replacements["PHP_FUNCTION_ARG_START_TIME"] = valueFunc(note.Args[3])
-			replacements["PHP_FUNCTION_ARG_END_TIME"] = valueFunc(note.Args[4])
+			replacements["PHP_FUNCTION_ARG_ELAPSED"] = valueFunc(note.Args[3])
 
 		case "request_shutdown":
 			if len(note.Args) != 3 {

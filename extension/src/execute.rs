@@ -1,6 +1,6 @@
 use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
 use crate::{header, threshold};
-use coarsetime::Clock;
+use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe;
 use std::ptr::null_mut;
@@ -30,16 +30,16 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
     };
 
     // Run the upstream function and record the duration.
-    let start = Clock::now_since_epoch().as_millis();
+    let start = Instant::recent();
     upstream_execute_ex(Some(execute_data));
-    let end = Clock::now_since_epoch().as_millis();
+    let elapsed = start.elapsed().as_nanos();
 
     // @todo, Consider making this work for other situations eg. Apache, CLI etc
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
         return;
     }
 
-    if threshold::is_under_function_threshold(end - start) {
+    if threshold::is_under_function_threshold(elapsed) {
         return;
     }
 
@@ -79,8 +79,7 @@ unsafe extern "C" fn execute_ex(execute_data: *mut sys::zend_execute_data) {
         request_id.as_ptr(),
         class_name.get_name().as_c_str_ptr(),
         function_name.as_c_str_ptr(),
-        start,
-        end,
+        elapsed,
     );
 }
 

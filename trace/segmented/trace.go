@@ -15,9 +15,9 @@ func Unmarshal(fullTrace trace.Trace, segments int) Trace {
 	for _, call := range fullTrace.FunctionCalls {
 		span := Span{
 			Name:               call.Name,
-			StartTime:          call.StartTime,
-			Start:              getSegmentStart(fullTrace.Metadata.StartTime, call.StartTime, fullTrace.Metadata.ExecutionTime, float64(segments)),
-			Length:             getSegmentLength(fullTrace.Metadata.ExecutionTime, (call.EndTime-call.StartTime)/1000, float64(segments)),
+			Timestamp:          call.Timestamp,
+			Start:              getSegmentStart(fullTrace.Metadata.StartTime, call.Timestamp, fullTrace.Metadata.ExecutionTime, float64(segments)),
+			Length:             getSegmentLength(fullTrace.Metadata.ExecutionTime, call.Elapsed/1000, float64(segments)),
 			TotalFunctionCalls: 1,
 		}
 
@@ -26,8 +26,8 @@ func Unmarshal(fullTrace trace.Trace, segments int) Trace {
 		if val, ok := spans[key]; ok {
 			span.TotalFunctionCalls = val.TotalFunctionCalls + 1
 
-			if span.StartTime > val.StartTime {
-				span.StartTime = val.StartTime
+			if span.Timestamp > val.Timestamp {
+				span.Timestamp = val.Timestamp
 			}
 
 			spans[key] = span
@@ -49,8 +49,8 @@ func Unmarshal(fullTrace trace.Trace, segments int) Trace {
 
 	// We also need to sort these now that all the spans have gone through a map which does not have ordering.
 	sort.Slice(segmentedTrace.Spans, func(i, j int) bool {
-		if segmentedTrace.Spans[i].StartTime != segmentedTrace.Spans[j].StartTime {
-			return segmentedTrace.Spans[i].StartTime < segmentedTrace.Spans[j].StartTime
+		if segmentedTrace.Spans[i].Timestamp != segmentedTrace.Spans[j].Timestamp {
+			return segmentedTrace.Spans[i].Timestamp < segmentedTrace.Spans[j].Timestamp
 		}
 
 		if segmentedTrace.Spans[i].Name != segmentedTrace.Spans[j].Name {

@@ -20,8 +20,8 @@ struct event {
   u8 method[STRSZ];
   u8 class_name[STRSZ];
   u8 function_name[STRSZ];
-  u64 start_time;
-  u64 end_time;
+  u64 timestamp;
+  u64 elapsed;
 };
 
 // Force emitting structs into the ELF.
@@ -46,8 +46,8 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_REQUEST_ID);
   bpf_probe_read_user_str(&event->class_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_CLASS_NAME);
   bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_FUNCTION_NAME);
-  event->start_time = ctx->PHP_FUNCTION_ARG_START_TIME;
-  event->end_time = ctx->PHP_FUNCTION_ARG_END_TIME;
+  event->timestamp = bpf_ktime_get_ns();
+  event->elapsed = ctx->PHP_FUNCTION_ARG_ELAPSED;
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);
@@ -69,6 +69,7 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_REQUEST_ID);
   bpf_probe_read_user_str(&event->uri, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_URI);
   bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_METHOD);
+  event->timestamp = bpf_ktime_get_ns();
 
   // Send it up to user space.
   bpf_ringbuf_submit(event, 0);

@@ -23,7 +23,7 @@ type Span struct {
 	// Name of the function.
 	Name string `json:"name"`
 	// The original start time of the function called in the span.
-	StartTime int64 `json:"startTime"`
+	Timestamp int64 `json:"timestamp"`
 	// Which segment this function started.
 	Start int `json:"start"`
 	// How many segments this function call spans.
