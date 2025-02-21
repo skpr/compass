@@ -50,7 +50,7 @@ func (c *Client) Initialize() error {
 
 // ProcessTrace from the collector.
 func (c *Client) ProcessTrace(trace trace.Trace) error {
-	if trace.Metadata.ExecutionTime < c.requestThreshold {
+	if trace.Metadata.ExecutionTime() < c.requestThreshold {
 		return nil
 	}
 

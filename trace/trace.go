@@ -3,12 +3,16 @@ package trace
 
 // Metadata associated with this trace.
 type Metadata struct {
-	RequestID     string `json:"requestID"`
-	URI           string `json:"uri"`
-	Method        string `json:"method"`
-	StartTime     int64  `json:"startTime"`
-	EndTime       int64  `json:"endTime"`
-	ExecutionTime int64  `json:"executionTime"`
+	RequestID string `json:"requestID"`
+	URI       string `json:"uri"`
+	Method    string `json:"method"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
+}
+
+// ExecutionTime of the trace.
+func (m Metadata) ExecutionTime() int64 {
+	return m.EndTime - m.StartTime
 }
 
 // Trace data collected for a request.

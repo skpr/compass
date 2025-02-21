@@ -146,8 +146,6 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string, endTime i
 		trace.FunctionCalls = append(trace.FunctionCalls, call)
 	}
 
-	trace.Metadata.ExecutionTime = (trace.Metadata.EndTime - trace.Metadata.StartTime) / 1000
-
 	c.logger.Debug("request event has associated functions", "count", len(trace.FunctionCalls))
 
 	err := c.plugin.ProcessTrace(trace)
