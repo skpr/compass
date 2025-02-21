@@ -27,7 +27,6 @@ func TestUsingNotesAmd64(t *testing.T) {
 				"-8@%rbx",
 				"-8@%r14",
 				"-8@%rax",
-				"-8@%r13",
 				"-8@%rbp",
 			},
 		},
@@ -37,8 +36,7 @@ func TestUsingNotesAmd64(t *testing.T) {
 		"PHP_FUNCTION_ARG_FUNCTION_NAME",
 		"PHP_FUNCTION_ARG_CLASS_NAME",
 		"PHP_FUNCTION_ARG_FUNCTION_NAME",
-		"PHP_FUNCTION_ARG_START_TIME",
-		"PHP_FUNCTION_ARG_END_TIME",
+		"PHP_FUNCTION_ARG_ELAPSED",
 		"REQUEST_SHUTDOWN_ARG_REQUEST_ID",
 		"REQUEST_SHUTDOWN_ARG_URI",
 		"REQUEST_SHUTDOWN_ARG_URI",
@@ -46,7 +44,7 @@ func TestUsingNotesAmd64(t *testing.T) {
 
 	program, err := UsingNotes("amd64", notes, strings.Join(replacements, ","))
 	assert.NoError(t, err)
-	assert.Equal(t, "ax,r14,ax,r13,bp,bx,r14,r14", program)
+	assert.Equal(t, "ax,r14,ax,bp,bx,r14,r14", program)
 }
 
 func TestUsingNotesArm64(t *testing.T) {
@@ -67,7 +65,6 @@ func TestUsingNotesArm64(t *testing.T) {
 				"-8@x19",
 				"-8@x20",
 				"-8@x0",
-				"-8@x23",
 				"-8@x24",
 			},
 		},
@@ -77,8 +74,7 @@ func TestUsingNotesArm64(t *testing.T) {
 		"PHP_FUNCTION_ARG_FUNCTION_NAME",
 		"PHP_FUNCTION_ARG_CLASS_NAME",
 		"PHP_FUNCTION_ARG_FUNCTION_NAME",
-		"PHP_FUNCTION_ARG_START_TIME",
-		"PHP_FUNCTION_ARG_END_TIME",
+		"PHP_FUNCTION_ARG_ELAPSED",
 		"REQUEST_SHUTDOWN_ARG_REQUEST_ID",
 		"REQUEST_SHUTDOWN_ARG_URI",
 		"REQUEST_SHUTDOWN_ARG_URI",
@@ -86,5 +82,5 @@ func TestUsingNotesArm64(t *testing.T) {
 
 	program, err := UsingNotes("arm64", notes, strings.Join(replacements, ","))
 	assert.NoError(t, err)
-	assert.Equal(t, "regs[0],regs[20],regs[0],regs[23],regs[24],regs[19],regs[20],regs[20]", program)
+	assert.Equal(t, "regs[0],regs[20],regs[0],regs[24],regs[19],regs[20],regs[20]", program)
 }

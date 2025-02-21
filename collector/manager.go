@@ -70,7 +70,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestShutdown(requestID, uri, method); err != nil {
+		if err := c.handleRequestShutdown(requestID, uri, method, int64(event.Timestamp)); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -81,16 +81,18 @@ func (c *Manager) Handle(event bpfEvent) error {
 // Process the function event and store the data.
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := trace.FunctionCall{
-		Name:      fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
-		StartTime: int64(event.StartTime),
-		EndTime:   int64(event.EndTime),
+		Name: fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
+		// The start time is the event time minus how long it look to execute.
+		// The event is triggerd after a the function is called and we have collected the elapsed time.
+		StartTime: int64(event.Timestamp - event.Elapsed),
+		Elapsed:   int64(event.Elapsed),
 	}
 
 	c.logger.Debug("function event has been called",
 		"request_id", requestID,
 		"function_name", function.Name,
 		"start_time", function.StartTime,
-		"end_time", function.EndTime,
+		"elapsed", function.Elapsed,
 	)
 
 	var calls []trace.FunctionCall
@@ -107,7 +109,7 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
+func (c *Manager) handleRequestShutdown(requestID, uri, method string, endTime int64) error {
 	c.logger.Debug("request shutdown event has been called", "request_id", requestID)
 
 	var calls []trace.FunctionCall
@@ -128,6 +130,7 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 			RequestID: requestID,
 			URI:       uri,
 			Method:    method,
+			EndTime:   endTime,
 		},
 	}
 
@@ -140,14 +143,8 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string) error {
 			trace.Metadata.StartTime = call.StartTime
 		}
 
-		if call.EndTime > trace.Metadata.EndTime {
-			trace.Metadata.EndTime = call.EndTime
-		}
-
 		trace.FunctionCalls = append(trace.FunctionCalls, call)
 	}
-
-	trace.Metadata.ExecutionTime = (trace.Metadata.EndTime - trace.Metadata.StartTime) / 1000
 
 	c.logger.Debug("request event has associated functions", "count", len(trace.FunctionCalls))
 

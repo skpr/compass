@@ -50,7 +50,7 @@ func (c *Client) Initialize() error {
 
 // ProcessTrace from the collector.
 func (c *Client) ProcessTrace(trace trace.Trace) error {
-	if trace.Metadata.ExecutionTime < c.requestThreshold {
+	if trace.Metadata.ExecutionTime() < c.requestThreshold {
 		return nil
 	}
 
@@ -62,8 +62,8 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 			SpanID:            generateSpanID(),
 			Name:              function.Name,
 			Kind:              "SPAN_KIND_INTERNAL",
-			StartTimeUnixNano: function.StartTime * 1000,
-			EndTimeUnixNano:   function.EndTime * 1000,
+			StartTimeUnixNano: function.StartTime,
+			EndTimeUnixNano:   (function.StartTime + function.Elapsed),
 		})
 	}
 

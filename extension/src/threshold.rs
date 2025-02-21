@@ -3,11 +3,11 @@ use phper::ini::ini_get;
 
 pub const INI_CONFIG: &str = "compass.function_threshold";
 
-static FUNCTION_THRESHOLD: Lazy<i64> = Lazy::new(|| {
-    return ini_get::<i64>(INI_CONFIG);
+static FUNCTION_THRESHOLD: Lazy<u64> = Lazy::new(|| {
+    return ini_get::<i64>(INI_CONFIG) as u64;
 });
 
 #[inline]
-pub fn is_under_function_threshold(elapsed: i64) -> bool {
+pub fn is_under_function_threshold(elapsed: u64) -> bool {
     elapsed < *FUNCTION_THRESHOLD
 }

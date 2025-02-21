@@ -27,7 +27,7 @@ func (m Model) View() string {
 
 		visible = append(visible, []string{
 			s.GetName(),
-			graph.Render(s.Start, s.Length),
+			graph.Render(int(s.Start), int(s.Length)),
 		})
 	}
 

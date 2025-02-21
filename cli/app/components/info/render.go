@@ -25,7 +25,7 @@ func (m Model) View() string {
 		{
 			m.Trace.Metadata.RequestID,
 			time.UnixMicro(m.Trace.Metadata.StartTime).Format(time.TimeOnly),
-			fmt.Sprintf("%vms", int(m.Trace.Metadata.ExecutionTime)),
+			fmt.Sprintf("%vms", nanosecondsToMilliseconds(m.Trace.Metadata.ExecutionTime())),
 			fmt.Sprintf("%d", len(m.Trace.FunctionCalls)),
 		},
 	}, 4)
@@ -41,4 +41,8 @@ func (m Model) View() string {
 	}, 3)
 
 	return lipgloss.JoinVertical(lipgloss.Top, trace, request)
+}
+
+func nanosecondsToMilliseconds(ns int64) int {
+	return int(float64(ns) / float64(time.Millisecond))
 }

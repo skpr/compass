@@ -62,28 +62,29 @@ func TestHandleRequestShutdown(t *testing.T) {
 			RequestId:    toUint8(requestID),
 			ClassName:    toUint8("Foo"),
 			FunctionName: toUint8("bar"),
-			StartTime:    uint64(3000000),
-			EndTime:      uint64(15000000),
+			Timestamp:    uint64(15000000),
+			Elapsed:      uint64(12000000),
 		},
 		{
 			Type:         toUint8(EventFunction),
 			RequestId:    toUint8(requestID),
 			ClassName:    toUint8("Skpr"),
 			FunctionName: toUint8("rocks"),
-			StartTime:    uint64(5000000),
-			EndTime:      uint64(13000000),
+			Timestamp:    uint64(13000000),
+			Elapsed:      uint64(8000000),
 		},
 		{
 			Type:         toUint8(EventFunction),
 			RequestId:    toUint8(requestID),
 			ClassName:    toUint8("Baz"),
 			FunctionName: toUint8("boo"),
-			StartTime:    uint64(6000000),
-			EndTime:      uint64(10000000),
+			Timestamp:    uint64(10000000),
+			Elapsed:      uint64(4000000),
 		},
 		{
 			Type:      toUint8(EventRequestShutdown),
 			RequestId: toUint8(requestID),
+			Timestamp: uint64(15000000),
 		},
 	}
 
@@ -96,26 +97,25 @@ func TestHandleRequestShutdown(t *testing.T) {
 	assert.Equal(t, []trace.Trace{
 		{
 			Metadata: trace.Metadata{
-				RequestID:     "123456789",
-				StartTime:     3000000,
-				EndTime:       15000000,
-				ExecutionTime: 12000,
+				RequestID: "123456789",
+				StartTime: 3000000,
+				EndTime:   15000000,
 			},
 			FunctionCalls: []trace.FunctionCall{
 				{
 					Name:      "Foo::bar",
 					StartTime: 3000000,
-					EndTime:   15000000,
+					Elapsed:   12000000,
 				},
 				{
 					Name:      "Skpr::rocks",
 					StartTime: 5000000,
-					EndTime:   13000000,
+					Elapsed:   8000000,
 				},
 				{
 					Name:      "Baz::boo",
 					StartTime: 6000000,
-					EndTime:   10000000,
+					Elapsed:   4000000,
 				},
 			},
 		},

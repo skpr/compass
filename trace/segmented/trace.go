@@ -9,16 +9,22 @@ import (
 )
 
 // Unmarshal a full trace into a segmented trace.
-func Unmarshal(fullTrace trace.Trace, segments int) Trace {
+func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
+	segmentLength := (fullTrace.Metadata.EndTime - fullTrace.Metadata.StartTime) / segments
+
 	spans := make(map[string]Span)
 
 	for _, call := range fullTrace.FunctionCalls {
 		span := Span{
 			Name:               call.Name,
 			StartTime:          call.StartTime,
-			Start:              getSegmentStart(fullTrace.Metadata.StartTime, call.StartTime, fullTrace.Metadata.ExecutionTime, float64(segments)),
-			Length:             getSegmentLength(fullTrace.Metadata.ExecutionTime, (call.EndTime-call.StartTime)/1000, float64(segments)),
+			Start:              (call.StartTime - fullTrace.Metadata.StartTime) / segmentLength,
+			Length:             call.Elapsed / segmentLength,
 			TotalFunctionCalls: 1,
+		}
+
+		if span.Length == 0 {
+			span.Length = 1
 		}
 
 		key := fmt.Sprintf("%s-%d-%d", span.Name, span.Start, span.Length)

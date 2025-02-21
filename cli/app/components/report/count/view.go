@@ -34,8 +34,8 @@ func (m Model) View() string {
 
 		visible = append(visible, []string{
 			s.Name,
-			strconv.Itoa(s.Calls),
-			fmt.Sprintf("%s%%", strconv.Itoa(s.Percentage)),
+			strconv.FormatInt(s.Calls, 10),
+			fmt.Sprintf("%s%%", strconv.FormatInt(s.Percentage, 10)),
 		})
 	}
 

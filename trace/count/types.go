@@ -19,7 +19,7 @@ type Function struct {
 	// Name of the function.
 	Name string `json:"name"`
 	// Calls that occurred for this function in the trace.
-	Calls int `json:"calls"`
+	Calls int64 `json:"calls"`
 	// Percentage of the request which this function was called.
-	Percentage int `json:"percentage"`
+	Percentage int64 `json:"percentage"`
 }

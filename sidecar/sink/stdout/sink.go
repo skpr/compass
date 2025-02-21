@@ -30,16 +30,16 @@ func (c *Client) Initialize() error {
 
 // ProcessTrace from the collector.
 func (c *Client) ProcessTrace(t trace.Trace) error {
-	if t.Metadata.ExecutionTime < c.requestThreshold {
+	if t.Metadata.ExecutionTime() < c.requestThreshold {
 		return nil
 	}
 
 	var calls []trace.FunctionCall
 
 	for _, function := range t.FunctionCalls {
-		executionTime := function.EndTime - function.StartTime
+		elapsed := function.Elapsed * 1000
 
-		if executionTime > c.functionThreshold {
+		if elapsed > c.functionThreshold {
 			calls = append(calls, function)
 		}
 	}
