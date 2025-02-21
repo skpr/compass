@@ -91,7 +91,7 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	c.logger.Debug("function event has been called",
 		"request_id", requestID,
 		"function_name", function.Name,
-		"state_time", function.StartTime,
+		"start_time", function.StartTime,
 		"elapsed", function.Elapsed,
 	)
 
