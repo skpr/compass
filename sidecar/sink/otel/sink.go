@@ -62,8 +62,8 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 			SpanID:            generateSpanID(),
 			Name:              function.Name,
 			Kind:              "SPAN_KIND_INTERNAL",
-			StartTimeUnixNano: function.Timestamp * 1000,
-			EndTimeUnixNano:   (function.Timestamp + function.Elapsed) * 1000,
+			StartTimeUnixNano: function.StartTime,
+			EndTimeUnixNano:   (function.StartTime + function.Elapsed),
 		})
 	}
 

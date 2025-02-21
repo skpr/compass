@@ -81,15 +81,17 @@ func (c *Manager) Handle(event bpfEvent) error {
 // Process the function event and store the data.
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := trace.FunctionCall{
-		Name:      fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
-		Timestamp: int64(event.Timestamp),
+		Name: fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
+		// The start time is the event time minus how long it look to execute.
+		// The event is triggerd after a the function is called and we have collected the elapsed time.
+		StartTime: int64(event.Timestamp - event.Elapsed),
 		Elapsed:   int64(event.Elapsed),
 	}
 
 	c.logger.Debug("function event has been called",
 		"request_id", requestID,
 		"function_name", function.Name,
-		"timestamp", function.Timestamp,
+		"state_time", function.StartTime,
 		"elapsed", function.Elapsed,
 	)
 
@@ -134,11 +136,11 @@ func (c *Manager) handleRequestShutdown(requestID, uri, method string, endTime i
 
 	for _, call := range calls {
 		if trace.Metadata.StartTime == 0 {
-			trace.Metadata.StartTime = call.Timestamp
+			trace.Metadata.StartTime = call.StartTime
 		}
 
-		if call.Timestamp < trace.Metadata.StartTime {
-			trace.Metadata.StartTime = call.Timestamp
+		if call.StartTime < trace.Metadata.StartTime {
+			trace.Metadata.StartTime = call.StartTime
 		}
 
 		trace.FunctionCalls = append(trace.FunctionCalls, call)

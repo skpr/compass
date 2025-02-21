@@ -11,7 +11,7 @@ type Trace struct {
 	// Metadata associated with this trace.
 	Metadata trace.Metadata `json:"metadata"`
 	// Total number of segments in this trace.
-	Segments int `json:"segments"`
+	Segments int64 `json:"segments"`
 	// TotalFunctionCalls that occurred during this trace.
 	TotalFunctionCalls int `json:"totalFunctionCalls"`
 	// Spans that are included in trace.
@@ -23,11 +23,11 @@ type Span struct {
 	// Name of the function.
 	Name string `json:"name"`
 	// The original start time of the function called in the span.
-	Timestamp int64 `json:"timestamp"`
+	StartTime int64 `json:"startTime"`
 	// Which segment this function started.
-	Start int `json:"start"`
+	Start int64 `json:"start"`
 	// How many segments this function call spans.
-	Length int `json:"length"`
+	Length int64 `json:"length"`
 	// TotalFunctionCalls that were called during this span.
 	TotalFunctionCalls int `json:"calls"`
 }

@@ -9,16 +9,22 @@ import (
 )
 
 // Unmarshal a full trace into a segmented trace.
-func Unmarshal(fullTrace trace.Trace, segments int) Trace {
+func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
+	segmentLength := (fullTrace.Metadata.EndTime - fullTrace.Metadata.StartTime) / segments
+
 	spans := make(map[string]Span)
 
 	for _, call := range fullTrace.FunctionCalls {
 		span := Span{
 			Name:               call.Name,
-			Timestamp:          call.Timestamp,
-			Start:              getSegmentStart(fullTrace.Metadata.StartTime, call.Timestamp, fullTrace.Metadata.ExecutionTime, float64(segments)),
-			Length:             getSegmentLength(fullTrace.Metadata.ExecutionTime, call.Elapsed/1000, float64(segments)),
+			StartTime:          call.StartTime,
+			Start:              (call.StartTime - fullTrace.Metadata.StartTime) / segmentLength,
+			Length:             call.Elapsed / segmentLength,
 			TotalFunctionCalls: 1,
+		}
+
+		if span.Length == 0 {
+			span.Length = 1
 		}
 
 		key := fmt.Sprintf("%s-%d-%d", span.Name, span.Start, span.Length)
@@ -26,8 +32,8 @@ func Unmarshal(fullTrace trace.Trace, segments int) Trace {
 		if val, ok := spans[key]; ok {
 			span.TotalFunctionCalls = val.TotalFunctionCalls + 1
 
-			if span.Timestamp > val.Timestamp {
-				span.Timestamp = val.Timestamp
+			if span.StartTime > val.StartTime {
+				span.StartTime = val.StartTime
 			}
 
 			spans[key] = span
@@ -49,8 +55,8 @@ func Unmarshal(fullTrace trace.Trace, segments int) Trace {
 
 	// We also need to sort these now that all the spans have gone through a map which does not have ordering.
 	sort.Slice(segmentedTrace.Spans, func(i, j int) bool {
-		if segmentedTrace.Spans[i].Timestamp != segmentedTrace.Spans[j].Timestamp {
-			return segmentedTrace.Spans[i].Timestamp < segmentedTrace.Spans[j].Timestamp
+		if segmentedTrace.Spans[i].StartTime != segmentedTrace.Spans[j].StartTime {
+			return segmentedTrace.Spans[i].StartTime < segmentedTrace.Spans[j].StartTime
 		}
 
 		if segmentedTrace.Spans[i].Name != segmentedTrace.Spans[j].Name {

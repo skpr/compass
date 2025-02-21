@@ -20,6 +20,6 @@ type Trace struct {
 // FunctionCall provides information about the function call.
 type FunctionCall struct {
 	Name      string `json:"name"`
-	Timestamp int64  `json:"timestamp"`
+	StartTime int64  `json:"startTime"`
 	Elapsed   int64  `json:"elapsed"`
 }
