@@ -1,48 +1,37 @@
 package app
 
 import (
-	"github.com/skpr/compass/cli/app/components/help"
-	"github.com/skpr/compass/cli/app/components/info"
-	"github.com/skpr/compass/cli/app/components/layout"
-	"github.com/skpr/compass/cli/app/components/report/count"
-	"github.com/skpr/compass/cli/app/components/report/spans"
-	"github.com/skpr/compass/cli/app/components/search"
-	"github.com/skpr/compass/trace"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/skpr/compass/cli/app/types"
 )
 
-// View refreshes the display.
-func (m *Model) View() string {
-	var trace trace.Trace
+var (
+	docStyle = lipgloss.NewStyle()
+)
 
-	if len(m.traces.Filtered) > 0 && len(m.traces.Filtered) >= m.traceSelected {
-		trace = m.traces.Filtered[m.traceSelected]
+// View for this model.
+func (m Model) View() string {
+	doc := strings.Builder{}
+
+	doc.WriteString(m.viewMenu() + "\n")
+
+	switch m.PageSelected {
+	case types.PageSearch:
+		doc.WriteString(m.searchView() + "\n\n")
+	case types.PageSpans:
+		doc.WriteString(m.metadataView() + "\n")
+		doc.WriteString(m.spansView() + "\n")
+	case types.PageTotals:
+		doc.WriteString(m.metadataView() + "\n")
+		doc.WriteString(m.totalsView() + "\n")
+	case types.PageLogs:
+		doc.WriteString(m.logsView() + "\n\n")
 	}
 
-	l := layout.Model{
-		Search: search.Model{
-			Query: m.searchQuery,
-		},
-		Info: info.Model{
-			Trace:    trace,
-			Selected: m.traceSelected,
-		},
-		Help:     help.Model{},
-		Selected: m.traceSelected,
-		Total:    len(m.traces.Filtered),
-	}
+	doc.WriteString(m.footerView())
 
-	switch m.viewMode {
-	case ViewCount:
-		l.Spans = count.Model{
-			Trace:          trace,
-			ScrollPosition: m.breakdownScroll,
-		}
-	default:
-		l.Spans = spans.Model{
-			Trace:          trace,
-			ScrollPosition: m.breakdownScroll,
-		}
-	}
-
-	return l.View()
+	return docStyle.Render(doc.String())
 }

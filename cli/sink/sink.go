@@ -2,8 +2,11 @@
 package sink
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/skpr/compass/cli/app/types"
 	"github.com/skpr/compass/trace"
 )
 
@@ -25,7 +28,12 @@ func (c *Client) Initialize() error {
 }
 
 // ProcessTrace from the collector.
-func (c *Client) ProcessTrace(profile trace.Trace) error {
-	c.p.Send(profile)
+func (c *Client) ProcessTrace(t trace.Trace) error {
+	trace := types.Trace{
+		IngestionTime: time.Now(),
+		Trace:         t,
+	}
+
+	c.p.Send(trace)
 	return nil
 }
