@@ -9,22 +9,19 @@ import (
 )
 
 var (
-	statusBarStyle = lipgloss.NewStyle().
+	footerBarStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.AdaptiveColor{Light: color.White, Dark: color.White}).
 			Background(lipgloss.AdaptiveColor{Light: color.Grey, Dark: color.Grey})
 
-	statusNugget = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(color.White)).
-			Padding(0, 1)
+	logo = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(color.White)).
+		Padding(0, 1).Background(lipgloss.Color(color.Blue)).
+		Render("Compass")
 
-	logoStyle = statusNugget.Background(lipgloss.Color(color.Blue))
-
-	statusText = lipgloss.NewStyle().Inherit(statusBarStyle)
+	statusText = lipgloss.NewStyle().Inherit(footerBarStyle)
 )
 
 func (m *Model) footerView() string {
-	logo := logoStyle.Render("Compass")
-
 	status := statusText.
 		Width(m.Width - lipgloss.Width(logo)).
 		Render(fmt.Sprintf("Using probes from %s", m.ProbePath))
@@ -34,5 +31,5 @@ func (m *Model) footerView() string {
 		logo,
 	)
 
-	return statusBarStyle.Width(m.Width).Render(bar)
+	return footerBarStyle.Width(m.Width).Render(bar)
 }
