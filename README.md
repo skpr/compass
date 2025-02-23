@@ -42,7 +42,7 @@ Performance data can be found in Github Actions for [this build](https://github.
 
 ## CLI
 
-<img src="/docs/ui.png">
+<img src="/docs/cli.png">
 
 ## Trace
 
