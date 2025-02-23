@@ -12,7 +12,7 @@ endif
 
 up:
 	# Building Compass.
-	docker build -t local/compass:latest .
+	docker build --progress=plain -t local/compass:latest .
 	docker compose build php-fpm
 	docker compose up
 

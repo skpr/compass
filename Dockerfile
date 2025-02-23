@@ -52,5 +52,6 @@ FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
     COPY --from=collector /go/src/github.com/skpr/compass/_output/compass /usr/local/bin/compass
     COPY --from=collector /go/src/github.com/skpr/compass/_output/compass-sidecar /usr/local/bin/compass-sidecar
 
+    ENV COLORTERM=truecolor
     ENV COMPASS_PROCESS_NAME=php-fpm
     CMD ["compass-sidecar"]

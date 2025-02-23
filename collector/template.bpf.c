@@ -1,6 +1,7 @@
 //go:build ignore
 
 #define STRSZ 100 + 1
+#define URI_MAX_LEN 2000
 
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
@@ -16,7 +17,7 @@ const char event_type_request_shutdown[] = "request_shutdown";
 struct event {
   u8 type[STRSZ];
   u8 request_id[STRSZ];
-  u8 uri[STRSZ];
+  u8 uri[URI_MAX_LEN];
   u8 method[STRSZ];
   u8 class_name[STRSZ];
   u8 function_name[STRSZ];
@@ -67,7 +68,7 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_REQUEST_ID);
-  bpf_probe_read_user_str(&event->uri, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_URI);
+  bpf_probe_read_user_str(&event->uri, URI_MAX_LEN, (void *)ctx->REQUEST_SHUTDOWN_ARG_URI);
   bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_METHOD);
   event->timestamp = bpf_ktime_get_ns();
 

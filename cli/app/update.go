@@ -3,7 +3,7 @@ package app
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/trace"
+	"github.com/skpr/compass/cli/app/types"
 )
 
 // Update triggers on messages and updates the model.
@@ -16,44 +16,41 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC.String():
 			return m, tea.Quit
 
-		// For moving between traces.
-		case tea.KeyLeft.String():
-			return m.TracePrevious()
+		// For navigating the main menu.
 		case tea.KeyRight.String():
-			return m.TraceNext()
+			return m.updateKeyRight()
+		case tea.KeyLeft.String():
+			return m.updateKeyLeft()
 
-		// For scrolling the trace details.
-		case tea.KeyUp.String():
-			return m.ScrollUp()
-		case tea.KeyDown.String():
-			return m.ScrollDown()
-
-		// Allow views to tab through analysis reports.
-		case tea.KeyShiftLeft.String():
-			return m.ReportPrevious()
-		case tea.KeyShiftRight.String():
-			return m.ReportNext()
-
-		// Delete character from search.
-		case tea.KeyBackspace.String():
-			return m.SearchQueryDelete()
-
-		// Add character to search.
-		default:
-			return m.SearchQueryAdd(msg)
+		case tea.KeyEnter.String():
+			return m.updateKeyEnter()
 		}
 
-	// When a new profile is received, add it to the list of profiles.
-	case trace.Trace:
-		m.traces.All = append(m.traces.All, msg)
-		m.SearchFilter()
-		return m, nil
-
-	// Window was resized.
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		return m, nil
+		return m.updateWindowSize(msg)
+
+	case types.Trace:
+		return m.updateTrace(msg)
+
+	case types.Log:
+		return m.updateLog(msg)
+	}
+
+	var cmd tea.Cmd
+
+	switch m.PageSelected {
+	case types.PageSearch:
+		m.search, cmd = m.search.Update(msg)
+		return m, cmd
+	case types.PageSpans:
+		m.spans, cmd = m.spans.Update(msg)
+		return m, cmd
+	case types.PageTotals:
+		m.totals, cmd = m.totals.Update(msg)
+		return m, cmd
+	case types.PageLogs:
+		m.logs, cmd = m.logs.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil

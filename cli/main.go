@@ -50,7 +50,16 @@ func main() {
 		Long:    cmdLong,
 		Example: cmdExample,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			p := tea.NewProgram(app.NewModel(), tea.WithAltScreen())
+			logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+				Level: slog.LevelError,
+			}))
+
+			path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath)
+			if err != nil {
+				return err
+			}
+
+			p := tea.NewProgram(app.NewModel(path), tea.WithAltScreen())
 
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -58,15 +67,6 @@ func main() {
 
 			// Start the collector.
 			eg.Go(func() error {
-				logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelError,
-				}))
-
-				path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath)
-				if err != nil {
-					return err
-				}
-
 				return collector.Run(ctx, logger, sink.New(p), collector.RunOptions{
 					ExecutablePath: path,
 				})
