@@ -106,7 +106,7 @@ func (c *Client) ProcessTrace(trace trace.Trace) error {
 		return err
 	}
 
-	c.logger.With("trace_id", trace.Metadata.RequestID).Info("Sending trace to OpenTelemetry")
+	c.logger.With("trace_id", trace.Metadata.RequestID).With("uri", trace.Metadata.URI).With("method", trace.Metadata.Method).Info("Sending trace to OpenTelemetry")
 
 	fmt.Println("sending to jaeger")
 
