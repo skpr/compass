@@ -75,6 +75,8 @@ func getValueFunc(arch string) (func(string) string, error) {
 				return "bx"
 			case "-8@%rbp":
 				return "bp"
+			case "-8@%rcx":
+				return "cx"
 			default:
 				// Preserve the "r" in the remaining eg. r15.
 				return strings.TrimPrefix(argument, "-8@%")
