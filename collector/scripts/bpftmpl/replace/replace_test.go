@@ -59,7 +59,6 @@ func TestUsingNotesArm64(t *testing.T) {
 			Provider: "compass",
 			Name:     "php_function",
 			Args: []string{
-				"-8@x19",
 				"-8@x20",
 				"-8@x0",
 				"-8@x24",
@@ -69,7 +68,6 @@ func TestUsingNotesArm64(t *testing.T) {
 
 	replacements := []string{
 		"PHP_FUNCTION_ARG_FUNCTION_NAME",
-		"PHP_FUNCTION_ARG_CLASS_NAME",
 		"PHP_FUNCTION_ARG_FUNCTION_NAME",
 		"PHP_FUNCTION_ARG_ELAPSED",
 		"REQUEST_SHUTDOWN_ARG_REQUEST_ID",
@@ -79,5 +77,5 @@ func TestUsingNotesArm64(t *testing.T) {
 
 	program, err := UsingNotes("arm64", notes, strings.Join(replacements, ","))
 	assert.NoError(t, err)
-	assert.Equal(t, "regs[0],regs[20],regs[0],regs[24],regs[19],regs[20],regs[20]", program)
+	assert.Equal(t, "regs[0],regs[0],regs[24],regs[19],regs[20],regs[20]", program)
 }

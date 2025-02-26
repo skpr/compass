@@ -56,7 +56,7 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 func getValueFunc(arch string) (func(string) string, error) {
 	if arch == "arm64" {
 		return func(argument string) string {
-			return fmt.Sprintf("regs[%s]", strings.TrimLeft(argument, "-8@x"))
+			return fmt.Sprintf("regs[%s]", strings.TrimPrefix(argument, "-8@x"))
 		}, nil
 	}
 
@@ -77,7 +77,7 @@ func getValueFunc(arch string) (func(string) string, error) {
 				return "bp"
 			default:
 				// Preserve the "r" in the remaining eg. r15.
-				return strings.TrimLeft(argument, "-8@%")
+				return strings.TrimPrefix(argument, "-8@%")
 			}
 		}, nil
 	}

@@ -7,30 +7,32 @@ use std::{cell::RefCell, collections::HashMap};
 use tracing::error;
 
 thread_local! {
-    static CONTEXT_GUARD_MAP: RefCell<HashMap<usize, Instant>> = RefCell::new(HashMap::new());
+    static CONTEXT_FUNCTION_MAP: RefCell<HashMap<usize, Instant>> = RefCell::new(HashMap::new());
 }
 
-fn store_guard(exec_ptr: *mut sys::zend_execute_data, guard: Instant) {
+fn set_function_time(exec_ptr: *mut sys::zend_execute_data, now: Instant) {
     let key = exec_ptr as usize;
-    CONTEXT_GUARD_MAP.with(|map| {
-        map.borrow_mut().insert(key, guard);
+    CONTEXT_FUNCTION_MAP.with(|map| {
+        map.borrow_mut().insert(key, now);
     });
 }
 
-fn take_guard(exec_ptr: *mut sys::zend_execute_data) -> Option<Instant> {
+fn get_function_time(exec_ptr: *mut sys::zend_execute_data) -> Option<Instant> {
     let key = exec_ptr as usize;
-    CONTEXT_GUARD_MAP.with(|map| map.borrow_mut().remove(&key))
+    CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().remove(&key))
 }
 
 pub unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
-    store_guard(execute_data, Instant::now());
+    // @todo, Replace with Instant::recent();
+    // https://github.com/skpr/compass/pull/92#discussion_r1965495079
+    set_function_time(execute_data, Instant::now());
 }
 
 pub unsafe extern "C" fn observer_end(
     execute_data: *mut sys::zend_execute_data,
     _return_value: *mut sys::zval,
 ) {
-    let start = match take_guard(execute_data) {
+    let start = match get_function_time(execute_data) {
         Some(start) => start,
         None => {
             return;
