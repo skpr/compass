@@ -81,7 +81,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 // Process the function event and store the data.
 func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 	function := trace.FunctionCall{
-		Name: fmt.Sprintf("%s::%s", unix.ByteSliceToString(event.ClassName[:]), unix.ByteSliceToString(event.FunctionName[:])),
+		Name: unix.ByteSliceToString(event.FunctionName[:]),
 		// The start time is the event time minus how long it look to execute.
 		// The event is triggerd after a the function is called and we have collected the elapsed time.
 		StartTime: int64(event.Timestamp - event.Elapsed),

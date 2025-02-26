@@ -10,6 +10,7 @@ services:
     network_mode: service:nginx
     environment:
       - COMPASS_ENABLED=true
+      - RUST_BACKTRACE=1 # Debugging
 
   compass:
     image: local/compass:latest

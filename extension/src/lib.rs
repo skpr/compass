@@ -1,14 +1,12 @@
 mod enabled;
-mod execute;
 mod header;
 mod mode;
+mod observer;
 mod request;
 mod threshold;
 mod util;
 
-use phper::{ini::Policy, modules::Module, php_get_module};
-
-use crate::execute::register_exec_functions;
+use phper::{ini::Policy, modules::Module, php_get_module, sys};
 
 // This is the entrypoint of the PHP extension.
 #[php_get_module]
@@ -37,7 +35,9 @@ pub fn on_module_init() {
         return;
     }
 
-    register_exec_functions();
+    unsafe {
+        sys::zend_observer_fcall_register(Some(observer::observer_instrument));
+    }
 }
 
 pub fn on_request_init() {
