@@ -24,14 +24,13 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 
 		switch note.Name {
 		case "php_function":
-			if len(note.Args) != 4 {
-				return "", fmt.Errorf("php_fuction does not have 5 args")
+			if len(note.Args) != 3 {
+				return "", fmt.Errorf("php_fuction does not have 3 args")
 			}
 
 			replacements["PHP_FUNCTION_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
-			replacements["PHP_FUNCTION_ARG_CLASS_NAME"] = valueFunc(note.Args[1])
-			replacements["PHP_FUNCTION_ARG_FUNCTION_NAME"] = valueFunc(note.Args[2])
-			replacements["PHP_FUNCTION_ARG_ELAPSED"] = valueFunc(note.Args[3])
+			replacements["PHP_FUNCTION_ARG_FUNCTION_NAME"] = valueFunc(note.Args[1])
+			replacements["PHP_FUNCTION_ARG_ELAPSED"] = valueFunc(note.Args[2])
 
 		case "request_shutdown":
 			if len(note.Args) != 3 {
@@ -57,7 +56,7 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 func getValueFunc(arch string) (func(string) string, error) {
 	if arch == "arm64" {
 		return func(argument string) string {
-			return fmt.Sprintf("regs[%s]", strings.TrimLeft(argument, "-8@x"))
+			return fmt.Sprintf("regs[%s]", strings.TrimPrefix(argument, "-8@x"))
 		}, nil
 	}
 
@@ -76,9 +75,11 @@ func getValueFunc(arch string) (func(string) string, error) {
 				return "bx"
 			case "-8@%rbp":
 				return "bp"
+			case "-8@%rcx":
+				return "cx"
 			default:
 				// Preserve the "r" in the remaining eg. r15.
-				return strings.TrimLeft(argument, "-8@%")
+				return strings.TrimPrefix(argument, "-8@%")
 			}
 		}, nil
 	}

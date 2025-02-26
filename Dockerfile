@@ -1,5 +1,5 @@
 ARG PHP_VERSION=8.3
-ARG ALPINE_VERSION=3.20
+ARG ALPINE_VERSION=3.21
 
 # This is the image used to build the extension.
 # We need the latest version of Alpine so we get a later version of Rust for PHP 8.4 support.

@@ -19,7 +19,6 @@ struct event {
   u8 request_id[STRSZ];
   u8 uri[URI_MAX_LEN];
   u8 method[STRSZ];
-  u8 class_name[STRSZ];
   u8 function_name[STRSZ];
   u64 timestamp;
   u64 elapsed;
@@ -45,7 +44,6 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_function);
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_REQUEST_ID);
-  bpf_probe_read_user_str(&event->class_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_CLASS_NAME);
   bpf_probe_read_user_str(&event->function_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_FUNCTION_NAME);
   event->timestamp = bpf_ktime_get_ns();
   event->elapsed = ctx->PHP_FUNCTION_ARG_ELAPSED;

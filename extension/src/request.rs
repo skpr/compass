@@ -4,7 +4,7 @@ use crate::util::{
 };
 
 use crate::header;
-use probe::probe;
+use probe::probe_lazy;
 use tracing::error;
 
 pub fn init() {
@@ -38,7 +38,7 @@ pub fn shutdown() {
     let uri = get_request_uri(server);
     let method = get_request_method(server);
 
-    probe!(
+    probe_lazy!(
         compass,
         request_shutdown,
         request_id.as_ptr(),
