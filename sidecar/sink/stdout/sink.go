@@ -37,7 +37,7 @@ func (c *Client) ProcessTrace(t trace.Trace) error {
 	var calls []trace.FunctionCall
 
 	for _, function := range t.FunctionCalls {
-		elapsed := function.Elapsed * 1000
+		elapsed := function.Elapsed
 
 		if elapsed > c.functionThreshold {
 			calls = append(calls, function)
