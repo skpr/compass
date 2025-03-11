@@ -13,6 +13,28 @@ pub fn init() {
     }
 
     jit_initialization();
+
+    let server_result = get_request_server();
+
+    let server = match server_result {
+        Ok(carrier) => carrier,
+        Err(_err) => {
+            error!("unable to get server info: {}", _err);
+            return;
+        }
+    };
+
+    if header::block_execution(get_header_key(server)) {
+        return;
+    }
+
+    let request_id = get_request_id(server);
+
+    probe_lazy!(
+        compass,
+        request_init,
+        request_id.as_ptr(),
+    );
 }
 
 pub fn shutdown() {
