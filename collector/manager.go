@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	// EventRequestInit is the event type for a request init.
+	EventRequestInit = "request_init"
 	// EventFunction is the event type for a function.
 	EventFunction = "function"
 	// EventRequestShutdown is the event type for a request shutdown.
@@ -60,20 +62,42 @@ func (c *Manager) Handle(event bpfEvent) error {
 	}
 
 	switch eventType {
-	case EventFunction:
-		if err := c.handleFunction(requestID, event); err != nil {
-			return fmt.Errorf("failed to process function: %w", err)
-		}
-	case EventRequestShutdown:
+	case EventRequestInit:
 		var (
 			uri    = unix.ByteSliceToString(event.Uri[:])
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestShutdown(requestID, uri, method, int64(event.Timestamp)); err != nil {
+		if err := c.handleRequestInit(requestID, uri, method, event); err != nil {
+			return fmt.Errorf("failed to process request init: %w", err)
+		}
+	case EventFunction:
+		if err := c.handleFunction(requestID, event); err != nil {
+			return fmt.Errorf("failed to process function: %w", err)
+		}
+	case EventRequestShutdown:
+		if err := c.handleRequestShutdown(requestID, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
+
+	return nil
+}
+
+// Process the function event and store the data.
+func (c *Manager) handleRequestInit(requestID, uri, method string, event bpfEvent) error {
+	c.logger.Debug("request initialise event has been called", "request_id", requestID)
+
+	t := trace.Trace{
+		Metadata: trace.Metadata{
+			RequestID: requestID,
+			URI:       uri,
+			Method:    method,
+			StartTime: int64(event.Timestamp),
+		},
+	}
+
+	c.storage.Set(requestID, t, cache.DefaultExpiration)
 
 	return nil
 }
@@ -95,60 +119,43 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 		"elapsed", function.Elapsed,
 	)
 
-	var calls []trace.FunctionCall
-
-	if x, found := c.storage.Get(requestID); found {
-		calls = x.([]trace.FunctionCall)
+	x, found := c.storage.Get(requestID)
+	if !found {
+		return fmt.Errorf("not found in storage")
 	}
 
-	calls = append(calls, function)
+	t := x.(trace.Trace)
 
-	c.storage.Set(requestID, calls, cache.DefaultExpiration)
+	t.FunctionCalls = append(t.FunctionCalls, function)
+
+	c.storage.Set(requestID, t, cache.DefaultExpiration)
 
 	return nil
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Manager) handleRequestShutdown(requestID, uri, method string, endTime int64) error {
+func (c *Manager) handleRequestShutdown(requestID string, event bpfEvent) error {
 	c.logger.Debug("request shutdown event has been called", "request_id", requestID)
 
-	var calls []trace.FunctionCall
-
-	if x, found := c.storage.Get(requestID); found {
-		calls = x.([]trace.FunctionCall)
+	x, found := c.storage.Get(requestID)
+	if !found {
+		return fmt.Errorf("not found in storage")
 	}
+
+	t := x.(trace.Trace)
+
+	t.Metadata.EndTime = int64(event.Timestamp)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)
 
-	if len(calls) == 0 {
+	if len(t.FunctionCalls) == 0 {
 		return fmt.Errorf("no functions found for request with id: %s", requestID)
 	}
 
-	trace := trace.Trace{
-		Metadata: trace.Metadata{
-			RequestID: requestID,
-			URI:       uri,
-			Method:    method,
-			EndTime:   endTime,
-		},
-	}
+	c.logger.Debug("request event has associated functions", "count", len(t.FunctionCalls))
 
-	for _, call := range calls {
-		if trace.Metadata.StartTime == 0 {
-			trace.Metadata.StartTime = call.StartTime
-		}
-
-		if call.StartTime < trace.Metadata.StartTime {
-			trace.Metadata.StartTime = call.StartTime
-		}
-
-		trace.FunctionCalls = append(trace.FunctionCalls, call)
-	}
-
-	c.logger.Debug("request event has associated functions", "count", len(trace.FunctionCalls))
-
-	err := c.plugin.ProcessTrace(trace)
+	err := c.plugin.ProcessTrace(t)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}

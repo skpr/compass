@@ -58,6 +58,11 @@ func TestHandleRequestShutdown(t *testing.T) {
 
 	events := []bpfEvent{
 		{
+			Type:      toUint8(EventRequestInit),
+			RequestId: toUint8(requestID),
+			Timestamp: uint64(3000000),
+		},
+		{
 			Type:         toUint8(EventFunction),
 			RequestId:    toUint8(requestID),
 			FunctionName: toUint8("Foo::bar"),

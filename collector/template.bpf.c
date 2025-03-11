@@ -46,6 +46,8 @@ int uprobe_compass_request_init(struct pt_regs *ctx) {
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_init);
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_INIT_ARG_REQUEST_ID);
+  bpf_probe_read_user_str(&event->uri, URI_MAX_LEN, (void *)ctx->REQUEST_INIT_ARG_URI);
+  bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->REQUEST_INIT_ARG_METHOD);
   event->timestamp = bpf_ktime_get_ns();
 
   // Send it up to user space.
@@ -88,8 +90,6 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
   // Add in the extra call information.
   bpf_core_read(&event->type, STRSZ, &event_type_request_shutdown);
   bpf_probe_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_REQUEST_ID);
-  bpf_probe_read_user_str(&event->uri, URI_MAX_LEN, (void *)ctx->REQUEST_SHUTDOWN_ARG_URI);
-  bpf_probe_read_user_str(&event->method, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_METHOD);
   event->timestamp = bpf_ktime_get_ns();
 
   // Send it up to user space.

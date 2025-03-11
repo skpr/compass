@@ -21,6 +21,8 @@ import (
 const (
 	// ProbeProvider is the provider name for the probes.
 	ProbeProvider = "compass"
+	// ProbeNameRequestInit is the name of the request initialisation probe.
+	ProbeNameRequestInit = "request_init"
 	// ProbeNameRequestShutdown is the name of the request shutdown probe.
 	ProbeNameRequestShutdown = "request_shutdown"
 	// ProbeNameFunction is the name of the function probe.
@@ -56,6 +58,12 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 	}
 
 	logger.Info("Attaching probes")
+
+	probeRequestInit, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameRequestInit, objs.UprobeCompassRequestInit)
+	if err != nil {
+		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameRequestInit, err)
+	}
+	defer probeRequestInit.Close()
 
 	probeFunction, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameFunction, objs.UprobeCompassPhpFunction)
 	if err != nil {

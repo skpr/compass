@@ -29,11 +29,15 @@ pub fn init() {
     }
 
     let request_id = get_request_id(server);
+    let uri = get_request_uri(server);
+    let method = get_request_method(server);
 
     probe_lazy!(
         compass,
         request_init,
         request_id.as_ptr(),
+        uri.as_ptr(),
+        method.as_ptr()
     );
 }
 
@@ -57,14 +61,6 @@ pub fn shutdown() {
     }
 
     let request_id = get_request_id(server);
-    let uri = get_request_uri(server);
-    let method = get_request_method(server);
 
-    probe_lazy!(
-        compass,
-        request_shutdown,
-        request_id.as_ptr(),
-        uri.as_ptr(),
-        method.as_ptr()
-    );
+    probe_lazy!(compass, request_shutdown, request_id.as_ptr());
 }
