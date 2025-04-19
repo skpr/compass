@@ -62,15 +62,6 @@ func run() error {
 		return fmt.Errorf("enabled errors (%d) are over the limit (%d)", int(enabled.RootGroup.Checks.OK.Fails), FailLimit)
 	}
 
-	collector, err := getReport("collector/report.json")
-	if err != nil {
-		return fmt.Errorf("failed to load collector report: %w", err)
-	}
-
-	if collector.RootGroup.Checks.OK.Fails > FailLimit {
-		return fmt.Errorf("collector errors (%d) are over the limit (%d)", int(collector.RootGroup.Checks.OK.Fails), FailLimit)
-	}
-
 	var errs []error
 
 	disabledDiff := installed.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
@@ -83,17 +74,11 @@ func run() error {
 		errs = append(errs, fmt.Errorf("extension report exceeded the request limit"))
 	}
 
-	collectorDiff := collector.Metrics.HTTPReqDuration.Avg - control.Metrics.HTTPReqDuration.Avg
-	if collectorDiff > RequestLimit {
-		errs = append(errs, fmt.Errorf("collector report exceeded the request limit"))
-	}
-
 	summaryTemplate := `| Test      | Average | Diff (Compared to Control) |
 |-----------|---------|----------------------------|
 | Control   | %dms    |                            |
 | Installed | %dms    | %dms                       |
-| Enabled   | %dms    | %dms                       |
-| Collector | %dms    | %dms                       |`
+| Enabled   | %dms    | %dms                       |`
 
 	summary := fmt.Sprintf(summaryTemplate,
 		int(control.Metrics.HTTPReqDuration.Avg),
@@ -101,8 +86,6 @@ func run() error {
 		int(disabledDiff),
 		int(enabled.Metrics.HTTPReqDuration.Avg),
 		int(enabledDiff),
-		int(collector.Metrics.HTTPReqDuration.Avg),
-		int(collectorDiff),
 	)
 
 	data := []byte(summary)
