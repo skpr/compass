@@ -1,9 +1,8 @@
 use crate::util::{
-    get_header_key, get_request_id, get_request_method, get_request_server, get_request_uri,
-    get_sapi_module_name, jit_initialization,
+    get_request_id, get_request_method, get_request_server, get_request_uri, get_sapi_module_name,
+    jit_initialization,
 };
 
-use crate::header;
 use probe::probe_lazy;
 use tracing::error;
 
@@ -23,10 +22,6 @@ pub fn init() {
             return;
         }
     };
-
-    if header::block_execution(get_header_key(server)) {
-        return;
-    }
 
     let request_id = get_request_id(server);
     let uri = get_request_uri(server);
@@ -55,10 +50,6 @@ pub fn shutdown() {
             return;
         }
     };
-
-    if header::block_execution(get_header_key(server)) {
-        return;
-    }
 
     let request_id = get_request_id(server);
 

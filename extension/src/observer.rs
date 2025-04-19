@@ -1,49 +1,18 @@
-use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
-use crate::{header, threshold};
-use coarsetime::Instant;
-use phper::{strings::ZStr, sys, values::ExecuteData};
+use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
+use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
-use std::{cell::RefCell, collections::HashMap};
 use tracing::error;
 
-thread_local! {
-    static CONTEXT_FUNCTION_MAP: RefCell<HashMap<usize, Instant>> = RefCell::new(HashMap::new());
-}
-
-fn set_function_time(exec_ptr: *mut sys::zend_execute_data, now: Instant) {
-    let key = exec_ptr as usize;
-    CONTEXT_FUNCTION_MAP.with(|map| {
-        map.borrow_mut().insert(key, now);
-    });
-}
-
-fn get_function_time(exec_ptr: *mut sys::zend_execute_data) -> Option<Instant> {
-    let key = exec_ptr as usize;
-    CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().remove(&key))
-}
-
 pub unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
-    // @todo, Replace with Instant::recent();
-    // https://github.com/skpr/compass/pull/92#discussion_r1965495079
-    set_function_time(execute_data, Instant::now());
+    let id = execute_data as usize;
+    probe_lazy!(compass, php_function_begin, id);
 }
 
 pub unsafe extern "C" fn observer_end(
     execute_data: *mut sys::zend_execute_data,
     _return_value: *mut sys::zval,
 ) {
-    let start = match get_function_time(execute_data) {
-        Some(start) => start,
-        None => {
-            return;
-        }
-    };
-
-    let elapsed = start.elapsed().as_nanos();
-
-    if threshold::is_under_function_threshold(elapsed) {
-        return;
-    }
+    let id = execute_data as usize;
 
     let server_result = get_request_server();
 
@@ -54,10 +23,6 @@ pub unsafe extern "C" fn observer_end(
             return;
         }
     };
-
-    if header::block_execution(get_header_key(server)) {
-        return;
-    }
 
     let request_id = get_request_id(server);
 
@@ -71,12 +36,12 @@ pub unsafe extern "C" fn observer_end(
     probe_lazy!(
         compass,
         php_function,
+        id,
         request_id.as_ptr(),
         execute_data
             .func()
             .get_function_or_method_name()
             .as_c_str_ptr(),
-        elapsed,
     );
 }
 
