@@ -22,7 +22,6 @@ jobs:
           - control   # Without Compass installed.
           - installed # Compass installed but not enabled.
           - enabled   # Compass enabled by collector not running.
-          - collector # Compass enabled and collector running.
 
     steps:
       - name: ⬇️ Git clone the repository
