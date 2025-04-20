@@ -25,8 +25,10 @@ const (
 	ProbeNameRequestInit = "request_init"
 	// ProbeNameRequestShutdown is the name of the request shutdown probe.
 	ProbeNameRequestShutdown = "request_shutdown"
-	// ProbeNameFunction is the name of the function probe.
-	ProbeNameFunction = "php_function"
+	// ProbeNameFunctionBegin is the name of the function probe used to capture the beginning of a function call.
+	ProbeNameFunctionBegin = "php_function_begin"
+	// ProbeNameFunctionEnd is the name of the function probe used to capture the end of a function call.
+	ProbeNameFunctionEnd = "php_function_end"
 )
 
 // RunOptions for configuring the collector.
@@ -65,11 +67,17 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 	}
 	defer probeRequestInit.Close()
 
-	probeFunction, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameFunction, objs.UprobeCompassPhpFunction)
+	probeFunctionBegin, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameFunctionBegin, objs.UprobeCompassPhpFunctionBegin)
 	if err != nil {
-		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameFunction, err)
+		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameFunctionBegin, err)
 	}
-	defer probeFunction.Close()
+	defer probeFunctionBegin.Close()
+
+	probeFunctionEnd, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameFunctionEnd, objs.UprobeCompassPhpFunctionEnd)
+	if err != nil {
+		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameFunctionEnd, err)
+	}
+	defer probeFunctionEnd.Close()
 
 	probeRequest, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameRequestShutdown, objs.UprobeCompassRequestShutdown)
 	if err != nil {

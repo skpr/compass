@@ -32,14 +32,21 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 			replacements["REQUEST_INIT_ARG_URI"] = valueFunc(note.Args[1])
 			replacements["REQUEST_INIT_ARG_METHOD"] = valueFunc(note.Args[2])
 
-		case "php_function":
-			if len(note.Args) != 3 {
-				return "", fmt.Errorf("php_fuction does not have 3 args")
+		case "php_function_begin":
+			if len(note.Args) != 1 {
+				return "", fmt.Errorf("php_function_begin does not have 1 args")
 			}
 
-			replacements["PHP_FUNCTION_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
-			replacements["PHP_FUNCTION_ARG_FUNCTION_NAME"] = valueFunc(note.Args[1])
-			replacements["PHP_FUNCTION_ARG_ELAPSED"] = valueFunc(note.Args[2])
+			replacements["PHP_FUNCTION_BEGIN_ARG_ID"] = valueFunc(note.Args[0])
+
+		case "php_function_end":
+			if len(note.Args) != 3 {
+				return "", fmt.Errorf("php_function_end does not have 4 args")
+			}
+
+			replacements["PHP_FUNCTION_END_ARG_ID"] = valueFunc(note.Args[0])
+			replacements["PHP_FUNCTION_END_ARG_REQUEST_ID"] = valueFunc(note.Args[1])
+			replacements["PHP_FUNCTION_END_ARG_FUNCTION_NAME"] = valueFunc(note.Args[2])
 
 		case "request_shutdown":
 			if len(note.Args) != 1 {
@@ -49,7 +56,7 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 			replacements["REQUEST_SHUTDOWN_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
 
 		default:
-			return "", fmt.Errorf("found a note which is not php_function or request_shutdown")
+			return "", fmt.Errorf("found a note which is not request_init, php_function_begin, php_function_end or request_shutdown")
 		}
 	}
 

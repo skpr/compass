@@ -35,7 +35,7 @@ pub unsafe extern "C" fn observer_end(
 
     probe_lazy!(
         compass,
-        php_function,
+        php_function_end,
         id,
         request_id.as_ptr(),
         execute_data
