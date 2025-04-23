@@ -27,10 +27,6 @@ pub fn get_module() -> Module {
 }
 
 pub fn on_module_init() {
-    if !enabled::is_enabled() {
-        return;
-    }
-
     unsafe {
         sys::zend_observer_fcall_register(Some(observer::observer_instrument));
     }

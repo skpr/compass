@@ -1,3 +1,4 @@
+use crate::enabled;
 use crate::threshold;
 use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
 use coarsetime::Instant;
@@ -79,6 +80,13 @@ pub unsafe extern "C" fn observer_end(
 pub unsafe extern "C" fn observer_instrument(
     _execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
+    if !enabled::is_enabled() {
+        return sys::zend_observer_fcall_handlers {
+            begin: None,
+            end: None,
+        };
+    }
+
     // @todo, Consider making this work for other situations eg. Apache, CLI etc
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
         return sys::zend_observer_fcall_handlers {
