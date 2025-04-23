@@ -1,5 +1,4 @@
-use crate::enabled;
-use crate::threshold;
+use crate::config;
 use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
 use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
@@ -42,7 +41,7 @@ pub unsafe extern "C" fn observer_end(
 
     let elapsed = start.elapsed().as_nanos();
 
-    if threshold::is_under_function_threshold(elapsed) {
+    if elapsed < config::get_threshold() {
         return;
     }
 
@@ -80,7 +79,7 @@ pub unsafe extern "C" fn observer_end(
 pub unsafe extern "C" fn observer_instrument(
     _execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
-    if !enabled::is_enabled() {
+    if !config::is_enabled() {
         return sys::zend_observer_fcall_handlers {
             begin: None,
             end: None,
