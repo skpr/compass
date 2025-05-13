@@ -1,7 +1,7 @@
 use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
 use crate::{header, threshold};
 use coarsetime::Instant;
-use phper::{strings::ZStr, sys, values::ExecuteData};
+use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
 use std::{cell::RefCell, collections::HashMap};
 use tracing::error;

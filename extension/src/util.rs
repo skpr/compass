@@ -18,7 +18,7 @@ pub fn jit_initialization() {
 // https://github.com/apache/skywalking-php/blob/master/src/request.rs#L152
 pub fn get_request_server<'a>() -> anyhow::Result<&'a ZArr> {
     unsafe {
-        let symbol_table = ZArr::from_mut_ptr(&mut eg!(symbol_table));
+        let symbol_table = ZArr::from_mut_ptr(&raw mut eg!(symbol_table));
         let carrier = symbol_table
             .get("_SERVER")
             .and_then(|carrier| carrier.as_z_arr())

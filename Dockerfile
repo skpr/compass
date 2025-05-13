@@ -13,7 +13,8 @@ FROM alpine:3.21 AS extension
         curl -sSL https://packages.skpr.io/php-alpine/skpr.rsa.pub -o /etc/apk/keys/skpr.rsa.pub && \
         echo "https://packages.skpr.io/php-alpine/${ALPINE_VERSION}/php${PHP_VERSION}" >> /etc/apk/repositories
 
-    RUN apk --update --no-cache add rust rustfmt cargo php${PHP_VERSION}-dev clang-dev
+    RUN apk --update --no-cache add php${PHP_VERSION}-dev clang-dev
+    RUN apk add rust rustfmt cargo --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main
 
     # Build the project.
     ADD --chown=skpr:skpr extension /data
@@ -34,7 +35,7 @@ FROM golang:1.24-alpine AS collector
     ADD . /go/src/github.com/skpr/compass
     WORKDIR /go/src/github.com/skpr/compass
 
-    RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.16.0
+    RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.18.0
     RUN go install github.com/mgechev/revive@latest
     RUN make lint test build
 
