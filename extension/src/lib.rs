@@ -1,6 +1,4 @@
 mod enabled;
-mod header;
-mod mode;
 mod observer;
 mod request;
 mod threshold;
@@ -18,8 +16,6 @@ pub fn get_module() -> Module {
     );
 
     module.add_ini(enabled::INI_CONFIG, false, Policy::All);
-    module.add_ini(mode::INI_CONFIG, "".to_string(), Policy::All);
-    module.add_ini(header::INI_CONFIG, "".to_string(), Policy::All);
     module.add_ini(threshold::INI_CONFIG, 1000000, Policy::All);
 
     module.on_module_init(on_module_init);
