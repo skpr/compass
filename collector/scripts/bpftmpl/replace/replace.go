@@ -48,8 +48,12 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 
 			replacements["REQUEST_SHUTDOWN_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
 
+		case "enable_request_init", "enable_php_function", "enable_request_shutdown":
+			// These probes don't have any args.
+			continue
+
 		default:
-			return "", fmt.Errorf("found a note which is not php_function or request_shutdown")
+			return "", fmt.Errorf("found a note which is not on our replace list: %s", note)
 		}
 	}
 

@@ -42,7 +42,7 @@ pub fn on_request_init() {
         return;
     }
 
-    let probe_enabled = probe_lazy!(skpr, enable_request_init);
+    let probe_enabled = probe_lazy!(compass, enable_request_init);
 
     if !probe_enabled {
         return;
@@ -56,7 +56,7 @@ pub fn on_request_shutdown() {
         return;
     }
 
-    let probe_enabled = probe_lazy!(skpr, enable_request_shutdown);
+    let probe_enabled = probe_lazy!(compass, enable_request_shutdown);
 
     if !probe_enabled {
         return;
