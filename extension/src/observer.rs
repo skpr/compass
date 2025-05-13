@@ -1,5 +1,5 @@
-use crate::util::{get_header_key, get_request_id, get_request_server, get_sapi_module_name};
-use crate::{header, threshold};
+use crate::threshold;
+use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
 use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
@@ -54,10 +54,6 @@ pub unsafe extern "C" fn observer_end(
             return;
         }
     };
-
-    if header::block_execution(get_header_key(server)) {
-        return;
-    }
 
     let request_id = get_request_id(server);
 
