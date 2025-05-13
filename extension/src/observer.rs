@@ -79,6 +79,12 @@ pub unsafe extern "C" fn observer_end(
 pub unsafe extern "C" fn observer_instrument(
     _execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
+    let probe_enabled = probe_lazy!(skpr, enable_php_function);
+
+    if !probe_enabled {
+        return;
+    }
+
     // @todo, Consider making this work for other situations eg. Apache, CLI etc
     if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
         return sys::zend_observer_fcall_handlers {

@@ -34,6 +34,13 @@ struct {
     __uint(max_entries, 256 * 4096);
 } events SEC(".maps");
 
+// A noop function for enabling probes in the extension.
+// This is now we achieve a zero to no performance impact when probes are not enabled.
+SEC("uprobe/compass_enable_probe")
+int uprobe_compass_enable_probe(struct pt_regs *ctx) {
+  return 0;
+}
+
 // Used to inform the user space application that a request initialised.
 SEC("uprobe/compass_request_init")
 int uprobe_compass_request_init(struct pt_regs *ctx) {

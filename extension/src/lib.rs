@@ -5,6 +5,7 @@ mod threshold;
 mod util;
 
 use phper::{ini::Policy, modules::Module, php_get_module, sys};
+use probe::probe_lazy;
 
 // This is the entrypoint of the PHP extension.
 #[php_get_module]
@@ -41,11 +42,23 @@ pub fn on_request_init() {
         return;
     }
 
+    let probe_enabled = probe_lazy!(skpr, enable_request_init);
+
+    if !probe_enabled {
+        return;
+    }
+
     request::init();
 }
 
 pub fn on_request_shutdown() {
     if !enabled::is_enabled() {
+        return;
+    }
+
+    let probe_enabled = probe_lazy!(skpr, enable_request_shutdown);
+
+    if !probe_enabled {
         return;
     }
 
