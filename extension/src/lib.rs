@@ -1,5 +1,6 @@
 mod canary;
 mod enabled;
+mod fpm;
 mod observer;
 mod request;
 mod threshold;

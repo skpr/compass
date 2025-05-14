@@ -1,6 +1,7 @@
 use crate::canary::probe_enabled;
+use crate::fpm::is_fpm;
 use crate::threshold;
-use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
+use crate::util::{get_request_id, get_request_server};
 use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
@@ -85,7 +86,7 @@ pub unsafe extern "C" fn observer_instrument(
         };
     }
 
-    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
+    if !is_fpm() {
         return sys::zend_observer_fcall_handlers {
             begin: None,
             end: None,
