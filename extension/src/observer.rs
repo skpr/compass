@@ -10,11 +10,7 @@ use std::cell::RefCell;
 use tracing::error;
 
 thread_local! {
-    static CONTEXT_FUNCTION_MAP: RefCell<FxHashMap<usize, Instant>> = RefCell::new({
-        let mut map = FxHashMap::default();
-        map.reserve(32);
-        map
-    });
+    static CONTEXT_FUNCTION_MAP: RefCell<FxHashMap<usize, Instant>> = RefCell::new(FxHashMap::default());
 }
 
 #[inline(always)]
