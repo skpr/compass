@@ -1,5 +1,6 @@
+use crate::canary::probe_enabled;
 use crate::threshold;
-use crate::util::{get_request_id, get_request_server, get_sapi_module_name, probes_enabled};
+use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
 use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
@@ -79,7 +80,7 @@ pub unsafe extern "C" fn observer_end(
 pub unsafe extern "C" fn observer_instrument(
     _execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
-    if !probes_enabled() {
+    if !probe_enabled() {
         return sys::zend_observer_fcall_handlers {
             begin: None,
             end: None,

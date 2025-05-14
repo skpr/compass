@@ -49,7 +49,7 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 			replacements["REQUEST_SHUTDOWN_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
 
 		// These probes don't have any args.
-		case "enable_probes":
+		case "canary":
 			continue
 
 		default:

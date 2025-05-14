@@ -1,3 +1,4 @@
+mod canary;
 mod enabled;
 mod observer;
 mod request;
@@ -5,7 +6,6 @@ mod threshold;
 mod util;
 
 use phper::{ini::Policy, modules::Module, php_get_module, sys};
-use probe::probe_lazy;
 
 // This is the entrypoint of the PHP extension.
 #[php_get_module]
@@ -42,7 +42,7 @@ pub fn on_request_init() {
         return;
     }
 
-    if !util::probes_enabled() {
+    if !canary::probe_enabled() {
         return;
     }
 
@@ -54,7 +54,7 @@ pub fn on_request_shutdown() {
         return;
     }
 
-    if !util::probes_enabled() {
+    if !canary::probe_enabled() {
         return;
     }
 

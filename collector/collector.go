@@ -29,8 +29,8 @@ const (
 	// ProbeNameFunction is the name of the function probe.
 	ProbeNameFunction = "php_function"
 
-	// ProbeNameEnableProbes is used to enable all the above probes.
-	ProbeNameEnableProbes = "enable_probes"
+	// ProbeNameCanary is used to enable all the above probes.
+	ProbeNameCanary = "canary"
 )
 
 // RunOptions for configuring the collector.
@@ -63,11 +63,11 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 
 	logger.Info("Attaching probes")
 
-	probeEnableProbes, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameEnableProbes, objs.UprobeCompassEnableProbe)
+	probeCanary, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameCanary, objs.UprobeCompassCanary)
 	if err != nil {
-		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameEnableProbes, err)
+		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameCanary, err)
 	}
-	defer probeEnableProbes.Close()
+	defer probeCanary.Close()
 
 	probeRequestInit, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameRequestInit, objs.UprobeCompassRequestInit)
 	if err != nil {

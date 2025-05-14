@@ -1,14 +1,6 @@
 use anyhow::Context;
-use cached::proc_macro::once;
 use phper::{arrays::ZArr, eg, pg, sys, values::ZVal};
-use probe::probe_lazy;
 use std::ffi::CStr;
-
-// A cached function with TTL of 10 seconds
-#[once(time = 1)]
-pub fn probes_enabled() -> bool {
-    probe_lazy!(compass, enable_probes)
-}
 
 // https://github.com/apache/skywalking-php/blob/master/src/request.rs#L93
 pub fn jit_initialization() {
