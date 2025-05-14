@@ -5,7 +5,7 @@ use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
 use rustc_hash::FxHashMap;
-use std::{cell::RefCell};
+use std::cell::RefCell;
 use tracing::error;
 
 thread_local! {
