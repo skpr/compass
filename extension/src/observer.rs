@@ -16,11 +16,7 @@ thread_local! {
 #[inline(always)]
 fn set_function_time(exec_ptr: *mut sys::zend_execute_data, now: Instant) {
     let key = exec_ptr as usize;
-    CONTEXT_FUNCTION_MAP.with(|map| {
-        if let Ok(mut m) = map.try_borrow_mut() {
-            m.insert(key, now);
-        }
-    });
+    CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().insert(key, now));
 }
 
 #[inline(always)]
