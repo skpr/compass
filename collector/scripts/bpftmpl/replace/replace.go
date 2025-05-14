@@ -48,8 +48,8 @@ func UsingNotes(arch string, notes []elf.SystemTapNote, program string) (string,
 
 			replacements["REQUEST_SHUTDOWN_ARG_REQUEST_ID"] = valueFunc(note.Args[0])
 
-		case "enable_request_init", "enable_php_function", "enable_request_shutdown":
-			// These probes don't have any args.
+		// These probes don't have any args.
+		case "enable_probes":
 			continue
 
 		default:

@@ -21,6 +21,7 @@ import (
 const (
 	// ProbeProvider is the provider name for the probes.
 	ProbeProvider = "compass"
+
 	// ProbeNameRequestInit is the name of the request initialisation probe.
 	ProbeNameRequestInit = "request_init"
 	// ProbeNameRequestShutdown is the name of the request shutdown probe.
@@ -28,12 +29,8 @@ const (
 	// ProbeNameFunction is the name of the function probe.
 	ProbeNameFunction = "php_function"
 
-	// ProbeNameEnableRequestInit is used to enable ProbeNameRequestInit.
-	ProbeNameEnableRequestInit = "enable_request_init"
-	// ProbeNameEnableRequestShutdown is used to enable ProbeNameRequestShutdown.
-	ProbeNameEnableRequestShutdown = "enable_request_shutdown"
-	// ProbeNameEnableRequestFunction is used to enable ProbeNameFunction.
-	ProbeNameEnableRequestFunction = "enable_php_function"
+	// ProbeNameEnableProbes is used to enable all the above probes.
+	ProbeNameEnableProbes = "enable_probes"
 )
 
 // RunOptions for configuring the collector.
@@ -66,23 +63,11 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 
 	logger.Info("Attaching probes")
 
-	probeEnableRequestInit, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameEnableRequestInit, objs.UprobeCompassEnableProbe)
+	probeEnableProbes, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameEnableProbes, objs.UprobeCompassEnableProbe)
 	if err != nil {
-		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameEnableRequestInit, err)
+		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameEnableProbes, err)
 	}
-	defer probeEnableRequestInit.Close()
-
-	probeEnableFunction, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameEnableRequestFunction, objs.UprobeCompassEnableProbe)
-	if err != nil {
-		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameEnableRequestFunction, err)
-	}
-	defer probeEnableFunction.Close()
-
-	probeEnableRequest, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameEnableRequestShutdown, objs.UprobeCompassEnableProbe)
-	if err != nil {
-		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameEnableRequestShutdown, err)
-	}
-	defer probeEnableRequest.Close()
+	defer probeEnableProbes.Close()
 
 	probeRequestInit, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameRequestInit, objs.UprobeCompassRequestInit)
 	if err != nil {
