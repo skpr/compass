@@ -5,7 +5,7 @@ use probe::probe_lazy;
 use std::ffi::CStr;
 
 // A cached function with TTL of 10 seconds
-#[once(time = 10)]
+#[once(time = 1)]
 pub fn probes_enabled() -> bool {
     probe_lazy!(compass, enable_probes)
 }
