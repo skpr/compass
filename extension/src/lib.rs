@@ -1,4 +1,6 @@
+mod canary;
 mod enabled;
+mod fpm;
 mod observer;
 mod request;
 mod threshold;
@@ -41,11 +43,19 @@ pub fn on_request_init() {
         return;
     }
 
+    if !canary::probe_enabled() {
+        return;
+    }
+
     request::init();
 }
 
 pub fn on_request_shutdown() {
     if !enabled::is_enabled() {
+        return;
+    }
+
+    if !canary::probe_enabled() {
         return;
     }
 

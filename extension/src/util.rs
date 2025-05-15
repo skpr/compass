@@ -1,8 +1,6 @@
-use phper::{arrays::ZArr, eg, pg, sys, values::ZVal};
-
-use std::ffi::CStr;
-
 use anyhow::Context;
+use phper::{arrays::ZArr, eg, pg, sys, values::ZVal};
+use std::ffi::CStr;
 
 // https://github.com/apache/skywalking-php/blob/master/src/request.rs#L93
 pub fn jit_initialization() {

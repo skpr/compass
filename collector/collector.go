@@ -21,12 +21,16 @@ import (
 const (
 	// ProbeProvider is the provider name for the probes.
 	ProbeProvider = "compass"
+
 	// ProbeNameRequestInit is the name of the request initialisation probe.
 	ProbeNameRequestInit = "request_init"
 	// ProbeNameRequestShutdown is the name of the request shutdown probe.
 	ProbeNameRequestShutdown = "request_shutdown"
 	// ProbeNameFunction is the name of the function probe.
 	ProbeNameFunction = "php_function"
+
+	// ProbeNameCanary is used to enable all the above probes.
+	ProbeNameCanary = "canary"
 )
 
 // RunOptions for configuring the collector.
@@ -58,6 +62,12 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 	}
 
 	logger.Info("Attaching probes")
+
+	probeCanary, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameCanary, objs.UprobeCompassCanary)
+	if err != nil {
+		return fmt.Errorf("failed to attach probe: %s: %w", ProbeNameCanary, err)
+	}
+	defer probeCanary.Close()
 
 	probeRequestInit, err := usdt.AttachProbe(ex, options.ExecutablePath, ProbeProvider, ProbeNameRequestInit, objs.UprobeCompassRequestInit)
 	if err != nil {
