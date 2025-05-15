@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	// EventRequestInit is the event type for a request init.
-	EventRequestInit uint8 = 0
 	// EventFunction is the event type for a function.
-	EventFunction uint8 = 1
+	EventFunction uint8 = 0
+	// EventRequestInit is the event type for a request init.
+	EventRequestInit uint8 = 1
 	// EventRequestShutdown is the event type for a request shutdown.
 	EventRequestShutdown uint8 = 2
 )
