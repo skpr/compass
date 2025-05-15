@@ -53,7 +53,6 @@ func NewManager(logger *slog.Logger, plugin sink.Interface, options Options) (*M
 // Handle the event and process it.
 func (c *Manager) Handle(event bpfEvent) error {
 	var (
-		eventType = unix.ByteSliceToString(event.Type[:])
 		requestID = unix.ByteSliceToString(event.RequestId[:])
 	)
 
@@ -61,8 +60,8 @@ func (c *Manager) Handle(event bpfEvent) error {
 		return fmt.Errorf("empty request id")
 	}
 
-	switch eventType {
-	case EventRequestInit:
+	switch event.Type {
+	case 1:
 		var (
 			uri    = unix.ByteSliceToString(event.Uri[:])
 			method = unix.ByteSliceToString(event.Method[:])
@@ -71,11 +70,11 @@ func (c *Manager) Handle(event bpfEvent) error {
 		if err := c.handleRequestInit(requestID, uri, method, event); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
-	case EventFunction:
+	case 0:
 		if err := c.handleFunction(requestID, event); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
-	case EventRequestShutdown:
+	case 2:
 		if err := c.handleRequestShutdown(requestID, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}

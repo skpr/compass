@@ -1,32 +1,33 @@
 use crate::canary::probe_enabled;
+use crate::fpm::is_fpm;
 use crate::threshold;
-use crate::util::{get_request_id, get_request_server, get_sapi_module_name};
+use crate::util::{get_request_id, get_request_server};
 use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
-use std::{cell::RefCell, collections::HashMap};
+use rustc_hash::FxHashMap;
+use std::cell::RefCell;
 use tracing::error;
 
 thread_local! {
-    static CONTEXT_FUNCTION_MAP: RefCell<HashMap<usize, Instant>> = RefCell::new(HashMap::new());
+    static CONTEXT_FUNCTION_MAP: RefCell<FxHashMap<usize, Instant>> = RefCell::new(FxHashMap::default());
 }
 
+#[inline(always)]
 fn set_function_time(exec_ptr: *mut sys::zend_execute_data, now: Instant) {
     let key = exec_ptr as usize;
-    CONTEXT_FUNCTION_MAP.with(|map| {
-        map.borrow_mut().insert(key, now);
-    });
+    CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().insert(key, now));
 }
 
+#[inline(always)]
 fn get_function_time(exec_ptr: *mut sys::zend_execute_data) -> Option<Instant> {
     let key = exec_ptr as usize;
     CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().remove(&key))
 }
 
 pub unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
-    // @todo, Replace with Instant::recent();
-    // https://github.com/skpr/compass/pull/92#discussion_r1965495079
-    set_function_time(execute_data, Instant::now());
+    // Instant::recent is faster and sufficient for short-duration timing.
+    set_function_time(execute_data, Instant::recent());
 }
 
 pub unsafe extern "C" fn observer_end(
@@ -35,9 +36,7 @@ pub unsafe extern "C" fn observer_end(
 ) {
     let start = match get_function_time(execute_data) {
         Some(start) => start,
-        None => {
-            return;
-        }
+        None => return,
     };
 
     let elapsed = start.elapsed().as_nanos();
@@ -46,12 +45,11 @@ pub unsafe extern "C" fn observer_end(
         return;
     }
 
-    let server_result = get_request_server();
-
-    let server = match server_result {
-        Ok(carrier) => carrier,
-        Err(_err) => {
-            error!("unable to get server info: {}", _err);
+    let server = match get_request_server() {
+        Ok(s) => s,
+        Err(err) => {
+            // Consider rate-limiting this if log volume is high
+            error!("unable to get server info: {}", err);
             return;
         }
     };
@@ -59,20 +57,17 @@ pub unsafe extern "C" fn observer_end(
     let request_id = get_request_id(server);
 
     let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
-        Some(execute_data) => execute_data,
-        None => {
-            return;
-        }
+        Some(data) => data,
+        None => return,
     };
+
+    let function_name = execute_data.func().get_function_or_method_name();
 
     probe_lazy!(
         compass,
         php_function,
         request_id.as_ptr(),
-        execute_data
-            .func()
-            .get_function_or_method_name()
-            .as_c_str_ptr(),
+        function_name.as_c_str_ptr(),
         elapsed,
     );
 }
@@ -87,8 +82,7 @@ pub unsafe extern "C" fn observer_instrument(
         };
     }
 
-    // @todo, Consider making this work for other situations eg. Apache, CLI etc
-    if get_sapi_module_name().to_bytes() != b"fpm-fcgi" {
+    if !is_fpm() {
         return sys::zend_observer_fcall_handlers {
             begin: None,
             end: None,
