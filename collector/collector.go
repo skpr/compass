@@ -89,7 +89,7 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 
 	logger.Info("Starting event manager..")
 
-	manager, err := NewManager(logger, plugin, Options{
+	_, err = NewManager(logger, plugin, Options{
 		Expire: time.Minute,
 	})
 	if err != nil {
@@ -128,10 +128,10 @@ func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, option
 				continue
 			}
 
-			if err := manager.Handle(event); err != nil {
+			/*if err := manager.Handle(event); err != nil {
 				logger.Error("failed to handle event", slog.Any("err", err))
 				continue
-			}
+			}*/
 		}
 	}
 }
