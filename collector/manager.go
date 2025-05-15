@@ -14,11 +14,11 @@ import (
 
 const (
 	// EventRequestInit is the event type for a request init.
-	EventRequestInit = "request_init"
+	EventRequestInit uint8 = 0
 	// EventFunction is the event type for a function.
-	EventFunction = "function"
+	EventFunction uint8 = 1
 	// EventRequestShutdown is the event type for a request shutdown.
-	EventRequestShutdown = "request_shutdown"
+	EventRequestShutdown uint8 = 2
 )
 
 // Manager for handling events.
@@ -61,7 +61,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 	}
 
 	switch event.Type {
-	case 1:
+	case EventRequestInit:
 		var (
 			uri    = unix.ByteSliceToString(event.Uri[:])
 			method = unix.ByteSliceToString(event.Method[:])
@@ -70,11 +70,11 @@ func (c *Manager) Handle(event bpfEvent) error {
 		if err := c.handleRequestInit(requestID, uri, method, event); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
-	case 0:
+	case EventFunction:
 		if err := c.handleFunction(requestID, event); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
-	case 2:
+	case EventRequestShutdown:
 		if err := c.handleRequestShutdown(requestID, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
