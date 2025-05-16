@@ -31,3 +31,7 @@ $settings['php_storage']['twig'] = [
 $settings['config_sync_directory'] = DRUPAL_ROOT . '/../config-export';
 
 $settings['deployment_identifier'] = getenv('SKPR_VERSION') ?? \Drupal::VERSION;
+
+$settings['cache']['bins']['render'] = 'cache.backend.null';
+$settings['cache']['bins']['page'] = 'cache.backend.null';
+$settings['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';
