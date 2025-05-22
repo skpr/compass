@@ -58,3 +58,46 @@ func TestRender(t *testing.T) {
 		})
 	}
 }
+
+func TestToPositiveInt(t *testing.T) {
+	tests := []struct {
+		name  string
+		input int64
+		want  int
+	}{
+		{
+			name:  "Positive input",
+			input: 5,
+			want:  5,
+		},
+		{
+			name:  "Zero input",
+			input: 0,
+			want:  0,
+		},
+		{
+			name:  "Negative input",
+			input: -3,
+			want:  0,
+		},
+		{
+			name:  "Large positive input",
+			input: 1234567890,
+			want:  1234567890,
+		},
+		{
+			name:  "Large negative input",
+			input: -9876543210,
+			want:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toPositiveInt(tt.input)
+			if got != tt.want {
+				t.Errorf("toPositiveInt(%d) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
