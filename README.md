@@ -11,26 +11,53 @@ A tool designed to guide developers in the right direction for identifying and r
 
 ```mermaid
 flowchart LR
-   Extension["PECL Extension (Rust)"] --> compass_php_function["compass_php_function (USDT)"]
-   Extension --> compass_request_shutdown["compass_request_shutdown (USDT)"]
+  subgraph php_extension["PHP Extension"]
+    compass_canary
+    compass_request_init
+    compass_php_function
+    compass_request_shutdown
+  end
 
-   compass_php_function --> eBPF[eBPF Program]
-   compass_request_shutdown --> eBPF
+  subgraph eBPF      
+    program
+    ringbuf["Ring Buffer"]
 
-   eBPF --> Events["Events (Ring Buffer)"]
+    compass_canary --> program
+    compass_request_init --> program
+    compass_php_function --> program
+    compass_request_shutdown --> program
 
-   Events --> CLI["CLI (Go)"]
-   Events --> Sidecar["Sidecar (Go)"]
+    program --> ringbuf
+  end
 
-   Sidecar --> Stdout
-   Sidecar --> OpenTelemetry
+  subgraph Collectors
+    CLI
+    Sidecar
+  end
+
+  ringbuf --> CLI
+  ringbuf --> Sidecar
+
+  subgraph Output
+    Stdout
+    OpenTelemetry
+  end
+
+  CLI --> Stdout
+  Sidecar --> Stdout
+  Sidecar --> OpenTelemetry
 ```
 
 ## Performance
 
-<img src="/docs/performance.png">
+| Test      | Average | Diff (Compared to Control) |
+|-----------|---------|----------------------------|
+| Control   | 49ms    |                            |
+| Installed | 49ms    | 0ms                        |
+| Enabled   | 50ms    | 0ms                        |
+| Collector | 57ms    | 7ms                        |
 
-Performance data can be found in Github Actions for [this build](https://github.com/skpr/compass/pull/77).
+Performance data can be found in Github Actions for [this build](https://github.com/skpr/compass/pull/113).
 
 ## Components
 
@@ -56,53 +83,50 @@ Below is a condensed example for a complete trace:
 
 ```json
 {
-  "requestID": "55eefc9aa6008d539ef954aff41806a7",
-  "startTime": 1726972907007464,
-  "executionTime": 6054,
+  "metadata": {
+    "requestID": "6f5397b0f605fd92d4db7c89d23f1b76",
+    "uri": "/sites/default/files/styles/scale_crop_7_3_wide/public/veggie-pasta-bake-hero-umami.jpg.webp?itok=CYsHBUlX",
+    "method": "GET",
+    "startTime": 11479712402527,
+    "endTime": 11480550685871
+  },
   "functionCalls": [
     {
-      "name": "Symfony\\Component\\DependencyInjection\\Compiler\\Compiler::compile",
-      "startTime": 1726972907128013,
-      "endTime": 1726972907517795
+      "name": "PDOStatement::execute",
+      "startTime": 11479719656578,
+      "elapsed": 5999966
     },
     {
-      "name": "Symfony\\Component\\DependencyInjection\\ContainerBuilder::compile",
-      "startTime": 1726972907128009,
-      "endTime": 1726972907518593
+      "name": "Drupal\\Core\\Database\\StatementPrefetchIterator::execute",
+      "startTime": 11479719664878,
+      "elapsed": 5999966
     },
     {
-      "name": "Drupal\\Core\\DrupalKernel::compileContainer",
-      "startTime": 1726972907009684,
-      "endTime": 1726972907518625
+      "name": "Drupal\\sqlite\\Driver\\Database\\sqlite\\Statement::execute",
+      "startTime": 11479719666498,
+      "elapsed": 5999966
     },
     {
-      "name": "Drupal\\Core\\DrupalKernel::initializeContainer",
-      "startTime": 1726972907008223,
-      "endTime": 1726972907612239
-    },
-    {
-      "name": "Drupal\\Core\\DrupalKernel::boot",
-      "startTime": 1726972907008040,
-      "endTime": 1726972907612295
-    },
-  ],
+      "name": "Drupal\\Core\\Database\\Query\\Upsert::execute",
+      "startTime": 11479719668488,
+      "elapsed": 5999966
+    }
+  ]
 }
 ```
 
 ## Images
 
-**PHP Extension**
+These images contain:
+
+* The compiled PHP extension
+* Default PHP INI configuration
+* The collector (sidecar and CLI)
 
 ```
+ghcr.io/skpr/compass:extension-8.4-latest
 ghcr.io/skpr/compass:extension-8.3-latest
 ghcr.io/skpr/compass:extension-8.2-latest
-ghcr.io/skpr/compass:extension-8.1-latest
-```
-
-**Collector**
-
-```
-ghcr.io/skpr/compass:collector-latest
 ```
 
 ## How to test
