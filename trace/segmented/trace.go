@@ -18,16 +18,21 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 		span := Span{
 			Name:               call.Name,
 			StartTime:          call.StartTime,
-			Start:              (call.StartTime - fullTrace.Metadata.StartTime) / segmentLength,
-			Length:             call.Elapsed / segmentLength,
+			Start:              call.StartTime - fullTrace.Metadata.StartTime,
+			Length:             call.Elapsed,
 			TotalFunctionCalls: 1,
 		}
 
-		if span.Length == 0 {
-			span.Length = 1
+		var (
+			keyStart  = (call.StartTime - fullTrace.Metadata.StartTime) / segmentLength
+			keyLength = span.Length / segmentLength
+		)
+
+		if keyLength == 0 {
+			keyLength = 1
 		}
 
-		key := fmt.Sprintf("%s-%d-%d", span.Name, span.Start, span.Length)
+		key := fmt.Sprintf("%s-%d-%d", span.Name, keyStart, keyLength)
 
 		if val, ok := spans[key]; ok {
 			span.TotalFunctionCalls = val.TotalFunctionCalls + 1
