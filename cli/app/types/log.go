@@ -8,9 +8,9 @@ import (
 
 // Log event which occurred during execution.
 type Log struct {
-	Time      time.Time
-	Component string
-	Message   string
+	Time    time.Time
+	Type    string
+	Message string
 }
 
 // Title of the log message.
@@ -20,7 +20,7 @@ func (l Log) Title() string {
 
 // Description of the log message.
 func (l Log) Description() string {
-	return fmt.Sprintf("time=%s, component=%s", l.Time.Local().Format(time.RFC1123), l.Component)
+	return fmt.Sprintf("type=%s time=%s", l.Type, l.Time.Local().Format(time.RFC1123))
 }
 
 // FilterValue for searching.

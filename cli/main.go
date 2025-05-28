@@ -4,8 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 
@@ -17,6 +15,7 @@ import (
 
 	"github.com/skpr/compass/cli/app"
 	"github.com/skpr/compass/cli/app/color"
+	applogger "github.com/skpr/compass/cli/app/logger"
 	"github.com/skpr/compass/cli/sink"
 	"github.com/skpr/compass/collector"
 	"github.com/skpr/compass/collector/extension/discovery"
@@ -50,16 +49,17 @@ func main() {
 		Long:    cmdLong,
 		Example: cmdExample,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-				Level: slog.LevelError,
-			}))
-
-			path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath)
+			path, err := discovery.GetPathFromProcess(o.ProcessName, o.ExtensionPath)
 			if err != nil {
 				return err
 			}
 
 			p := tea.NewProgram(app.NewModel(path), tea.WithAltScreen())
+
+			logger, err := applogger.New(p)
+			if err != nil {
+				return fmt.Errorf("failed to setup logger: %w", err)
+			}
 
 			ctx, cancel := context.WithCancel(context.Background())
 

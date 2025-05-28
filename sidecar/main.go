@@ -76,7 +76,7 @@ func main() {
 
 			logger.Info("Looking for extension", "process_name", o.ProcessName)
 
-			path, err := discovery.GetPathFromProcess(logger, o.ProcessName, o.ExtensionPath)
+			path, err := discovery.GetPathFromProcess(o.ProcessName, o.ExtensionPath)
 			if err != nil {
 				return err
 			}

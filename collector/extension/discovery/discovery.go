@@ -3,7 +3,6 @@ package discovery
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/cenkalti/backoff/v4"
@@ -11,12 +10,10 @@ import (
 )
 
 // GetPathFromProcess will wait and return the path to the extension for a process.
-func GetPathFromProcess(logger *slog.Logger, processName, extensionPath string) (string, error) {
+func GetPathFromProcess(processName, extensionPath string) (string, error) {
 	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
 
 	for range ticker.C {
-		logger.Info("Polling for list of processes")
-
 		pid, ok, err := findParentProcess(processName)
 		if err != nil {
 			return "", fmt.Errorf("failed to find parent process from list: %w", err)
