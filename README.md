@@ -50,9 +50,14 @@ flowchart LR
 
 ## Performance
 
-<img src="/docs/performance.png">
+| Test      | Average | Diff (Compared to Control) |
+|-----------|---------|----------------------------|
+| Control   | 49ms    |                            |
+| Installed | 49ms    | 0ms                        |
+| Enabled   | 50ms    | 0ms                        |
+| Collector | 57ms    | 7ms                        |
 
-Performance data can be found in Github Actions for [this build](https://github.com/skpr/compass/pull/77).
+Performance data can be found in Github Actions for [this build](https://github.com/skpr/compass/pull/113).
 
 ## Components
 
