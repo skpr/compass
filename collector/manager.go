@@ -2,7 +2,6 @@ package collector
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -24,7 +23,7 @@ const (
 // Manager for handling events.
 type Manager struct {
 	// Logger for debugging.
-	logger *slog.Logger
+	logger Logger
 	// Consider an interface for the storage.
 	storage *cache.Cache
 	// Plugin for sending completed requests to.
@@ -39,7 +38,7 @@ type Options struct {
 }
 
 // NewManager creates a new manager.
-func NewManager(logger *slog.Logger, plugin sink.Interface, options Options) (*Manager, error) {
+func NewManager(logger Logger, plugin sink.Interface, options Options) (*Manager, error) {
 	client := &Manager{
 		logger:  logger,
 		storage: cache.New(options.Expire, options.Expire),
