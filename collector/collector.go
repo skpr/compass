@@ -39,7 +39,7 @@ type RunOptions struct {
 }
 
 // Run the collector.
-func Run(ctx context.Context, logger *slog.Logger, plugin sink.Interface, options RunOptions) error {
+func Run(ctx context.Context, logger Logger, plugin sink.Interface, options RunOptions) error {
 	logger.Info("Loading probes")
 
 	// Allow the current process to lock memory for eBPF resources.
