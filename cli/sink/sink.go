@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/cli/app/types"
+	"github.com/skpr/compass/cli/app/events"
 	"github.com/skpr/compass/trace"
 )
 
@@ -29,7 +29,7 @@ func (c *Client) Initialize() error {
 
 // ProcessTrace from the collector.
 func (c *Client) ProcessTrace(t trace.Trace) error {
-	trace := types.Trace{
+	trace := events.Trace{
 		IngestionTime: time.Now(),
 		Trace:         t,
 	}

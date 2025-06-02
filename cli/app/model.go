@@ -4,7 +4,7 @@ package app
 import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/skpr/compass/cli/app/types"
+	"github.com/skpr/compass/cli/app/events"
 )
 
 // NewModel for executing this application.
@@ -20,15 +20,15 @@ type Model struct {
 	ProbePath string
 
 	// The current display that is selected.
-	PageSelected types.Page
+	PageSelected Page
 
 	// Dimensions.
 	Height int
 	Width  int
 
 	// Storage.
-	Current *types.Trace
-	Traces  map[string]types.Trace
+	Current *events.Trace
+	Traces  map[string]events.Trace
 
 	// Models.
 	search   list.Model

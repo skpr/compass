@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/skpr/compass/cli/app/types"
 )
 
 var (
@@ -19,15 +17,15 @@ func (m Model) View() string {
 	doc.WriteString(m.viewMenu() + "\n")
 
 	switch m.PageSelected {
-	case types.PageSearch:
+	case PageSearch:
 		doc.WriteString(m.searchView() + "\n\n")
-	case types.PageSpans:
+	case PageSpans:
 		doc.WriteString(m.metadataView() + "\n")
 		doc.WriteString(m.spansView() + "\n")
-	case types.PageTotals:
+	case PageTotals:
 		doc.WriteString(m.metadataView() + "\n")
 		doc.WriteString(m.totalsView() + "\n")
-	case types.PageLogs:
+	case PageLogs:
 		doc.WriteString(m.logsView() + "\n\n")
 	}
 

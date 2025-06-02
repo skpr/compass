@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/skpr/compass/cli/app/color"
-	"github.com/skpr/compass/cli/app/types"
 )
 
 var (
@@ -50,18 +49,18 @@ var (
 
 func (m *Model) viewMenu() string {
 	var (
-		labelSearch  = fmt.Sprintf("%s (%d)", types.PageSearch, len(m.search.Items()))
-		labelsSpans  = string(types.PageSpans)
-		labelsTotals = string(types.PageTotals)
-		labelLogs    = fmt.Sprintf("%s (%d)", types.PageLogs, len(m.logs.Items()))
+		labelSearch  = fmt.Sprintf("%s (%d)", PageSearch, len(m.search.Items()))
+		labelsSpans  = string(PageSpans)
+		labelsTotals = string(PageTotals)
+		labelLogs    = fmt.Sprintf("%s (%d)", PageLogs, len(m.logs.Items()))
 	)
 
 	row := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		renderTab(labelSearch, m.PageSelected == types.PageSearch),
-		renderTab(labelsSpans, m.PageSelected == types.PageSpans),
-		renderTab(labelsTotals, m.PageSelected == types.PageTotals),
-		renderTab(labelLogs, m.PageSelected == types.PageLogs),
+		renderTab(labelSearch, m.PageSelected == PageSearch),
+		renderTab(labelsSpans, m.PageSelected == PageSpans),
+		renderTab(labelsTotals, m.PageSelected == PageTotals),
+		renderTab(labelLogs, m.PageSelected == PageLogs),
 	)
 
 	gap := tabGap.Render(strings.Repeat(" ", max(0, m.Width-lipgloss.Width(row)-2)))

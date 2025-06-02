@@ -40,12 +40,12 @@ func (m *Model) spansInit() {
 func (m *Model) spansSetColumns() {
 	spans := table.Column{
 		Title: "Spans",
-		Width: 90,
+		Width: SpanLength + 35,
 	}
 
 	functions := table.Column{
 		Title: "Functions",
-		Width: 100,
+		Width: m.Width - spans.Width + 15,
 	}
 
 	m.spans.SetColumns([]table.Column{
@@ -58,8 +58,6 @@ func (m *Model) spansSetRows() {
 	if m.Current == nil {
 		return
 	}
-
-	//length := int64(SpanLength - 2)
 
 	trace := segmented.Unmarshal(m.Current.Trace, SpanLength)
 

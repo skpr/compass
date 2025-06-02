@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/cli/app/types"
+	"github.com/skpr/compass/cli/app/events"
 )
 
 // Logger for sending events into the CLI application.
@@ -43,7 +43,7 @@ func (l *Logger) Error(msg string, _ ...any) {
 
 // Send log events to the CLI application.
 func (l *Logger) send(msg, msgType string) {
-	log := types.Log{
+	log := events.Log{
 		Time:    time.Now(),
 		Type:    msgType,
 		Message: msg,

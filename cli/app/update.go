@@ -3,7 +3,7 @@ package app
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/cli/app/types"
+	"github.com/skpr/compass/cli/app/events"
 )
 
 // Update triggers on messages and updates the model.
@@ -29,26 +29,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		return m.updateWindowSize(msg)
 
-	case types.Trace:
+	case events.Trace:
 		return m.updateTrace(msg)
 
-	case types.Log:
+	case events.Log:
 		return m.updateLog(msg)
 	}
 
 	var cmd tea.Cmd
 
 	switch m.PageSelected {
-	case types.PageSearch:
+	case PageSearch:
 		m.search, cmd = m.search.Update(msg)
 		return m, cmd
-	case types.PageSpans:
+	case PageSpans:
 		m.spans, cmd = m.spans.Update(msg)
 		return m, cmd
-	case types.PageTotals:
+	case PageTotals:
 		m.totals, cmd = m.totals.Update(msg)
 		return m, cmd
-	case types.PageLogs:
+	case PageLogs:
 		m.logs, cmd = m.logs.Update(msg)
 		return m, cmd
 	}
