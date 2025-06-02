@@ -1,7 +1,7 @@
 package app
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
@@ -31,32 +31,26 @@ func (m *Model) spansInit() {
 		Bold(true)
 
 	styles.Selected = styles.Selected.
-		Foreground(lipgloss.Color(color.Blue)).
+		Foreground(lipgloss.Color(color.White)).
 		Bold(true)
 
 	m.spans.SetStyles(styles)
 }
 
 func (m *Model) spansSetColumns() {
-	calls := table.Column{
-		Title: "Calls",
-		Width: 12,
-	}
-
 	spans := table.Column{
 		Title: "Spans",
-		Width: SpanLength,
+		Width: SpanLength + 35,
 	}
 
 	functions := table.Column{
 		Title: "Functions",
-		Width: m.Width - calls.Width - spans.Width,
+		Width: m.Width - spans.Width + 15,
 	}
 
 	m.spans.SetColumns([]table.Column{
 		functions,
 		spans,
-		calls,
 	})
 }
 
@@ -65,17 +59,19 @@ func (m *Model) spansSetRows() {
 		return
 	}
 
-	length := int64(SpanLength - 2)
+	trace := segmented.Unmarshal(m.Current.Trace, SpanLength)
 
-	trace := segmented.Unmarshal(m.Current.Trace, length)
+	sc := span.New(time.Duration(trace.Metadata.ExecutionTime())*time.Nanosecond, float64(SpanLength))
 
 	var rows []table.Row
 
 	for _, s := range trace.Spans {
 		rows = append(rows, []string{
 			s.Name,
-			span.Render(s.Start, s.Length, length),
-			fmt.Sprintf("%d", s.TotalFunctionCalls),
+			sc.Render(span.Span{
+				Start:    time.Duration(s.Start) * time.Nanosecond,
+				Duration: time.Duration(s.Length) * time.Nanosecond,
+			}),
 		})
 	}
 

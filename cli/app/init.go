@@ -3,14 +3,14 @@ package app
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/skpr/compass/cli/app/types"
+	"github.com/skpr/compass/cli/app/events"
 )
 
 // Init initializes the model.
 func (m *Model) Init() tea.Cmd {
-	m.PageSelected = types.PageSearch
+	m.PageSelected = PageSearch
 
-	m.Traces = make(map[string]types.Trace)
+	m.Traces = make(map[string]events.Trace)
 
 	m.searchInit()
 	m.logsInit()

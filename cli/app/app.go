@@ -1,4 +1,4 @@
-package types
+package app
 
 // Page for selecting a view.
 type Page string

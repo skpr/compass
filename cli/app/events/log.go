@@ -1,5 +1,5 @@
-// Package types for sharing application types between packages.
-package types
+// Package events which occur in this application.
+package events
 
 import (
 	"fmt"

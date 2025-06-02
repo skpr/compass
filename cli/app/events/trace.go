@@ -1,10 +1,10 @@
-package types
+package events
 
 import (
 	"fmt"
 	"time"
 
-	"github.com/skpr/compass/cli/app/utils"
+	skprtime "github.com/skpr/compass/cli/app/time"
 	"github.com/skpr/compass/trace"
 )
 
@@ -16,7 +16,7 @@ type Trace struct {
 
 // Title of the trace.
 func (t Trace) Title() string {
-	return fmt.Sprintf("%dms %s %s", utils.NanosecondsToMilliseconds(t.Metadata.ExecutionTime()), t.Metadata.Method, t.Metadata.URI)
+	return fmt.Sprintf("%dms %s %s", skprtime.NanosecondsToMilliseconds(t.Metadata.ExecutionTime()), t.Metadata.Method, t.Metadata.URI)
 }
 
 // Description of the trace.

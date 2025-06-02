@@ -1,5 +1,5 @@
-// Package utils for miscellaneous functions.
-package utils
+// Package time for utility time conversions.
+package time
 
 import "time"
 
