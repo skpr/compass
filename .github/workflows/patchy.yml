@@ -54,11 +54,14 @@ jobs:
       - name: Create or update branch
         run: |
           if [ "${{ steps.check_branch.outputs.exists }}" == "true" ]; then
+            git stash push -m "pre-checkout changes"
             git fetch origin patchy
             git checkout patchy
+            git stash pop || true  # Restore changes, ignore if nothing was stashed
           else
             git checkout -b patchy
           fi
+
           git add go.mod go.sum
           git commit -m "chore: bulk update Go dependencies" || echo "No changes to commit"
           git push origin patchy --force
