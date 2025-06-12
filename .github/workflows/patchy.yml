@@ -10,6 +10,10 @@ on:
     branches:
       - 'patchy-test'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -17,11 +21,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Needed for branch existence checks
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.22'
 
       - name: Install GitHub CLI
         run: sudo apt-get install gh -y
@@ -31,19 +37,45 @@ jobs:
           git config user.name "Patchy Bot"
           git config user.email "skprbot@skpr.com.au"
 
+      - name: Check if branch exists
+        id: check_branch
+        run: |
+          if git ls-remote --exit-code --heads origin patchy; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update Go dependencies
         run: |
           go get -u ./...
           go mod tidy
 
-      - name: Create branch and commit
+      - name: Create or update branch
         run: |
-          git checkout -b patchy
+          if [ "${{ steps.check_branch.outputs.exists }}" == "true" ]; then
+            git fetch origin patchy
+            git checkout patchy
+          else
+            git checkout -b patchy
+          fi
           git add go.mod go.sum
           git commit -m "chore: bulk update Go dependencies" || echo "No changes to commit"
-          git push -f origin patchy
+          git push origin patchy --force
 
-      - name: Create Pull Request
+      - name: Check if PR already exists
+        id: check_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh pr list --head patchy --json number --jq '.[].number' | grep -q '[0-9]'; then
+            echo "pr_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "pr_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request if not exists
+        if: steps.check_pr.outputs.pr_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
