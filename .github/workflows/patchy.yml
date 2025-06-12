@@ -37,36 +37,19 @@ jobs:
           git config user.name "Patchy Bot"
           git config user.email "skprbot@skpr.com.au"
 
-      - name: Check if branch exists
-        id: check_branch
-        run: |
-          if git ls-remote --exit-code --heads origin patchy; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Update Go dependencies
         run: |
           go get -u ./...
           go mod tidy
 
-      - name: Create or update branch
+      - name: Create or update patchy branch and push
         run: |
-          if [ "${{ steps.check_branch.outputs.exists }}" == "true" ]; then
-            git stash push -m "pre-checkout changes"
-            git fetch origin patchy
-            git checkout patchy
-            git stash pop || true  # Restore changes, ignore if nothing was stashed
-          else
-            git checkout -b patchy
-          fi
-
+          git checkout -b patchy
           git add go.mod go.sum
           git commit -m "chore: bulk update Go dependencies" || echo "No changes to commit"
-          git push origin patchy --force
+          git push -f origin patchy
 
-      - name: Check if PR already exists
+      - name: Check if PR exists
         id: check_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,7 +60,7 @@ jobs:
             echo "pr_exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Pull Request if not exists
+      - name: Create PR if it doesn't exist
         if: steps.check_pr.outputs.pr_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
