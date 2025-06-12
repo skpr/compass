@@ -1,0 +1,54 @@
+name: Bulk Update Go Dependencies
+
+#on:
+#  schedule:
+#    - cron: '0 2 * * 1'  # Every Monday at 2 AM UTC
+#  workflow_dispatch:
+
+on:
+  push:
+    branches:
+      - 'patchy-test'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh -y
+
+      - name: Configure Git
+        run: |
+          git config user.name "Patchy Bot"
+          git config user.email "skprbot@skpr.com.au"
+
+      - name: Update Go dependencies
+        run: |
+          go get -u ./...
+          go mod tidy
+
+      - name: Create branch and commit
+        run: |
+          git checkout -b patchy
+          git add go.mod go.sum
+          git commit -m "chore: bulk update Go dependencies" || echo "No changes to commit"
+          git push -f origin patchy
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --head patchy \
+            --title "chore: bulk update Go dependencies" \
+            --body "This PR updates all Go dependencies using \`go get -u ./...\` and \`go mod tidy\`." \
+            --base main
