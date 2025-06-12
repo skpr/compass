@@ -1,3 +1,0 @@
-# env
-
-Under development.
