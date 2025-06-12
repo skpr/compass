@@ -1,14 +1,9 @@
 name: Bulk Update Go Dependencies
 
-#on:
-#  schedule:
-#    - cron: '0 2 * * 1'  # Every Monday at 2 AM UTC
-#  workflow_dispatch:
-
 on:
-  push:
-    branches:
-      - 'patchy-test'
+  schedule:
+    - cron: '0 22 * * 0'  # Every Monday at 8 AM AEST
+  workflow_dispatch:
 
 permissions:
   contents: write
