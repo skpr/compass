@@ -35,7 +35,7 @@ FROM golang:1.24-alpine AS collector
     ADD . /go/src/github.com/skpr/compass
     WORKDIR /go/src/github.com/skpr/compass
 
-    RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.18.0
+    RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.19.0
     RUN go install github.com/mgechev/revive@latest
     RUN make lint test build
 
