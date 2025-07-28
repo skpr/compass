@@ -2,23 +2,27 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/christgf/env"
 	"github.com/jwalton/gchalk"
+	"github.com/skpr/compass/trace"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/cli/app"
 	"github.com/skpr/compass/cli/app/color"
+	"github.com/skpr/compass/cli/app/events"
 	applogger "github.com/skpr/compass/cli/app/logger"
-	"github.com/skpr/compass/cli/sink"
-	"github.com/skpr/compass/collector"
-	"github.com/skpr/compass/collector/extension/discovery"
 )
 
 const cmdExample = `
@@ -36,8 +40,7 @@ A toolkit for pointing developers in the right direction for performance issues.
 
 // Options for the CLI.
 type Options struct {
-	ProcessName   string
-	ExtensionPath string
+	URL string
 }
 
 func main() {
@@ -48,28 +51,63 @@ func main() {
 		Short:   "A toolkit for pointing developers in the right direction for performance issues.",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			path, err := discovery.GetPathFromProcess(o.ProcessName, o.ExtensionPath)
-			if err != nil {
-				return err
-			}
-
-			p := tea.NewProgram(app.NewModel(path), tea.WithAltScreen())
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			p := tea.NewProgram(app.NewModel(o.URL), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
 			if err != nil {
 				return fmt.Errorf("failed to setup logger: %w", err)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(cmd.Context())
 
 			eg := errgroup.Group{}
 
 			// Start the collector.
 			eg.Go(func() error {
-				return collector.Run(ctx, logger, sink.New(p), collector.RunOptions{
-					ExecutablePath: path,
-				})
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.URL, nil)
+				if err != nil {
+					logger.Error("failed to create request", "error", err)
+					return err
+				}
+
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil {
+					logger.Error("request failed", "error", err)
+					return err
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					logger.Error("bad status code", "code", resp.StatusCode)
+					return fmt.Errorf("bad status code: %d", resp.StatusCode)
+				}
+
+				scanner := bufio.NewScanner(resp.Body)
+
+				for scanner.Scan() {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					default:
+					}
+
+					line := scanner.Bytes()
+
+					var trace trace.Trace
+
+					if err := json.Unmarshal(line, &trace); err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to parse JSON: %v\n", err)
+						continue
+					}
+
+					p.Send(events.Trace{
+						IngestionTime: time.Now(),
+						Trace:         trace,
+					})
+				}
+
+				return scanner.Err()
 			})
 
 			// Start the application.
@@ -88,8 +126,7 @@ func main() {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
+	cmd.PersistentFlags().StringVar(&o.URL, "url", env.String("COMPASS_SIDECAR_URL", "http://localhost:28624/v1/traces"), "URL of the Compass sidecar service")
 
 	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
 		return gchalk.WithHex(color.Orange).Bold(data)

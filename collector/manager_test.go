@@ -2,6 +2,7 @@ package collector
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func (t *TestSync) Initialize() error {
 }
 
 // ProcessProfile which has been collected.
-func (t *TestSync) ProcessTrace(trace trace.Trace) error {
+func (t *TestSync) ProcessTrace(_ context.Context, trace trace.Trace) error {
 	t.Traces = append(t.Traces, trace)
 	return nil
 }

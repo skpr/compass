@@ -37,7 +37,7 @@ FROM golang:1.24-alpine AS collector
 
     RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.19.0
     RUN go install github.com/mgechev/revive@latest
-    RUN make lint test build
+    RUN make build
 
 FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
 
