@@ -49,7 +49,7 @@ func main() {
 		Short:   "A toolkit for pointing developers in the right direction for performance issues.",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			p := tea.NewProgram(app.NewModel(o.URL), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
@@ -57,7 +57,7 @@ func main() {
 				return fmt.Errorf("failed to setup logger: %w", err)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(cmd.Context())
 
 			eg := errgroup.Group{}
 
