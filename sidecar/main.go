@@ -2,31 +2,30 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/christgf/env"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/collector"
 	"github.com/skpr/compass/collector/extension/discovery"
-	"github.com/skpr/compass/collector/sink"
-	"github.com/skpr/compass/sidecar/sink/otel"
-	"github.com/skpr/compass/sidecar/sink/stdout"
+	"github.com/skpr/compass/sidecar/broadcaster"
 )
 
 var (
 	cmdLong = `
-		Run the sidecar which collects profiles and prints them to stdout.`
+		A sidecar for dynamically observing applications.`
 
 	cmdExample = `
 		# Run the sidecar with the defaults.
-		compass-sidecar
-
-		# Run the sidecar with all the thresholds disabled.
-		export COMPASS_FUNCTION_THRESHOLD=0
-		export COMPASS_REQUEST_THRESHOLD=0
 		compass-sidecar
 
 		# Enable debugging.
@@ -36,14 +35,10 @@ var (
 
 // Options for this sidecar application.
 type Options struct {
-	ProcessName       string
-	ExtensionPath     string
-	LogLevel          string
-	Sink              string
-	FunctionThreshold int64
-	RequestThreshold  int64
-	OtelServiceName   string
-	OtelEndpoint      string
+	Addr          string
+	ProcessName   string
+	ExtensionPath string
+	LogLevel      string
 }
 
 func main() {
@@ -83,55 +78,160 @@ func main() {
 
 			logger.Info("Extension found", "process_name", o.ProcessName, "extension_path", path)
 
-			logger.Info("Starting collector")
+			b := broadcaster.New()
 
-			sink, err := o.getSink(logger)
-			if err != nil {
-				return fmt.Errorf("failed to get sink: %w", err)
-			}
+			eg, ctx := errgroup.WithContext(cmd.Context())
 
-			err = collector.Run(cmd.Context(), logger, sink, collector.RunOptions{
-				ExecutablePath: path,
+			var (
+				collectorCtx    context.Context
+				collectorCancel context.CancelFunc
+			)
+
+			// Loop for http server.
+			eg.Go(func() error {
+				mux := http.NewServeMux()
+
+				mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
+					subscriber := b.Subscribe()
+					defer b.Unsubscribe(subscriber)
+
+					w.Header().Set("Content-Type", "text/event-stream")
+					w.Header().Set("Cache-Control", "no-cache")
+					w.Header().Set("Connection", "keep-alive")
+					w.WriteHeader(http.StatusOK)
+
+					flusher, ok := w.(http.Flusher)
+					if !ok {
+						http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+						return
+					}
+
+					clientCtx := r.Context()
+
+					for {
+						select {
+						case <-clientCtx.Done():
+							fmt.Println("Client disconnected")
+							return
+						case msg, ok := <-subscriber:
+							if !ok {
+								fmt.Println("Subscriber channel closed")
+								return
+							}
+
+							if err := json.NewEncoder(w).Encode(msg); err != nil {
+								logger.Error("Failed to write to client", "error", err)
+								return
+							}
+
+							flusher.Flush()
+						}
+					}
+				})
+
+				server := &http.Server{
+					Addr:    o.Addr,
+					Handler: mux,
+				}
+
+				// Start the server
+				eg.Go(func() error {
+					logger.Info("HTTP server listening", "addr", o.Addr)
+					return server.ListenAndServe()
+				})
+
+				// Shutdown the server on context cancel
+				<-ctx.Done()
+				logger.Info("Shutting down HTTP server")
+
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				return server.Shutdown(shutdownCtx)
 			})
-			if err != nil {
-				return fmt.Errorf("collector failed: %w", err)
-			}
 
-			logger.Info("Collector finished")
+			// Loop for starting the collector.
+			eg.Go(func() error {
+				for {
+					if ctx == nil {
+						return nil
+					}
 
-			return nil
+					if ctx.Done() == nil {
+						return nil
+					}
+
+					// Booo! Needs to be better.
+					time.Sleep(time.Second)
+
+					if b.Subscribers() == 0 {
+						continue
+					}
+
+					logger.Info("We have subscribers, starting collector")
+
+					collectorCtx, collectorCancel = context.WithCancel(ctx)
+
+					err := collector.Run(collectorCtx, logger, b, collector.RunOptions{
+						ExecutablePath: path,
+					})
+					if err != nil {
+						logger.Error("Failed to run collector", "error", err)
+					}
+
+					logger.Info("Collector has shutdown")
+				}
+			})
+
+			// Loop for shutting down the collector.
+			eg.Go(func() error {
+				for {
+					select {
+					case <-ctx.Done():
+						return nil // Sidecar is shutting down
+					default:
+						// Sleep to avoid spinning
+						time.Sleep(time.Second)
+
+						if collectorCancel == nil || collectorCtx == nil {
+							continue
+						}
+
+						select {
+						case <-collectorCtx.Done():
+							// Already cancelled
+							continue
+						default:
+							if b.Subscribers() > 0 {
+								continue
+							}
+
+							logger.Info("No more subscribers, shutting down collector")
+
+							collectorCancel()
+							collectorCancel = nil
+							collectorCtx = nil
+						}
+					}
+				}
+			})
+
+			log.Println("Listening on:", o.Addr)
+
+			return eg.Wait()
 		},
 	}
+
+	// Command flags.
+	cmd.PersistentFlags().StringVar(&o.Addr, "addr", env.String("COMPASS_SIDECAR_ADDR", ":8081"), "Address to listen on for incoming requests")
+	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
 
 	// Extension discovery flags.
 	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
 	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
 
-	// Sink configuration.
-	cmd.PersistentFlags().StringVar(&o.Sink, "sink", env.String("COMPASS_SIDECAR_SINK", "stdout"), "Which sink to use for tracing data")
-	cmd.PersistentFlags().Int64Var(&o.FunctionThreshold, "function-threshold", env.Int64("COMPASS_SIDECAR_FUNCTION_THRESHOLD", 10000), "Watermark for which functionss to trace")
-	cmd.PersistentFlags().Int64Var(&o.RequestThreshold, "request-threshold", env.Int64("COMPASS_SIDECAR_REQUEST_THRESHOLD", 100000), "Watermark for which requests to trace")
-
-	// Debugging.
-	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
-
-	// OpenTelemetry.
-	cmd.PersistentFlags().StringVar(&o.OtelServiceName, "otel-service-name", env.String("COMPASS_SIDECAR_OTEL_SERVICE_NAME", ""), "Configure the service name that will be associated in OpenTelemetry")
-	cmd.PersistentFlags().StringVar(&o.OtelEndpoint, "otel-endpoint", env.String("COMPASS_SIDECAR_OTEL_ENDPOINT", "http://jaeger:4318/v1/traces"), "Configure where OpenTelemetry traces are sent")
-
 	err := cmd.Execute()
 	if err != nil {
 		panic(err)
 	}
-}
-
-func (o Options) getSink(logger *slog.Logger) (sink.Interface, error) {
-	switch o.Sink {
-	case "stdout":
-		return stdout.New(o.FunctionThreshold, o.RequestThreshold), nil
-	case "otel":
-		return otel.New(logger, o.FunctionThreshold, o.RequestThreshold, o.OtelServiceName, o.OtelEndpoint)
-	}
-
-	return nil, fmt.Errorf("sink not found: %s", o.Sink)
 }

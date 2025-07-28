@@ -2,6 +2,7 @@
 package sink
 
 import (
+	"context"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,7 +29,7 @@ func (c *Client) Initialize() error {
 }
 
 // ProcessTrace from the collector.
-func (c *Client) ProcessTrace(t trace.Trace) error {
+func (c *Client) ProcessTrace(_ context.Context, t trace.Trace) error {
 	trace := types.Trace{
 		IngestionTime: time.Now(),
 		Trace:         t,
