@@ -223,7 +223,7 @@ func main() {
 	}
 
 	// Command flags.
-	cmd.PersistentFlags().StringVar(&o.Addr, "addr", env.String("COMPASS_SIDECAR_ADDR", ":8081"), "Address to listen on for incoming requests")
+	cmd.PersistentFlags().StringVar(&o.Addr, "addr", env.String("COMPASS_SIDECAR_ADDR", ":28624"), "Address to listen on for incoming requests")
 	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
 
 	// Extension discovery flags.
