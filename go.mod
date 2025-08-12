@@ -13,9 +13,9 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.16.0
-	golang.org/x/sys v0.34.0
+	golang.org/x/sys v0.35.0
 )
 
 require (
