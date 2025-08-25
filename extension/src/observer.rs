@@ -5,28 +5,35 @@ use crate::util::{get_request_id, get_request_server};
 use coarsetime::Instant;
 use phper::{sys, values::ExecuteData};
 use probe::probe_lazy;
-use rustc_hash::FxHashMap;
 use std::cell::RefCell;
-use tracing::error;
 
 thread_local! {
-    static CONTEXT_FUNCTION_MAP: RefCell<FxHashMap<usize, Instant>> = RefCell::new(FxHashMap::default());
+    static FUNCTION_TIMES: RefCell<Vec<(usize, Instant)>> = RefCell::new(Vec::with_capacity(32));
 }
 
 #[inline(always)]
 fn set_function_time(exec_ptr: *mut sys::zend_execute_data, now: Instant) {
     let key = exec_ptr as usize;
-    CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().insert(key, now));
+    FUNCTION_TIMES.with(|stack| stack.borrow_mut().push((key, now)));
 }
 
 #[inline(always)]
-fn get_function_time(exec_ptr: *mut sys::zend_execute_data) -> Option<Instant> {
+fn take_elapsed_if_over_threshold(exec_ptr: *mut sys::zend_execute_data) -> Option<u64> {
     let key = exec_ptr as usize;
-    CONTEXT_FUNCTION_MAP.with(|map| map.borrow_mut().remove(&key))
+    FUNCTION_TIMES.with(|stack| {
+        let mut stack = stack.borrow_mut();
+        if let Some(pos) = stack.iter().rposition(|(k, _)| *k == key) {
+            let (_, start) = stack.remove(pos);
+            let elapsed = start.elapsed().as_nanos() as u64;
+            if threshold::is_over_function_threshold(elapsed) {
+                return Some(elapsed);
+            }
+        }
+        None
+    })
 }
 
 pub unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
-    // Instant::recent is faster and sufficient for short-duration timing.
     set_function_time(execute_data, Instant::recent());
 }
 
@@ -34,29 +41,20 @@ pub unsafe extern "C" fn observer_end(
     execute_data: *mut sys::zend_execute_data,
     _return_value: *mut sys::zval,
 ) {
-    let start = match get_function_time(execute_data) {
-        Some(start) => start,
+    let elapsed = match take_elapsed_if_over_threshold(execute_data) {
+        Some(e) => e,
         None => return,
     };
 
-    let elapsed = start.elapsed().as_nanos();
-
-    if threshold::is_under_function_threshold(elapsed) {
-        return;
-    }
-
     let server = match get_request_server() {
         Ok(s) => s,
-        Err(err) => {
-            // Consider rate-limiting this if log volume is high
-            error!("unable to get server info: {}", err);
-            return;
-        }
+        Err(_) => return, // Avoid logging in hot path
     };
 
     let request_id = get_request_id(server);
 
-    let execute_data = match ExecuteData::try_from_mut_ptr(execute_data) {
+    // Explicit unsafe block as required in Rust 2024
+    let execute_data = match unsafe { ExecuteData::try_from_mut_ptr(execute_data) } {
         Some(data) => data,
         None => return,
     };
@@ -75,14 +73,7 @@ pub unsafe extern "C" fn observer_end(
 pub unsafe extern "C" fn observer_instrument(
     _execute_data: *mut sys::zend_execute_data,
 ) -> sys::zend_observer_fcall_handlers {
-    if !probe_enabled() {
-        return sys::zend_observer_fcall_handlers {
-            begin: None,
-            end: None,
-        };
-    }
-
-    if !is_fpm() {
+    if !probe_enabled() || !is_fpm() {
         return sys::zend_observer_fcall_handlers {
             begin: None,
             end: None,
