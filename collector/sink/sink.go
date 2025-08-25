@@ -2,6 +2,8 @@
 package sink
 
 import (
+	"context"
+
 	"github.com/skpr/compass/trace"
 )
 
@@ -10,5 +12,5 @@ type Interface interface {
 	// Initialize the plugin.
 	Initialize() error
 	// ProcessTrace which has been collected.
-	ProcessTrace(trace.Trace) error
+	ProcessTrace(context.Context, trace.Trace) error
 }
