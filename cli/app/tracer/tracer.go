@@ -36,7 +36,7 @@ func Start(ctx context.Context, logger *applogger.Logger, p *tea.Program, uri st
 		return http.Start(ctx, logger, p, uri)
 
 	case ProtocolExtension:
-		return extension.Start(ctx, logger, p, uri)
+		return extension.Start(ctx, logger, p, u.Path)
 
 	default:
 		return fmt.Errorf("unsupported scheme: %q", u.Scheme)

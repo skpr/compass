@@ -34,6 +34,11 @@ func Start(ctx context.Context, logger *applogger.Logger, p *tea.Program, uri st
 
 	scanner := bufio.NewScanner(resp.Body)
 
+	// Start with a 64KB initial buffer, allow up to, say, 10MB per line.
+	const maxLine = 10 * 1024 * 1024
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, maxLine)
+
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():

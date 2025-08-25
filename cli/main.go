@@ -61,7 +61,7 @@ func main() {
 			eg.Go(func() error {
 				err := tracer.Start(ctx, logger, p, o.URI)
 				if err != nil {
-					logger.Error("tracer failed", "error", err)
+					logger.Error(err.Error())
 				}
 
 				return err
