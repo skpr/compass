@@ -2,27 +2,21 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
 	"regexp"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/christgf/env"
 	"github.com/jwalton/gchalk"
-	"github.com/skpr/compass/trace"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/cli/app"
 	"github.com/skpr/compass/cli/app/color"
-	"github.com/skpr/compass/cli/app/events"
 	applogger "github.com/skpr/compass/cli/app/logger"
+	"github.com/skpr/compass/cli/app/tracer"
 )
 
 const cmdExample = `
@@ -40,7 +34,7 @@ A toolkit for pointing developers in the right direction for performance issues.
 
 // Options for the CLI.
 type Options struct {
-	URL string
+	URI string
 }
 
 func main() {
@@ -51,8 +45,8 @@ func main() {
 		Short:   "A toolkit for pointing developers in the right direction for performance issues.",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			p := tea.NewProgram(app.NewModel(o.URL), tea.WithAltScreen())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p := tea.NewProgram(app.NewModel(o.URI), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
 			if err != nil {
@@ -65,49 +59,12 @@ func main() {
 
 			// Start the collector.
 			eg.Go(func() error {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.URL, nil)
+				err := tracer.Start(ctx, logger, p, o.URI)
 				if err != nil {
-					logger.Error("failed to create request", "error", err)
-					return err
+					logger.Error("tracer failed", "error", err)
 				}
 
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					logger.Error("request failed", "error", err)
-					return err
-				}
-				defer resp.Body.Close()
-
-				if resp.StatusCode != http.StatusOK {
-					logger.Error("bad status code", "code", resp.StatusCode)
-					return fmt.Errorf("bad status code: %d", resp.StatusCode)
-				}
-
-				scanner := bufio.NewScanner(resp.Body)
-
-				for scanner.Scan() {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					default:
-					}
-
-					line := scanner.Bytes()
-
-					var trace trace.Trace
-
-					if err := json.Unmarshal(line, &trace); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to parse JSON: %v\n", err)
-						continue
-					}
-
-					p.Send(events.Trace{
-						IngestionTime: time.Now(),
-						Trace:         trace,
-					})
-				}
-
-				return scanner.Err()
+				return err
 			})
 
 			// Start the application.
@@ -126,7 +83,7 @@ func main() {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&o.URL, "url", env.String("COMPASS_SIDECAR_URL", "http://localhost:28624/v1/traces"), "URL of the Compass sidecar service")
+	cmd.PersistentFlags().StringVar(&o.URI, "uri", env.String("COMPASS_URI", "http://localhost:28624/v1/traces"), "URI to connect to for tracing")
 
 	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
 		return gchalk.WithHex(color.Orange).Bold(data)
