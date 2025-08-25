@@ -10,7 +10,7 @@ updates:
           - "*"
 
   - package-ecosystem: "cargo"
-    directory: "/"
+    directory: "/extension"
     schedule:
       interval: "weekly"
     groups:
