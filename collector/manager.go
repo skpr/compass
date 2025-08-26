@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -153,7 +154,7 @@ func (c *Manager) handleRequestShutdown(requestID string, event bpfEvent) error 
 
 	c.logger.Debug("request event has associated functions", "count", len(t.FunctionCalls))
 
-	err := c.plugin.ProcessTrace(t)
+	err := c.plugin.ProcessTrace(context.TODO(), t)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}

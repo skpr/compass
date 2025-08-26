@@ -16,9 +16,7 @@ import (
 	"github.com/skpr/compass/cli/app"
 	"github.com/skpr/compass/cli/app/color"
 	applogger "github.com/skpr/compass/cli/app/logger"
-	"github.com/skpr/compass/cli/sink"
-	"github.com/skpr/compass/collector"
-	"github.com/skpr/compass/collector/extension/discovery"
+	"github.com/skpr/compass/cli/app/tracer"
 )
 
 const cmdExample = `
@@ -36,8 +34,7 @@ A toolkit for pointing developers in the right direction for performance issues.
 
 // Options for the CLI.
 type Options struct {
-	ProcessName   string
-	ExtensionPath string
+	URI string
 }
 
 func main() {
@@ -48,28 +45,26 @@ func main() {
 		Short:   "A toolkit for pointing developers in the right direction for performance issues.",
 		Long:    cmdLong,
 		Example: cmdExample,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			path, err := discovery.GetPathFromProcess(o.ProcessName, o.ExtensionPath)
-			if err != nil {
-				return err
-			}
-
-			p := tea.NewProgram(app.NewModel(path), tea.WithAltScreen())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p := tea.NewProgram(app.NewModel(o.URI), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
 			if err != nil {
 				return fmt.Errorf("failed to setup logger: %w", err)
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(cmd.Context())
 
 			eg := errgroup.Group{}
 
 			// Start the collector.
 			eg.Go(func() error {
-				return collector.Run(ctx, logger, sink.New(p), collector.RunOptions{
-					ExecutablePath: path,
-				})
+				err := tracer.Start(ctx, logger, p, o.URI)
+				if err != nil {
+					logger.Error(err.Error())
+				}
+
+				return err
 			})
 
 			// Start the application.
@@ -88,8 +83,7 @@ func main() {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
+	cmd.PersistentFlags().StringVar(&o.URI, "uri", env.String("COMPASS_URI", "http://localhost:28624/v1/traces"), "URI to connect to for tracing")
 
 	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
 		return gchalk.WithHex(color.Orange).Bold(data)
