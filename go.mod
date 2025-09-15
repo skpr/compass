@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/charmbracelet/bubbles v0.21.0
-	github.com/charmbracelet/bubbletea v1.3.7
+	github.com/charmbracelet/bubbletea v1.3.9
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/christgf/env v0.0.0-20230511114549-ccdc1a7b5961
 	github.com/cilium/ebpf v0.19.0
