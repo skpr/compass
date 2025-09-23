@@ -8,7 +8,7 @@ name = "compass_extension"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 coarsetime = "0.1.36"
 phper = "0.17.0"
 probe = "0.5.1"
