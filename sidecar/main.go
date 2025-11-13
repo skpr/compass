@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/christgf/env"
+	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
@@ -33,12 +33,18 @@ var (
 		compass-sidecar`
 )
 
+// Config utilised by this sidecar application.
+type Config struct {
+	Addr          string `yaml:"addr"           env:"COMPASS_SIDECAR_ADDR"           env-default:":8080"`
+	LogLevel      string `yaml:"log_level"      env:"COMPASS_SIDECAR_LOG_LEVEL"      env-default:"info"`
+	ProcessName   string `yaml:"log_level"      env:"COMPASS_SIDECAR_PROCESS_NAME"   env-default:"php-fpm"`
+	ExtensionPath string `yaml:"extension_path" env:"COMPASS_SIDECAR_EXTENSION_PATH" env-default:"/usr/lib/php/modules/compass.so"`
+}
+
 // Options for this sidecar application.
 type Options struct {
-	Addr          string
-	ProcessName   string
-	ExtensionPath string
-	LogLevel      string
+	// Path to the config file.
+	Config string
 }
 
 func main() {
@@ -50,18 +56,16 @@ func main() {
 		Long:    cmdLong,
 		Example: cmdExample,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			var config Config
+
+			err := cleanenv.ReadEnv(&config)
+			if err != nil {
+				return fmt.Errorf("failed to read config: %w", err)
+			}
+
 			lvl := new(slog.LevelVar)
 
-			switch o.LogLevel {
-			case "info":
-				lvl.Set(slog.LevelInfo)
-			case "debug":
-				lvl.Set(slog.LevelDebug)
-			case "warn":
-				lvl.Set(slog.LevelWarn)
-			case "error":
-				lvl.Set(slog.LevelError)
-			default:
+			if err := lvl.UnmarshalText([]byte(config.LogLevel)); err != nil {
 				lvl.Set(slog.LevelInfo)
 			}
 
@@ -69,14 +73,14 @@ func main() {
 				Level: lvl,
 			}))
 
-			logger.Info("Looking for extension", "process_name", o.ProcessName)
+			logger.Info("Looking for extension", "process_name", config.ProcessName)
 
-			path, err := discovery.GetPathFromProcess(o.ProcessName, o.ExtensionPath)
+			path, err := discovery.GetPathFromProcess(config.ProcessName, config.ExtensionPath)
 			if err != nil {
 				return err
 			}
 
-			logger.Info("Extension found", "process_name", o.ProcessName, "extension_path", path)
+			logger.Info("Extension found", "process_name", config.ProcessName, "extension_path", path)
 
 			b := broadcaster.New()
 
@@ -130,13 +134,13 @@ func main() {
 				})
 
 				server := &http.Server{
-					Addr:    o.Addr,
+					Addr:    config.Addr,
 					Handler: mux,
 				}
 
 				// Start the server
 				eg.Go(func() error {
-					logger.Info("HTTP server listening", "addr", o.Addr)
+					logger.Info("HTTP server listening", "addr", config.Addr)
 					return server.ListenAndServe()
 				})
 
@@ -216,19 +220,14 @@ func main() {
 				}
 			})
 
-			log.Println("Listening on:", o.Addr)
+			log.Println("Listening on:", config.Addr)
 
 			return eg.Wait()
 		},
 	}
 
 	// Command flags.
-	cmd.PersistentFlags().StringVar(&o.Addr, "addr", env.String("COMPASS_SIDECAR_ADDR", ":28624"), "Address to listen on for incoming requests")
-	cmd.PersistentFlags().StringVar(&o.LogLevel, "log-level", env.String("COMPASS_SIDECAR_LOG_LEVEL", "info"), "Set the logging level")
-
-	// Extension discovery flags.
-	cmd.PersistentFlags().StringVar(&o.ProcessName, "process-name", env.String("COMPASS_PROCESS_NAME", "php-fpm"), "Name of the process which will be used for discovery")
-	cmd.PersistentFlags().StringVar(&o.ExtensionPath, "extension-path", env.String("COMPASS_EXTENSION_PATH", "/usr/lib/php/modules/compass.so"), "Path to the Compass extension")
+	cmd.PersistentFlags().StringVar(&o.Config, "config", "", "Path to the sidecar config file")
 
 	err := cmd.Execute()
 	if err != nil {
