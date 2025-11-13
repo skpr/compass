@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
@@ -31,6 +34,18 @@ var (
 		# Enable debugging.
 		export COMPASS_LOG_LEVEL=info
 		compass-sidecar`
+)
+
+var (
+	metricCollectorRunning = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "compass_sidecar_collector_running",
+		Help: "If the collector is running. 1 = on, 0 = off.",
+	})
+
+	metricSubscription = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "compass_sidecar_subscriptions",
+		Help: "The total number of currently subscribed streams",
+	})
 )
 
 // Config utilised by this sidecar application.
@@ -95,7 +110,15 @@ func main() {
 			eg.Go(func() error {
 				mux := http.NewServeMux()
 
+				mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+					promhttp.Handler().ServeHTTP(w, r)
+				})
+
 				mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
+					// Track the number of subscriptions for debugging how many clients are using the sidecar.
+					metricSubscription.Inc()
+					defer metricSubscription.Desc()
+
 					subscriber := b.Subscribe()
 					defer b.Unsubscribe(subscriber)
 
@@ -173,6 +196,10 @@ func main() {
 					}
 
 					logger.Info("We have subscribers, starting collector")
+
+					// Track when our collector is running for debugging.
+					metricCollectorRunning.Set(1)
+					defer metricCollectorRunning.Set(0)
 
 					collectorCtx, collectorCancel = context.WithCancel(ctx)
 
