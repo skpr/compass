@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -24,16 +25,13 @@ import (
 )
 
 var (
-	cmdLong = `
-		A sidecar for dynamically observing applications.`
-
 	cmdExample = `
-		# Run the sidecar with the defaults.
-		compass-sidecar
+  # Run the sidecar with the defaults.
+  compass-sidecar
 
-		# Enable debugging.
-		export COMPASS_LOG_LEVEL=info
-		compass-sidecar`
+  # Enable debugging.
+  export COMPASS_LOG_LEVEL=info
+  compass-sidecar`
 )
 
 var (
@@ -50,7 +48,7 @@ var (
 
 // Config utilised by this sidecar application.
 type Config struct {
-	Addr          string `yaml:"addr"           env:"COMPASS_SIDECAR_ADDR"           env-default:":8080"`
+	Addr          string `yaml:"addr"           env:"COMPASS_SIDECAR_ADDR"           env-default:":28624"`
 	LogLevel      string `yaml:"log_level"      env:"COMPASS_SIDECAR_LOG_LEVEL"      env-default:"info"`
 	ProcessName   string `yaml:"log_level"      env:"COMPASS_SIDECAR_PROCESS_NAME"   env-default:"php-fpm"`
 	ExtensionPath string `yaml:"extension_path" env:"COMPASS_SIDECAR_EXTENSION_PATH" env-default:"/usr/lib/php/modules/compass.so"`
@@ -68,7 +66,7 @@ func main() {
 	cmd := &cobra.Command{
 		Use:     "compass-sidecar",
 		Short:   "Run the Compass sidecar",
-		Long:    cmdLong,
+		Long:    "A sidecar for dynamically observing applications.",
 		Example: cmdExample,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var config Config
@@ -117,7 +115,7 @@ func main() {
 				mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
 					// Track the number of subscriptions for debugging how many clients are using the sidecar.
 					metricSubscription.Inc()
-					defer metricSubscription.Desc()
+					defer metricSubscription.Dec()
 
 					subscriber := b.Subscribe()
 					defer b.Unsubscribe(subscriber)
@@ -147,6 +145,12 @@ func main() {
 							}
 
 							if err := json.NewEncoder(w).Encode(msg); err != nil {
+								// Treat client-context cancellation as a normal disconnect.
+								if errors.Is(clientCtx.Err(), context.Canceled) {
+									logger.Info("Client write failed due to context cancellation")
+									return
+								}
+
 								logger.Error("Failed to write to client", "error", err)
 								return
 							}
@@ -161,34 +165,44 @@ func main() {
 					Handler: mux,
 				}
 
-				// Start the server
+				// Start the server in its own goroutine.
 				eg.Go(func() error {
 					logger.Info("HTTP server listening", "addr", config.Addr)
-					return server.ListenAndServe()
+
+					if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+						return err
+					}
+
+					return nil
 				})
 
-				// Shutdown the server on context cancel
+				// Shutdown the server on context cancel.
 				<-ctx.Done()
 				logger.Info("Shutting down HTTP server")
 
 				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 
-				return server.Shutdown(shutdownCtx)
+				if err := server.Shutdown(shutdownCtx); err != nil &&
+					!errors.Is(err, context.Canceled) &&
+					!errors.Is(err, context.DeadlineExceeded) {
+					return err
+				}
+
+				return nil
 			})
 
 			// Loop for starting the collector.
 			eg.Go(func() error {
 				for {
-					if ctx == nil {
+					select {
+					case <-ctx.Done():
+						logger.Info("Collector loop exiting due to context cancellation")
 						return nil
+					default:
 					}
 
-					if ctx.Done() == nil {
-						return nil
-					}
-
-					// Booo! Needs to be better.
+					// Avoid spinning.
 					time.Sleep(time.Second)
 
 					if b.Subscribers() == 0 {
@@ -199,16 +213,17 @@ func main() {
 
 					// Track when our collector is running for debugging.
 					metricCollectorRunning.Set(1)
-					defer metricCollectorRunning.Set(0)
 
 					collectorCtx, collectorCancel = context.WithCancel(ctx)
 
 					err := collector.Run(collectorCtx, logger, b, collector.RunOptions{
 						ExecutablePath: path,
 					})
-					if err != nil {
+					if err != nil && !errors.Is(err, context.Canceled) {
 						logger.Error("Failed to run collector", "error", err)
 					}
+
+					metricCollectorRunning.Set(0)
 
 					logger.Info("Collector has shutdown")
 				}
@@ -237,7 +252,7 @@ func main() {
 								continue
 							}
 
-							logger.Info("No more subscribers, shutting down collector")
+							logger.Info("No more subscribers, triggering collector shutdown")
 
 							collectorCancel()
 							collectorCancel = nil
@@ -249,7 +264,11 @@ func main() {
 
 			log.Println("Listening on:", config.Addr)
 
-			return eg.Wait()
+			if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
+
+			return nil
 		},
 	}
 

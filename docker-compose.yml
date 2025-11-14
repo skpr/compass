@@ -4,6 +4,7 @@ services:
     image: skpr/nginx-drupal:dev-v2-latest
     ports:
       - "8080:8080"
+      - "28624:28624"
 
   php-fpm:
     build: ./docker/compose
