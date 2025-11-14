@@ -52,6 +52,7 @@ type Config struct {
 	LogLevel      string `yaml:"log_level"      env:"COMPASS_SIDECAR_LOG_LEVEL"      env-default:"info"`
 	ProcessName   string `yaml:"log_level"      env:"COMPASS_SIDECAR_PROCESS_NAME"   env-default:"php-fpm"`
 	ExtensionPath string `yaml:"extension_path" env:"COMPASS_SIDECAR_EXTENSION_PATH" env-default:"/usr/lib/php/modules/compass.so"`
+	Token         string `yaml:"token"          env:"COMPASS_SIDECAR_TOKEN"`
 }
 
 // Options for this sidecar application.
@@ -113,6 +114,12 @@ func main() {
 				})
 
 				mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
+					if config.Token != "" && config.Token != r.Header.Get("X-Skpr-Token") {
+						w.WriteHeader(http.StatusUnauthorized)
+						fmt.Fprintln(w, "Access Denied")
+						return
+					}
+
 					// Track the number of subscriptions for debugging how many clients are using the sidecar.
 					metricSubscription.Inc()
 					defer metricSubscription.Dec()
