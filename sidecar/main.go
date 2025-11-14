@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -24,15 +23,13 @@ import (
 	"github.com/skpr/compass/sidecar/broadcaster"
 )
 
-var (
-	cmdExample = `
+var cmdExample = `
   # Run the sidecar with the defaults.
   compass-sidecar
 
   # Enable debugging.
   export COMPASS_LOG_LEVEL=info
   compass-sidecar`
-)
 
 var (
 	metricCollectorRunning = promauto.NewGauge(prometheus.GaugeOpts{
@@ -53,6 +50,8 @@ type Config struct {
 	ProcessName   string `yaml:"log_level"      env:"COMPASS_SIDECAR_PROCESS_NAME"   env-default:"php-fpm"`
 	ExtensionPath string `yaml:"extension_path" env:"COMPASS_SIDECAR_EXTENSION_PATH" env-default:"/usr/lib/php/modules/compass.so"`
 	Token         string `yaml:"token"          env:"COMPASS_SIDECAR_TOKEN"`
+	CertFile      string `yaml:"cert_file"      env:"COMPASS_SIDECAR_CERT_FILE"`
+	KeyFile       string `yaml:"key_file"       env:"COMPASS_SIDECAR_KEY_FILE"`
 }
 
 // Options for this sidecar application.
@@ -174,9 +173,20 @@ func main() {
 
 				// Start the server in its own goroutine.
 				eg.Go(func() error {
-					logger.Info("HTTP server listening", "addr", config.Addr)
 
-					if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					listenAndServe := func(certFile, keyFile string) error {
+						if config.CertFile != "" && config.KeyFile != "" {
+							logger.Info("Server listening with TLS", "addr", config.Addr)
+
+							return server.ListenAndServeTLS(config.CertFile, config.KeyFile)
+						}
+
+						logger.Info("Server listening", "addr", config.Addr)
+
+						return server.ListenAndServe()
+					}
+
+					if err := listenAndServe(config.CertFile, config.KeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
 						return err
 					}
 
@@ -268,8 +278,6 @@ func main() {
 					}
 				}
 			})
-
-			log.Println("Listening on:", config.Addr)
 
 			if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 				return err
