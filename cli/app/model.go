@@ -4,6 +4,7 @@ package app
 import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
+
 	"github.com/skpr/compass/cli/app/events"
 )
 

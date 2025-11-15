@@ -1,0 +1,70 @@
+[tools]
+go = "1.24"
+rust = "1.91.1"
+"go:github.com/cilium/ebpf/cmd/bpf2go" = { version = "v0.19.0" }
+"ubi:golangci/golangci-lint" = "2.6.2"
+
+[tasks."go:vendor"]
+description = "Vendor resets the main module's vendor directory to include all packages needed to build the application"
+run = "go mod vendor"
+
+[tasks.up]
+description = "Build and start a local development stack"
+run = [
+  "docker build --progress=plain -t local/compass:latest .",
+  "docker compose build php-fpm",
+  "docker compose up"
+]
+
+[tasks.down]
+description = "Stop the local development stack"
+run = "docker compose down"
+
+[tasks.lint]
+description = "Run linting on all packages and crates"
+depends = [
+  "lint:collector",
+  "lint:extension"
+]
+
+[tasks."lint:collector"]
+description = "Run linting on all collector components"
+run = "golangci-lint run"
+depends = ["generate", "go:vendor"]
+
+[tasks."lint:extension"]
+description = "Run linting on the extension"
+run = "cargo fmt --all -- --check"
+dir = "extension"
+depends = ["generate"]
+
+[tasks.test]
+description = "Run tests for all components"
+run = "go test ./cli/... ./collector/... ./trace/... ./sidecar/..."
+depends = ["generate"]
+
+[tasks.generate]
+description = "Generate BPF artifacts"
+file = "scripts/generate.sh"
+depends = ["go:vendor"]
+
+[tasks.build]
+description = "Build Compass binaries"
+depends = [
+  "build:extension",
+  "build:collector",
+]
+
+[tasks."extension:build"]
+description = "Build Compass extension"
+run = "cargo build --release"
+dir = "extension"
+depends = ["generate", "go:vendor"]
+
+[tasks."build:collector"]
+description = "Build Compass collector components"
+run = [
+  "go build -a -o _output/compass github.com/skpr/compass/cli",
+  "go build -a -o _output/compass-sidecar github.com/skpr/compass/sidecar"
+]
+depends = ["generate"]
