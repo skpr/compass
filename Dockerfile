@@ -28,10 +28,11 @@ ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 ENV RUST_BACKTRACE=full
 
-# Quality tools.
+ADD . /data
+
+# Check and build.
 RUN mise run lint
 RUN mise run test
-
 RUN mise run build
 
 FROM scratch
