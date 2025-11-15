@@ -15,7 +15,6 @@ services:
 
   compass:
     image: local/compass:latest
-    command: compass-sidecar
     # environment:
     #   - COMPASS_SIDECAR_TOKEN=xxxyyyzzz
     network_mode: service:nginx
