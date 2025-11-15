@@ -21,8 +21,9 @@ services:
     network_mode: service:nginx
     # Compass needs these.
     privileged: true
-    pid: host
-    user: root
+    pid: "service:php-fpm"
+    depends_on:
+      - php-fpm
 
   curl:
     image: alpine:latest

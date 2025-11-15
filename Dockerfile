@@ -39,11 +39,7 @@ FROM golang:1.24-alpine AS collector
     RUN go install github.com/mgechev/revive@latest
     RUN make build
 
-FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
-
-    USER root
-    RUN apk add binutils
-    USER skpr
+FROM scratch
 
     # Extension
     COPY extension/compass.ini /etc/php/conf.d/00_compass.ini
@@ -54,5 +50,4 @@ FROM docker.io/skpr/php-cli:${PHP_VERSION}-v2-latest
     COPY --from=collector /go/src/github.com/skpr/compass/_output/compass-sidecar /usr/local/bin/compass-sidecar
 
     ENV COLORTERM=truecolor
-    ENV COMPASS_PROCESS_NAME=php-fpm
     CMD ["compass-sidecar"]

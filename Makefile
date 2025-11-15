@@ -1,5 +1,7 @@
 #!/usr/bin/make -f
 
+export CGO_ENABLED=0
+
 SYSTEM_ARCH := $(shell uname -m)
 
 ifeq ($(SYSTEM_ARCH),x86_64)
