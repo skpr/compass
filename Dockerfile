@@ -31,6 +31,7 @@ ENV RUST_BACKTRACE=full
 ADD . /data
 
 # Check and build.
+RUN RUN mise trust .
 RUN mise run lint
 RUN mise run test
 RUN mise run build
