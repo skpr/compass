@@ -15,14 +15,21 @@ services:
 
   compass:
     image: local/compass:latest
-    command: compass-sidecar
     # environment:
     #   - COMPASS_SIDECAR_TOKEN=xxxyyyzzz
     network_mode: service:nginx
     # Compass needs these.
     privileged: true
-    pid: host
-    user: root
+    pid: "service:php-fpm"
+    depends_on:
+      - php-fpm
+
+  curl:
+    image: alpine:latest
+    network_mode: service:nginx
+    command: sh -c "apk add --no-cache curl && curl -v http://localhost:28624/v1/traces"
+    depends_on:
+      - compass
 
   jaeger:
     image: jaegertracing/all-in-one:1.63.0

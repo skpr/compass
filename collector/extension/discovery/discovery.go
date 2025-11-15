@@ -4,6 +4,7 @@ package discovery
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/shirou/gopsutil/process"
@@ -55,12 +56,8 @@ func findParentProcess(name string) (int32, bool, error) {
 			continue
 		}
 
-		children, err := p.Children()
-		if err != nil {
-			continue
-		}
-
-		if len(children) > 0 {
+		cmdline, _ := p.Cmdline()
+		if strings.Contains(cmdline, "master process") {
 			return p.Pid, true, nil
 		}
 	}
