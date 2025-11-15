@@ -1,4 +1,4 @@
-name: 📋 Build and Test
+name: 📋 Build
 
 on:
   pull_request:

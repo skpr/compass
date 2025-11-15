@@ -1,5 +1,7 @@
 ARG PHP_VERSION=8.3
-FROM ghcr.io/skpr/php-cli:${PHP_VERSION}-v2-stable as build
+FROM ghcr.io/skpr/php-cli:${PHP_VERSION}-v2-stable AS build
+
+ARG PHP_VERSION=8.3
 
 USER root
 
@@ -11,7 +13,7 @@ RUN apk add alpine-sdk \
             libbpf-dev \
             linux-headers \
             llvm \
-            php8.4-dev
+            php${PHP_VERSION}-dev
 
 ENV MISE_DATA_DIR="/mise"
 ENV MISE_CONFIG_DIR="/mise"
@@ -24,11 +26,13 @@ RUN curl https://mise.run | sh
 # Make libclang easy to find for bindgen
 ENV LIBCLANG_PATH=/usr/lib/llvm19/lib
 
+ENV GOFLAGS=-buildvcs=false
+
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 ENV RUST_BACKTRACE=full
 
-ADD . /data
+ADD --chown=skpr:skpr . /data
 
 # Check and build.
 RUN mise trust .
@@ -40,11 +44,11 @@ FROM scratch
 
 # Extension
 COPY extension/compass.ini /etc/php/conf.d/00_compass.ini
-COPY --from=build /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
+COPY --from=build /data/extension/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
 
 # Collector
-COPY --from=build /go/src/github.com/skpr/compass/_output/compass /usr/local/bin/compass
-COPY --from=build /go/src/github.com/skpr/compass/_output/compass-sidecar /usr/local/bin/compass-sidecar
+COPY --from=build /data/_output/compass /usr/local/bin/compass
+COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar
 
 ENV COLORTERM=truecolor
 ENV COMPASS_SIDECAR_PROCESS_NAME=php-fpm

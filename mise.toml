@@ -55,7 +55,7 @@ depends = [
   "build:collector",
 ]
 
-[tasks."extension:build"]
+[tasks."build:extension"]
 description = "Build Compass extension"
 run = "cargo build --release"
 dir = "extension"
