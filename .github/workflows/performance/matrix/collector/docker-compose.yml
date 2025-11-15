@@ -30,7 +30,7 @@ services:
       interval: 1s
       retries: 60
 
-  collector:
+  compass:
     image: localhost/compass:latest
     user: root
     privileged: true
