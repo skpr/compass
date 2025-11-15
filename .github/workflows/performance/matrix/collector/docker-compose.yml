@@ -32,6 +32,7 @@ services:
 
   compass:
     image: localhost/compass:latest
+    network_mode: service:nginx
     privileged: true
     pid: "service:php-fpm"
     depends_on:
