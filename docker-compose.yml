@@ -24,6 +24,13 @@ services:
     pid: host
     user: root
 
+  curl:
+    image: alpine:latest
+    network_mode: service:nginx
+    command: sh -c "apk add --no-cache curl && curl -v http://localhost:28624/v1/traces"
+    depends_on:
+      - compass
+
   jaeger:
     image: jaegertracing/all-in-one:1.63.0
     restart: always
