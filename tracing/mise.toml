@@ -1,0 +1,34 @@
+[tools]
+go = "1.24"
+"go:github.com/cilium/ebpf/cmd/bpf2go" = { version = "v0.19.0" }
+"ubi:golangci/golangci-lint" = "2.6.2"
+
+[env]
+CGO_ENABLED = 0
+
+[tasks."go:vendor"]
+description = "Vendor resets the main module's vendor directory to include all packages needed to build the application"
+run = "go mod vendor"
+
+[tasks.lint]
+description = "Run linting on all tracer components"
+run = "golangci-lint run"
+depends = ["generate", "go:vendor"]
+
+[tasks.test]
+description = "Run tests for all tracer components"
+run = "go test ./cli/... ./collector/... ./trace/... ./sidecar/..."
+depends = ["generate"]
+
+[tasks.generate]
+description = "Generate BPF artifacts"
+file = "scripts/generate.sh"
+depends = ["go:vendor"]
+
+[tasks.build]
+description = "Build Compass binaries"
+run = [
+  "go build -a -o _output/compass github.com/skpr/compass/tracing/cli",
+  "go build -a -o _output/compass-sidecar github.com/skpr/compass/tracing/sidecar"
+]
+depends = ["generate"]

@@ -1,0 +1,42 @@
+# Actual example from skpr/compass used to validate builds
+
+probes:
+  amd64:
+    - provider: compass
+      name: canary
+    - provider: compass
+      name: request_init
+      arguments:
+        - -8@%rcx
+        - -8@%r15
+        - -8@%rax
+    - provider: compass
+      name: request_shutdown
+      arguments:
+        - -8@%rax
+    - provider: compass
+      name: php_function
+      arguments:
+        - -8@%r14
+        - -8@%rax
+        - -8@%r15
+
+  arm64:
+    - provider: compass
+      name: canary
+    - provider: compass
+      name: request_init
+      arguments:
+        - -8@%rcx
+        - -8@%r15
+        - -8@%rax
+    - provider: compass
+      name: request_shutdown
+      arguments:
+        - -8@%rax
+    - provider: compass
+      name: php_function
+      arguments:
+        - -8@%r14
+        - -8@%rax
+        - -8@%r15
