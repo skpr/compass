@@ -136,7 +136,7 @@ git clone git@github.com:skpr/compass
 cd compass
 
 # Build the project and up a stack
-make up
+mise run up
 
 # Run the CLI
 docker compose exec compass compass

@@ -1,53 +1,55 @@
 ARG PHP_VERSION=8.3
-ARG ALPINE_VERSION=3.21
+FROM ghcr.io/skpr/php-cli:${PHP_VERSION}-v2-stable AS build
 
-# This is the image used to build the extension.
-# We need the latest version of Alpine so we get a later version of Rust for PHP 8.4 support.
-FROM alpine:3.21 AS extension
+ARG PHP_VERSION=8.3
 
-    ARG PHP_VERSION=8.3
-    ARG ALPINE_VERSION=3.20
+USER root
 
-    # Install PHP.
-    RUN apk add --no-cache curl && \
-        curl -sSL https://packages.skpr.io/php-alpine/skpr.rsa.pub -o /etc/apk/keys/skpr.rsa.pub && \
-        echo "https://packages.skpr.io/php-alpine/${ALPINE_VERSION}/php${PHP_VERSION}" >> /etc/apk/repositories
+RUN apk add alpine-sdk \
+            bpftool \
+            clang \
+            clang-dev \
+            git \
+            libbpf-dev \
+            linux-headers \
+            llvm \
+            php${PHP_VERSION}-dev
 
-    RUN apk --update --no-cache add php${PHP_VERSION}-dev clang-dev
-    RUN apk add rust rustfmt cargo --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main
+ENV MISE_DATA_DIR="/mise"
+ENV MISE_CONFIG_DIR="/mise"
+ENV MISE_CACHE_DIR="/mise/cache"
+ENV MISE_INSTALL_PATH="/usr/local/bin/mise"
+ENV PATH="/mise/shims:$PATH"
 
-    # Build the project.
-    ADD --chown=skpr:skpr extension /data
-    WORKDIR /data
+RUN curl https://mise.run | sh
 
-    ENV RUST_BACKTRACE=full
-    RUN cargo fmt --all -- --check
-    RUN cargo build --release
+# Make libclang easy to find for bindgen
+ENV LIBCLANG_PATH=/usr/lib/llvm19/lib
 
-# This stage builds the collector component which will attach to the extension and collect telemetry.
-FROM golang:1.24-alpine AS collector
+ENV GOFLAGS=-buildvcs=false
 
-    RUN apk add --no-cache ca-certificates llvm clang libbpf-dev make alpine-sdk linux-headers bpftool
+ENV RUSTFLAGS="-C target-feature=-crt-static"
 
-    # Copy in the extension so we can use it map the probe arguments in our collector.
-    COPY --from=extension /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
-    
-    ADD . /go/src/github.com/skpr/compass
-    WORKDIR /go/src/github.com/skpr/compass
+ENV RUST_BACKTRACE=full
 
-    RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.19.0
-    RUN go install github.com/mgechev/revive@latest
-    RUN make build
+ADD --chown=skpr:skpr . /data
+
+# Check and build.
+RUN mise trust .
+RUN mise run lint
+RUN mise run test
+RUN mise run build
 
 FROM scratch
 
-    # Extension
-    COPY extension/compass.ini /etc/php/conf.d/00_compass.ini
-    COPY --from=extension /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
+# Extension
+COPY extension/compass.ini /etc/php/conf.d/00_compass.ini
+COPY --from=build /data/extension/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
 
-    # Collector
-    COPY --from=collector /go/src/github.com/skpr/compass/_output/compass /usr/local/bin/compass
-    COPY --from=collector /go/src/github.com/skpr/compass/_output/compass-sidecar /usr/local/bin/compass-sidecar
+# Collector
+COPY --from=build /data/_output/compass /usr/local/bin/compass
+COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar
 
-    ENV COLORTERM=truecolor
-    CMD ["compass-sidecar"]
+ENV COLORTERM=truecolor
+ENV COMPASS_SIDECAR_PROCESS_NAME=php-fpm
+CMD ["compass-sidecar"]

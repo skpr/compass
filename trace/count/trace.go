@@ -2,10 +2,10 @@
 package count
 
 import (
-	"github.com/skpr/compass/trace/segmented"
 	"sort"
 
 	"github.com/skpr/compass/trace"
+	"github.com/skpr/compass/trace/segmented"
 )
 
 // Unmarshal a full trace into a counted trace.
