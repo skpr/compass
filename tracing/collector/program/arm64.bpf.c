@@ -45,9 +45,9 @@ int uprobe_compass_request_init(struct pt_regs *ctx) {
     return 0;
 
   event->type = EVENT_TYPE_REQUEST_INIT;
-  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_INIT_ARG_REQUEST_ID);
-  bpf_core_read_user_str(&event->method, STRSZ, (void *)ctx->REQUEST_INIT_ARG_METHOD);
-  bpf_core_read_user_str(&event->uri, URI_MAX_LEN, (void *)ctx->REQUEST_INIT_ARG_URI);
+  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->regs[8]);
+  bpf_core_read_user_str(&event->method, STRSZ, (void *)ctx->regs[21]);
+  bpf_core_read_user_str(&event->uri, URI_MAX_LEN, (void *)ctx->regs[0]);
   event->timestamp = bpf_ktime_get_ns();
   event->elapsed = 0;
 
@@ -62,10 +62,10 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
     return 0;
 
   event->type = EVENT_TYPE_FUNCTION;
-  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_REQUEST_ID);
-  bpf_core_read_user_str(&event->function_name, STRSZ, (void *)ctx->PHP_FUNCTION_ARG_FUNCTION_NAME);
+  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->regs[20]);
+  bpf_core_read_user_str(&event->function_name, STRSZ, (void *)ctx->regs[0]);
   event->timestamp = bpf_ktime_get_ns();
-  event->elapsed = ctx->PHP_FUNCTION_ARG_ELAPSED;
+  event->elapsed = ctx->regs[21];
 
   bpf_ringbuf_submit(event, 0);
   return 0;
@@ -78,7 +78,7 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
     return 0;
 
   event->type = EVENT_TYPE_REQUEST_SHUTDOWN;
-  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->REQUEST_SHUTDOWN_ARG_REQUEST_ID);
+  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->regs[8]);
   event->timestamp = bpf_ktime_get_ns();
   event->elapsed = 0;
 

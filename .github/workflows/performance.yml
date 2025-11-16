@@ -28,10 +28,6 @@ jobs:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
 
-      # Uncomment for CPU / Memory / IO statistics.
-      # - name: Collect Workflow Telemetry
-      #   uses: catchpoint/workflow-telemetry-action@v2
-
       - name: 📁 Init
         run: |
           # Create performance testing results directory.

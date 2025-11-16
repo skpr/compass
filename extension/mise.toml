@@ -13,3 +13,4 @@ run = "cargo build --release"
 [tasks.validate]
 description = "Validate notes for probing"
 run = "noteutils validate --spec noteutils.yml target/release/libcompass_extension.so"
+depends = ["build"]

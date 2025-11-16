@@ -1,14 +1,13 @@
-ARG PHP_VERSION=8.3
-FROM ghcr.io/skpr/php-cli:${PHP_VERSION}-v2-stable AS build
-
-ARG PHP_VERSION=8.3
+FROM alpine:3.21 AS build
 
 USER root
 
 RUN apk add alpine-sdk \
+            bash \
             bpftool \
             clang \
             clang-dev \
+            curl \
             git \
             libbpf-dev \
             linux-headers \
@@ -27,23 +26,15 @@ ENV LIBCLANG_PATH=/usr/lib/llvm19/lib
 
 ENV GOFLAGS=-buildvcs=false
 
-ENV RUSTFLAGS="-C target-feature=-crt-static"
-ENV RUST_BACKTRACE=full
-
+WORKDIR /data
 ADD --chown=skpr:skpr . /data
 
 # Check and build.
 RUN mise trust .
 RUN mise run lint
 RUN mise run test
-RUN mise run build
+RUN mise run build:cli
 
-FROM scratch
-
-# Collector
+FROM alpine:3.21
 COPY --from=build /data/_output/compass /usr/local/bin/compass
-COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar
-
-ENV COLORTERM=truecolor
-ENV COMPASS_SIDECAR_PROCESS_NAME=php-fpm
-CMD ["compass-sidecar"]
+CMD ["compass"]

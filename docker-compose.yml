@@ -7,14 +7,16 @@ services:
       - "28624:28624"
 
   php-fpm:
-    build: ./docker/compose
+    build: ./docker/compose/php-fpm
     network_mode: service:nginx
     environment:
       - COMPASS_ENABLED=true
       - RUST_BACKTRACE=1 # Debugging
 
   compass:
-    image: local/compass:latest
+    build:
+      dockerfile: sidecar/Dockerfile
+      context: tracing
     # environment:
     #   - COMPASS_SIDECAR_TOKEN=xxxyyyzzz
     network_mode: service:nginx
@@ -30,15 +32,3 @@ services:
     command: sh -c "apk add --no-cache curl && curl -v http://localhost:28624/v1/traces"
     depends_on:
       - compass
-
-  jaeger:
-    image: jaegertracing/all-in-one:1.63.0
-    restart: always
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
-    profiles:
-      - otel

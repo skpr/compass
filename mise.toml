@@ -1,0 +1,17 @@
+[tasks.up]
+description = "Run linting on all packages and crates"
+run = '''
+#!/usr/bin/env bash
+
+echo "Building Extension"
+docker build -t localhost/compass-extension:latest --build-arg=PHP_VERSION=8.3 extension
+
+echo "Building Docker Compose Service: php-fpm"
+docker compose build php-fpm
+
+docker compose up
+'''
+
+[tasks.down]
+description = "Build Compass binaries"
+run = "docker compose down"
