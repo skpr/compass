@@ -1,14 +1,11 @@
-name: 📋 Build
+name: 📋 Build Extension
 
 on:
   pull_request:
     types: [ synchronize, opened, reopened, ready_for_review ]
-  push:
-    branches:
-      - 'patchy'
 
 concurrency:
-  group: build-test-${{ github.head_ref }}
+  group: build-extension-${{ github.head_ref }}
   cancel-in-progress: true
 
 env:
@@ -31,4 +28,5 @@ jobs:
       - name: Build and push
         run: |
             IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:latest
+            cd extension
             docker build -t ${IMAGE}-${{matrix.arch}} --build-arg=PHP_VERSION=8.4 .

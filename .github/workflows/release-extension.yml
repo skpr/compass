@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository }}-extension
 
 jobs:
   build:
@@ -41,6 +41,7 @@ jobs:
       - name: 📦 Build
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
+          cd extension
           docker build --no-cache --build-arg=PHP_VERSION=8.4 -t ${IMAGE}-php8.4-${{ matrix.arch }} .
           docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${IMAGE}-php8.3-${{ matrix.arch }} .
           docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${IMAGE}-php8.2-${{ matrix.arch }} .

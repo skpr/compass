@@ -1,5 +1,3 @@
-# Actual example from skpr/compass used to validate builds
-
 probes:
   amd64:
     - provider: compass
@@ -27,16 +25,16 @@ probes:
     - provider: compass
       name: request_init
       arguments:
-        - -8@%rcx
-        - -8@%r15
-        - -8@%rax
+        - -8@x8
+        - -8@x21
+        - -8@x0
     - provider: compass
       name: request_shutdown
       arguments:
-        - -8@%rax
+        - -8@x8
     - provider: compass
       name: php_function
       arguments:
-        - -8@%r14
-        - -8@%rax
-        - -8@%r15
+        - -8@x20
+        - -8@x0
+        - -8@x21
