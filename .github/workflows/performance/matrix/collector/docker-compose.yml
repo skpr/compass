@@ -31,7 +31,7 @@ services:
       retries: 60
 
   compass:
-    image: localhost/compass:latest
+    image: localhost/compass-sidecar:latest
     network_mode: service:nginx
     privileged: true
     pid: "service:php-fpm"
