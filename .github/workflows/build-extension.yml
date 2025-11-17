@@ -28,5 +28,4 @@ jobs:
       - name: Build and push
         run: |
             IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:latest
-            cd extension
-            docker build -t ${IMAGE}-${{matrix.arch}} --build-arg=PHP_VERSION=8.4 .
+            docker build -t ${IMAGE}-${{matrix.arch}} --build-arg=PHP_VERSION=8.4 extension

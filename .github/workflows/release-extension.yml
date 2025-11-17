@@ -40,7 +40,7 @@ jobs:
 
       - name: 📦 Build
         run: |
-          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}-extension:${{ github.ref_name }}
           cd extension
           docker build --no-cache --build-arg=PHP_VERSION=8.4 -t ${IMAGE}-php8.4-${{ matrix.arch }} .
           docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${IMAGE}-php8.3-${{ matrix.arch }} .
@@ -49,7 +49,7 @@ jobs:
 
       - name: ☁️ Push
         run: |
-          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}-extension:${{ github.ref_name }}
           docker push ${IMAGE}-php8.4-${{matrix.arch}}
           docker push ${IMAGE}-php8.3-${{matrix.arch}}
           docker push ${IMAGE}-php8.2-${{matrix.arch}}
@@ -76,7 +76,7 @@ jobs:
 
       - name: ☁️ Push
         run: |
-          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:${{ github.ref_name }}
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}-extension:${{ github.ref_name }}
           docker manifest create ${IMAGE}-php8.4 --amend ${IMAGE}-php8.4-arm64 --amend ${IMAGE}-php8.4-amd64
           docker manifest push ${IMAGE}-php8.4
           docker manifest create ${IMAGE}-php8.3 --amend ${IMAGE}-php8.3-arm64 --amend ${IMAGE}-php8.3-amd64

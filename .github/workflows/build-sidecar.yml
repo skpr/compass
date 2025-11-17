@@ -28,5 +28,4 @@ jobs:
       - name: Build and push
         run: |
             IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:latest
-            cd tracing
-            docker build -t ${IMAGE}-${{matrix.arch}} -f sidecar/Dockerfile .
+            docker build -t ${IMAGE}-${{matrix.arch}} -f tracing/sidecar/Dockerfile tracing
