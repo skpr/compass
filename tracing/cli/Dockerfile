@@ -36,5 +36,6 @@ RUN mise run test
 RUN mise run build:cli
 
 FROM alpine:3.21
+RUN apk add bash
 COPY --from=build /data/_output/compass /usr/local/bin/compass
 CMD ["compass"]

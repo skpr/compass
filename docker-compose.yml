@@ -13,7 +13,7 @@ services:
       - COMPASS_ENABLED=true
       - RUST_BACKTRACE=1 # Debugging
 
-  compass:
+  sidecar:
     build:
       dockerfile: sidecar/Dockerfile
       context: tracing
@@ -25,6 +25,15 @@ services:
     pid: "service:php-fpm"
     depends_on:
       - php-fpm
+
+  compass:
+    build:
+      dockerfile: cli/Dockerfile
+      context: tracing
+    command: /bin/bash -c "sleep infinity"
+    network_mode: service:nginx
+    depends_on:
+      - sidecar
 
   curl:
     image: alpine:latest

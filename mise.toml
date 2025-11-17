@@ -9,6 +9,12 @@ docker build -t localhost/compass-extension:latest --build-arg=PHP_VERSION=8.3 e
 echo "Building Docker Compose Service: php-fpm"
 docker compose build php-fpm
 
+echo "Building Docker Compose Service: sidecar"
+docker compose build sidecar
+
+echo "Building Docker Compose Service: compass"
+docker compose build compass
+
 docker compose up
 '''
 
