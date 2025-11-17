@@ -28,10 +28,6 @@ jobs:
       - name: ⬇️ Git clone the repository
         uses: actions/checkout@v4
 
-      # Uncomment for CPU / Memory / IO statistics.
-      # - name: Collect Workflow Telemetry
-      #   uses: catchpoint/workflow-telemetry-action@v2
-
       - name: 📁 Init
         run: |
           # Create performance testing results directory.
@@ -40,10 +36,16 @@ jobs:
 
       - name: 📦 Build Images
         run: |
+          echo "Building base images"
           docker build -t localhost/compass:nginx-latest .github/workflows/performance/docker/compose/nginx
           docker build -t localhost/compass:php-fpm-latest .github/workflows/performance/docker/compose/php-fpm
-          docker build --no-cache --build-arg=PHP_VERSION=8.4 -t localhost/compass:latest .
+
+          echo "Building extension"
+          docker build -t localhost/compass-extension:latest --build-arg=PHP_VERSION=8.4 extension
           docker build -t localhost/compass:php-fpm-ext-latest .github/workflows/performance/docker/compose/php-fpm-ext
+
+          echo "Building sidecar"
+          docker build -t localhost/compass-sidecar:latest -f tracing/sidecar/Dockerfile tracing
 
       - name: 📦 Setup
         run: |

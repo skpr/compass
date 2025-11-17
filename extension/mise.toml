@@ -1,0 +1,16 @@
+[tools]
+rust = "1.91.1"
+"ubi:nickschuch/noteutils" = { version = "0.0.1" }
+
+[tasks.lint]
+description = "Run linting on all packages and crates"
+run = "cargo fmt --all -- --check"
+
+[tasks.build]
+description = "Build Compass binaries"
+run = "cargo build --release"
+
+[tasks.validate]
+description = "Validate notes for probing"
+run = "noteutils validate --spec noteutils.yml target/release/libcompass_extension.so"
+depends = ["build"]

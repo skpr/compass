@@ -54,7 +54,7 @@ flowchart LR
 |-----------|---------|----------------------------|
 | Control   | 49ms    |                            |
 | Installed | 49ms    | 0ms                        |
-| Enabled   | 50ms    | 0ms                        |
+| Enabled   | 50ms    | 1ms                        |
 | Collector | 57ms    | 7ms                        |
 
 Performance data can be found in Github Actions for [this build](https://github.com/skpr/compass/pull/113).
@@ -124,9 +124,16 @@ These images contain:
 * The collector (sidecar and CLI)
 
 ```
-ghcr.io/skpr/compass:extension-8.4-latest
-ghcr.io/skpr/compass:extension-8.3-latest
-ghcr.io/skpr/compass:extension-8.2-latest
+# PHP extension
+ghcr.io/skpr/compass-extension:VERSION-php8.4
+ghcr.io/skpr/compass-extension:VERSION-php8.3
+ghcr.io/skpr/compass-extension:VERSION-php8.2
+
+# Sidecar
+ghcr.io/skpr/compass-sidecar:VERSION
+
+# CLI
+ghcr.io/skpr/compass:VERSION
 ```
 
 ## How to test
