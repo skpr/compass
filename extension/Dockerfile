@@ -1,5 +1,5 @@
 ARG PHP_VERSION=8.3
-FROM alpine:3.21
+FROM alpine:3.21 as build
 ARG PHP_VERSION=8.3
 
 USER root
