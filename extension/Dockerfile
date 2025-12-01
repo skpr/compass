@@ -1,11 +1,14 @@
 ARG PHP_VERSION=8.3
-FROM ghcr.io/skpr/php-cli:${PHP_VERSION}-v2-stable AS build
-
+FROM alpine:3.21
 ARG PHP_VERSION=8.3
 
 USER root
 
-RUN apk add alpine-sdk clang clang-dev php${PHP_VERSION}-dev
+RUN apk add --no-cache curl && \
+    curl -sSL https://packages.skpr.io/php-alpine/skpr.rsa.pub -o /etc/apk/keys/skpr.rsa.pub && \
+    echo "https://packages.skpr.io/php-alpine/3.21/php${PHP_VERSION}" >> /etc/apk/repositories
+
+RUN apk add alpine-sdk clang clang-dev php${PHP_VERSION} php${PHP_VERSION}-dev
 
 ENV MISE_DATA_DIR="/mise"
 ENV MISE_CONFIG_DIR="/mise"
@@ -25,7 +28,7 @@ RUN mise run lint
 RUN mise run build
 RUN mise run validate
 
-FROM ghcr.io/skpr/php-cli:${PHP_VERSION}-v2-stable
+FROM scratch
 
 COPY compass.ini /etc/php/conf.d/00_compass.ini
 COPY --from=build /data/target/release/libcompass_extension.so /usr/lib/php/modules/compass.so
