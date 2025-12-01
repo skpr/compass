@@ -20,7 +20,7 @@ jobs:
             arch: amd64
           - os: ubuntu-24.04-arm
             arch: arm64
-
+        php: [ '8.2', '8.3', '8.4', '8.5' ]
     permissions:
       contents: read
       packages: write
@@ -42,16 +42,12 @@ jobs:
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ github.repository }}-extension:${{ github.ref_name }}
           cd extension
-          docker build --no-cache --build-arg=PHP_VERSION=8.4 -t ${IMAGE}-php8.4-${{ matrix.arch }} .
-          docker build --no-cache --build-arg=PHP_VERSION=8.3 -t ${IMAGE}-php8.3-${{ matrix.arch }} .
-          docker build --no-cache --build-arg=PHP_VERSION=8.2 -t ${IMAGE}-php8.2-${{ matrix.arch }} .
+          docker build --no-cache --build-arg=PHP_VERSION=${{ matrix.php }} -t ${IMAGE}-php${{ matrix.php }}-${{ matrix.arch }} .
 
       - name: ☁️ Push
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ github.repository }}-extension:${{ github.ref_name }}
-          docker push ${IMAGE}-php8.4-${{matrix.arch}}
-          docker push ${IMAGE}-php8.3-${{matrix.arch}}
-          docker push ${IMAGE}-php8.2-${{matrix.arch}}
+          docker push ${IMAGE}-php${{ matrix.php }}-${{matrix.arch}}
 
   manifest:
     name: Manifest
@@ -64,6 +60,10 @@ jobs:
       attestations: write
       id-token: write
 
+    strategy:
+      matrix:
+        php: [ '8.2', '8.3', '8.4', '8.5' ]
+
     steps:
       - name: 🔐 Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
@@ -75,9 +75,5 @@ jobs:
       - name: ☁️ Push
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ github.repository }}-extension:${{ github.ref_name }}
-          docker manifest create ${IMAGE}-php8.4 --amend ${IMAGE}-php8.4-arm64 --amend ${IMAGE}-php8.4-amd64
-          docker manifest push ${IMAGE}-php8.4
-          docker manifest create ${IMAGE}-php8.3 --amend ${IMAGE}-php8.3-arm64 --amend ${IMAGE}-php8.3-amd64
-          docker manifest push ${IMAGE}-php8.3
-          docker manifest create ${IMAGE}-php8.2 --amend ${IMAGE}-php8.2-arm64 --amend ${IMAGE}-php8.2-amd64
-          docker manifest push ${IMAGE}-php8.2
+          docker manifest create ${IMAGE}-php${{ matrix.php }} --amend ${IMAGE}-php${{ matrix.php }}-arm64 --amend ${IMAGE}-php${{ matrix.php }}-amd64
+          docker manifest push ${IMAGE}-php${{ matrix.php }}

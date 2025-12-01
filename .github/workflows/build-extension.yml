@@ -22,10 +22,11 @@ jobs:
             arch: amd64
           - os: ubuntu-24.04-arm 
             arch: arm64
+        php: ['8.4', '8.5']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build and push
         run: |
             IMAGE=${{ env.REGISTRY }}/${{ github.repository }}:latest
-            docker build -t ${IMAGE}-${{matrix.arch}} --build-arg=PHP_VERSION=8.4 extension
+            docker build -t ${IMAGE}-${{matrix.arch}} --build-arg=PHP_VERSION=${{ matrix.php }} extension
