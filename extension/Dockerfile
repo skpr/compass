@@ -1,5 +1,5 @@
 ARG PHP_VERSION=8.3
-FROM alpine:3.21 as build
+FROM alpine:3.21 AS build
 ARG PHP_VERSION=8.3
 
 USER root
@@ -20,6 +20,8 @@ RUN curl https://mise.run | sh
 
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 ENV RUST_BACKTRACE=full
+
+WORKDIR /data
 
 ADD --chown=skpr:skpr . /data
 RUN mise trust .

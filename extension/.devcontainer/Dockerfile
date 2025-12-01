@@ -24,3 +24,6 @@ RUN curl https://mise.run | sh
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 ENV RUST_BACKTRACE=full
+
+WORKDIR /data
+
