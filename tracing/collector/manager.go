@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/tracing/collector/sink"
+	skprtime "github.com/skpr/compass/tracing/collector/time"
 	"github.com/skpr/compass/tracing/trace"
 )
 
@@ -25,6 +26,8 @@ const (
 type Manager struct {
 	// Logger for debugging.
 	logger Logger
+	// Clock for testing.
+	clock skprtime.Interface
 	// Consider an interface for the storage.
 	storage *cache.Cache
 	// Plugin for sending completed requests to.
@@ -39,9 +42,10 @@ type Options struct {
 }
 
 // NewManager creates a new manager.
-func NewManager(logger Logger, plugin sink.Interface, options Options) (*Manager, error) {
+func NewManager(logger Logger, plugin sink.Interface, options Options, clock skprtime.Interface) (*Manager, error) {
 	client := &Manager{
 		logger:  logger,
+		clock:   clock,
 		storage: cache.New(options.Expire, options.Expire),
 		plugin:  plugin,
 		options: options,
@@ -51,7 +55,7 @@ func NewManager(logger Logger, plugin sink.Interface, options Options) (*Manager
 }
 
 // Handle the event and process it.
-func (c *Manager) Handle(event bpfEvent) error {
+func (c *Manager) Handle(ctx context.Context, event bpfEvent) error {
 	var (
 		requestID = unix.ByteSliceToString(event.RequestId[:])
 	)
@@ -75,7 +79,7 @@ func (c *Manager) Handle(event bpfEvent) error {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(requestID, event); err != nil {
+		if err := c.handleRequestShutdown(ctx, requestID, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -89,10 +93,11 @@ func (c *Manager) handleRequestInit(requestID, uri, method string, event bpfEven
 
 	t := trace.Trace{
 		Metadata: trace.Metadata{
-			RequestID: requestID,
-			URI:       uri,
-			Method:    method,
-			StartTime: int64(event.Timestamp),
+			RequestID:      requestID,
+			URI:            uri,
+			Method:         method,
+			StartTime:      c.clock.Now(),
+			MonotonicStart: time.Duration(event.Timestamp),
 		},
 	}
 
@@ -107,14 +112,17 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 		Name: unix.ByteSliceToString(event.FunctionName[:]),
 		// The start time is the event time minus how long it look to execute.
 		// The event is triggerd after a the function is called and we have collected the elapsed time.
-		StartTime: int64(event.Timestamp - event.Elapsed),
-		Elapsed:   int64(event.Elapsed),
+		MonotonicEnd: time.Duration(event.Timestamp),
+		Elapsed:      time.Duration(event.Elapsed),
 	}
+
+	// We can calculate the start based off the end and the elapsed.
+	function.MonotonicStart = function.MonotonicEnd - function.Elapsed
 
 	c.logger.Debug("function event has been called",
 		"request_id", requestID,
 		"function_name", function.Name,
-		"start_time", function.StartTime,
+		"monotonic_end", function.MonotonicEnd,
 		"elapsed", function.Elapsed,
 	)
 
@@ -133,7 +141,7 @@ func (c *Manager) handleFunction(requestID string, event bpfEvent) error {
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Manager) handleRequestShutdown(requestID string, event bpfEvent) error {
+func (c *Manager) handleRequestShutdown(ctx context.Context, requestID string, event bpfEvent) error {
 	c.logger.Debug("request shutdown event has been called", "request_id", requestID)
 
 	x, found := c.storage.Get(requestID)
@@ -143,7 +151,7 @@ func (c *Manager) handleRequestShutdown(requestID string, event bpfEvent) error 
 
 	t := x.(trace.Trace)
 
-	t.Metadata.EndTime = int64(event.Timestamp)
+	t.Metadata.MonotonicEnd = time.Duration(event.Timestamp)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)
@@ -154,7 +162,7 @@ func (c *Manager) handleRequestShutdown(requestID string, event bpfEvent) error 
 
 	c.logger.Debug("request event has associated functions", "count", len(t.FunctionCalls))
 
-	err := c.plugin.ProcessTrace(context.TODO(), t)
+	err := c.plugin.ProcessTrace(ctx, t)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}

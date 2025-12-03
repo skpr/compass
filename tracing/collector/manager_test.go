@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	skprtime "github.com/skpr/compass/tracing/collector/time"
 	"github.com/skpr/compass/tracing/trace"
 )
 
@@ -36,9 +37,11 @@ func TestHandleRequestShutdown(t *testing.T) {
 	// Sink for reviewing the compiled profile.
 	sink := &TestSync{}
 
+	now := skprtime.NewMock(time.Now())
+
 	manager, err := NewManager(logger, sink, Options{
 		Expire: time.Second,
-	})
+	}, now)
 	assert.NoError(t, err)
 
 	toUint8 := func(val string) [101]uint8 {
@@ -59,40 +62,40 @@ func TestHandleRequestShutdown(t *testing.T) {
 
 	events := []bpfEvent{
 		{
-			Type:      1,
+			Type:      EventRequestInit,
 			RequestId: toUint8(requestID),
-			Timestamp: uint64(3000000),
+			Timestamp: uint64(100_000_000),
 		},
 		{
-			Type:         0,
+			Type:         EventFunction,
 			RequestId:    toUint8(requestID),
 			FunctionName: toUint8("Foo::bar"),
-			Timestamp:    uint64(15000000),
-			Elapsed:      uint64(12000000),
+			Timestamp:    uint64(270_000_000),
+			Elapsed:      uint64(120_000_000),
 		},
 		{
-			Type:         0,
+			Type:         EventFunction,
 			RequestId:    toUint8(requestID),
 			FunctionName: toUint8("Skpr::rocks"),
-			Timestamp:    uint64(13000000),
-			Elapsed:      uint64(8000000),
+			Timestamp:    uint64(350_000_000),
+			Elapsed:      uint64(80_000_000),
 		},
 		{
-			Type:         0,
+			Type:         EventFunction,
 			RequestId:    toUint8(requestID),
 			FunctionName: toUint8("Baz::boo"),
-			Timestamp:    uint64(10000000),
-			Elapsed:      uint64(4000000),
+			Timestamp:    uint64(390_000_000),
+			Elapsed:      uint64(40_000_000),
 		},
 		{
-			Type:      2,
+			Type:      EventRequestShutdown,
 			RequestId: toUint8(requestID),
-			Timestamp: uint64(15000000),
+			Timestamp: uint64(390_000_000),
 		},
 	}
 
 	for _, event := range events {
-		err := manager.Handle(event)
+		err := manager.Handle(context.TODO(), event)
 		assert.NoError(t, err)
 	}
 
@@ -100,25 +103,29 @@ func TestHandleRequestShutdown(t *testing.T) {
 	assert.Equal(t, []trace.Trace{
 		{
 			Metadata: trace.Metadata{
-				RequestID: "123456789",
-				StartTime: 3000000,
-				EndTime:   15000000,
+				RequestID:      "123456789",
+				StartTime:      now.Now(),
+				MonotonicStart: 100_000_000,
+				MonotonicEnd:   390_000_000,
 			},
 			FunctionCalls: []trace.FunctionCall{
 				{
-					Name:      "Foo::bar",
-					StartTime: 3000000,
-					Elapsed:   12000000,
+					Name:           "Foo::bar",
+					MonotonicStart: 150_000_000,
+					MonotonicEnd:   270_000_000,
+					Elapsed:        120_000_000,
 				},
 				{
-					Name:      "Skpr::rocks",
-					StartTime: 5000000,
-					Elapsed:   8000000,
+					Name:           "Skpr::rocks",
+					MonotonicStart: 270_000_000,
+					MonotonicEnd:   350_000_000,
+					Elapsed:        80_000_000,
 				},
 				{
-					Name:      "Baz::boo",
-					StartTime: 6000000,
-					Elapsed:   4000000,
+					Name:           "Baz::boo",
+					MonotonicStart: 350_000_000,
+					MonotonicEnd:   390_000_000,
+					Elapsed:        40_000_000,
 				},
 			},
 		},

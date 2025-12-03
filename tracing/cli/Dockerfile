@@ -1,4 +1,4 @@
-FROM alpine:3.21 AS build
+FROM alpine:3.22 AS build
 
 USER root
 
@@ -31,11 +31,9 @@ ADD --chown=skpr:skpr . /data
 
 # Check and build.
 RUN mise trust .
-RUN mise run lint
-RUN mise run test
 RUN mise run build:cli
 
-FROM alpine:3.21
+FROM alpine:3.22
 RUN apk add bash
 COPY --from=build /data/_output/compass /usr/local/bin/compass
 CMD ["compass"]

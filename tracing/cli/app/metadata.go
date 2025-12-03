@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/skpr/compass/tracing/cli/app/color"
-	skprtime "github.com/skpr/compass/tracing/cli/app/time"
 )
 
 func (m *Model) metadataInit() {
@@ -72,7 +71,7 @@ func (m *Model) metadataSetRows() {
 	rows := []table.Row{
 		{bold.Render("URI"), m.Current.Metadata.URI},
 		{bold.Render("Method"), m.Current.Metadata.Method},
-		{bold.Render("Execution Time"), fmt.Sprintf("%dms", skprtime.NanosecondsToMilliseconds(m.Current.Metadata.ExecutionTime()))},
+		{bold.Render("Execution Time"), fmt.Sprintf("%dms", m.Current.Metadata.ExecutionTime().Milliseconds())},
 		{bold.Render("Function Calls"), fmt.Sprintf("%d", len(m.Current.FunctionCalls))},
 		{bold.Render("Request ID"), m.Current.Metadata.RequestID},
 		{bold.Render("Ingestion Time"), m.Current.IngestionTime.Format(time.RFC822)},

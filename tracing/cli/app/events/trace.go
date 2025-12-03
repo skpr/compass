@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	skprtime "github.com/skpr/compass/tracing/cli/app/time"
 	"github.com/skpr/compass/tracing/trace"
 )
 
@@ -16,7 +15,7 @@ type Trace struct {
 
 // Title of the trace.
 func (t Trace) Title() string {
-	return fmt.Sprintf("%dms %s %s", skprtime.NanosecondsToMilliseconds(t.Metadata.ExecutionTime()), t.Metadata.Method, t.Metadata.URI)
+	return fmt.Sprintf("%dms %s %s", t.Metadata.ExecutionTime().Milliseconds(), t.Metadata.Method, t.Metadata.URI)
 }
 
 // Description of the trace.
