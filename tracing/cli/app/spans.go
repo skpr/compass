@@ -1,14 +1,12 @@
 package app
 
 import (
-	"time"
-
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/skpr/compass/tracing/cli/app/color"
 	"github.com/skpr/compass/tracing/cli/app/component/span"
-	"github.com/skpr/compass/tracing/trace/segmented"
+	"github.com/skpr/compass/tracing/trace/aggregated"
 )
 
 // SpanLength is how long a span component should be.
@@ -59,9 +57,9 @@ func (m *Model) spansSetRows() {
 		return
 	}
 
-	trace := segmented.Unmarshal(m.Current.Trace, SpanLength)
+	trace := aggregated.Unmarshal(m.Current.Trace)
 
-	sc := span.New(time.Duration(trace.Metadata.ExecutionTime())*time.Nanosecond, float64(SpanLength))
+	sc := span.New(trace.Metadata.ExecutionTime(), float64(SpanLength))
 
 	var rows []table.Row
 
@@ -69,8 +67,8 @@ func (m *Model) spansSetRows() {
 		rows = append(rows, []string{
 			s.Name,
 			sc.Render(span.Span{
-				Start:    time.Duration(s.Start) * time.Nanosecond,
-				Duration: time.Duration(s.Length) * time.Nanosecond,
+				Start:    s.Start,
+				Duration: s.Elapsed,
 			}),
 		})
 	}

@@ -55,7 +55,8 @@ func (c *Component) Render(span Span) string {
 
 	fill = tidyFill(pre+fill+post, int(c.Blocks), fill)
 
-	// return fmt.Sprintf("｜%s%s%s｜ %dms", strings.Repeat(" ", pre), strings.Repeat(getBlockWithColor(FractionDuration(span.Duration, c.Duration)), fill), strings.Repeat(" ", post), span.Duration.Milliseconds())
+	//return fmt.Sprintf("color = %s, start = %d, duration = %d, pre = %d, fill = %d, post = %d", span.Start.Milliseconds(), span.Duration.Milliseconds(), pre, fill, post)
+
 	return fmt.Sprintf("｜%s%s%s｜ %dms", strings.Repeat(" ", pre), colorForFill(FractionDuration(span.Duration, c.Duration), strings.Repeat(Block, fill)), strings.Repeat(" ", post), span.Duration.Milliseconds())
 }
 

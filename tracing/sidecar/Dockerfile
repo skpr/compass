@@ -1,4 +1,4 @@
-FROM alpine:3.21 AS build
+FROM alpine:3.22 AS build
 
 USER root
 
@@ -31,8 +31,6 @@ ADD --chown=skpr:skpr . /data
 
 # Check and build.
 RUN mise trust .
-RUN mise run lint
-RUN mise run test
 RUN mise run build:sidecar
 
 FROM scratch

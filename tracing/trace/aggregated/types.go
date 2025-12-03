@@ -1,7 +1,8 @@
-package segmented
+package aggregated
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/skpr/compass/tracing/trace"
 )
@@ -10,8 +11,6 @@ import (
 type Trace struct {
 	// Metadata associated with this trace.
 	Metadata trace.Metadata `json:"metadata"`
-	// Total number of segments in this trace.
-	Segments int64 `json:"segments"`
 	// TotalFunctionCalls that occurred during this trace.
 	TotalFunctionCalls int `json:"totalFunctionCalls"`
 	// Spans that are included in trace.
@@ -22,20 +21,20 @@ type Trace struct {
 type Span struct {
 	// Name of the function.
 	Name string `json:"name"`
-	// The original start time of the function called in the span.
-	StartTime int64 `json:"startTime"`
-	// Which segment this function started.
-	Start int64 `json:"start"`
-	// How many segments this function call spans.
-	Length int64 `json:"length"`
-	// TotalFunctionCalls that were called during this span.
-	TotalFunctionCalls int `json:"calls"`
+	// When this function started in the trace.
+	Start time.Duration `json:"start"`
+	// When this function ended in the trace.
+	End time.Duration `json:"end"`
+	// How long this function was called for.
+	Elapsed time.Duration `json:"elapsed"`
+	// Number of times this function was called.
+	Calls int `json:"call"`
 }
 
 // GetName of the span and include the amount when more than one call.
 func (s Span) GetName() string {
-	if s.TotalFunctionCalls > 1 {
-		return fmt.Sprintf("%s (%d)", s.Name, s.TotalFunctionCalls)
+	if s.Calls > 1 {
+		return fmt.Sprintf("%s (%d)", s.Name, s.Calls)
 	}
 
 	return s.Name
