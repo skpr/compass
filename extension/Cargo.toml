@@ -10,7 +10,7 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 anyhow = "1.0.100"
 coarsetime = "0.1.36"
-phper = { git = "https://github.com/phper-framework/phper.git", rev = "0689edbb59ec09adda90403c173c373949066ec5" }
+phper = "0.17.2"
 probe = "0.5.2"
 once_cell = "1.21.3"
 nix = "0.30.1"
