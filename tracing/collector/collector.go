@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/tracing/collector/sink"
+	skprtime "github.com/skpr/compass/tracing/collector/time"
 	"github.com/skpr/compass/tracing/collector/usdt"
 )
 
@@ -92,7 +93,7 @@ func Run(ctx context.Context, logger Logger, plugin sink.Interface, options RunO
 
 	manager, err := NewManager(logger, plugin, Options{
 		Expire: time.Minute,
-	})
+	}, skprtime.New())
 	if err != nil {
 		return fmt.Errorf("unable to initialize event manager: %w", err)
 	}
@@ -130,7 +131,7 @@ func Run(ctx context.Context, logger Logger, plugin sink.Interface, options RunO
 				continue
 			}
 
-			if err := manager.Handle(event); err != nil {
+			if err := manager.Handle(ctx, event); err != nil {
 				logger.Error("failed to handle event", slog.Any("err", err))
 				continue
 			}

@@ -5,14 +5,14 @@ import (
 	"sort"
 
 	"github.com/skpr/compass/tracing/trace"
-	"github.com/skpr/compass/tracing/trace/segmented"
+	"github.com/skpr/compass/tracing/trace/aggregated"
 )
 
 // Unmarshal a full trace into a counted trace.
 func Unmarshal(fullTrace trace.Trace) Trace {
 	// We first unmarshal it into segments so we can determine the percentage.
 	// 100 allows us to compute a percentage.
-	segementedTrace := segmented.Unmarshal(fullTrace, 100)
+	segementedTrace := aggregated.Unmarshal(fullTrace)
 
 	functions := make(map[string]Function)
 
@@ -20,7 +20,7 @@ func Unmarshal(fullTrace trace.Trace) Trace {
 		function := Function{
 			Name:       span.Name,
 			Calls:      1,
-			Percentage: span.Length,
+			Percentage: int64((float64(span.Elapsed) / float64(fullTrace.Metadata.ExecutionTime())) * 100),
 		}
 
 		if val, ok := functions[function.Name]; ok {

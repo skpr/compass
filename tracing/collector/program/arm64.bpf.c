@@ -8,7 +8,7 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 
-char __license[] SEC("license") = "Dual MIT/GPL";
+char LICENSE[] SEC("license") = "GPL";
 
 enum event_type : __u8 {
   EVENT_TYPE_FUNCTION = 0,
