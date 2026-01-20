@@ -1,4 +1,4 @@
-name: 📋 Build CLI
+name: 📋 Build
 
 on:
   pull_request:
