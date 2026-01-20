@@ -55,7 +55,8 @@ target "extension" {
 target "cli" {
   inherits = ["_common"]
 
-  context = "./tracing/cli"
+  context = "./tracing"
+  dockerfile = "./cli/Dockerfile"
 
   contexts = {
     from_image = "docker-image://docker.io/alpine:3.22"
@@ -69,7 +70,8 @@ target "cli" {
 target "sidecar" {
   inherits = ["_common"]
 
-  context = "./tracing/sidecar"
+  context = "./tracing"
+  dockerfile = "./sidecar/Dockerfile"
 
   contexts = {
     from_image = "docker-image://docker.io/alpine:3.22"
