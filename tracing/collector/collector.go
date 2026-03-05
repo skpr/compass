@@ -48,9 +48,81 @@ func Run(ctx context.Context, logger Logger, plugin sink.Interface, options RunO
 		return fmt.Errorf("failed to remove memlock rlimit: %w", err)
 	}
 
-	// Load pre-compiled programs and maps into the kernel.
+	// Load the compiled BPF collection spec (does not load into kernel yet).
+	spec, err := loadBpf()
+	if err != nil {
+		return fmt.Errorf("failed to load bpf spec: %w", err)
+	}
+
+	logger.Info("Resolving probe argument offsets from USDT notes")
+
+	// Parse argument register offsets from the .note.stapsdt section of the
+	// extension binary. The Rust compiler may allocate USDT probe arguments to
+	// different registers across versions, so we discover the actual offsets at
+	// runtime rather than hardcoding them in the BPF C source.
+	probeArgs, err := usdt.GetProbeArgs(options.ExecutablePath, ProbeProvider, []string{
+		ProbeNameRequestInit,
+		ProbeNameFunction,
+		ProbeNameRequestShutdown,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to resolve probe args: %w", err)
+	}
+
+	// setVar is a helper that sets a named volatile const in the BPF spec.
+	setVar := func(name string, val uint32) error {
+		v, ok := spec.Variables[name]
+		if !ok {
+			return fmt.Errorf("BPF variable %q not found in spec", name)
+		}
+		return v.Set(val)
+	}
+
+	// Inject request_init argument offsets.
+	// Arg order in the Rust probe: request_id, uri, method.
+	riArgs := probeArgs[ProbeNameRequestInit]
+	if len(riArgs) < 3 {
+		return fmt.Errorf("expected 3 args for %s, got %d", ProbeNameRequestInit, len(riArgs))
+	}
+	if err := setVar("request_init_arg0_offset", riArgs[0].Offset); err != nil {
+		return err
+	}
+	if err := setVar("request_init_arg1_offset", riArgs[1].Offset); err != nil {
+		return err
+	}
+	if err := setVar("request_init_arg2_offset", riArgs[2].Offset); err != nil {
+		return err
+	}
+
+	// Inject php_function argument offsets.
+	// Arg order in the Rust probe: request_id, function_name, elapsed.
+	fnArgs := probeArgs[ProbeNameFunction]
+	if len(fnArgs) < 3 {
+		return fmt.Errorf("expected 3 args for %s, got %d", ProbeNameFunction, len(fnArgs))
+	}
+	if err := setVar("php_function_arg0_offset", fnArgs[0].Offset); err != nil {
+		return err
+	}
+	if err := setVar("php_function_arg1_offset", fnArgs[1].Offset); err != nil {
+		return err
+	}
+	if err := setVar("php_function_arg2_offset", fnArgs[2].Offset); err != nil {
+		return err
+	}
+
+	// Inject request_shutdown argument offsets.
+	// Arg order in the Rust probe: request_id.
+	rsArgs := probeArgs[ProbeNameRequestShutdown]
+	if len(rsArgs) < 1 {
+		return fmt.Errorf("expected 1 arg for %s, got %d", ProbeNameRequestShutdown, len(rsArgs))
+	}
+	if err := setVar("request_shutdown_arg0_offset", rsArgs[0].Offset); err != nil {
+		return err
+	}
+
+	// Load the BPF programs and maps into the kernel with the rewritten constants.
 	objs := bpfObjects{}
-	if err := loadBpfObjects(&objs, nil); err != nil {
+	if err := spec.LoadAndAssign(&objs, nil); err != nil {
 		return fmt.Errorf("failed to load objects: %w", err)
 	}
 	defer objs.Close()

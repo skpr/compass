@@ -17,7 +17,10 @@ type Note struct {
 	Semaphore             uint64
 	SemaphoreOffsetPtrace uint64
 	SemaphoreOffsetRefctr uint64
-	bo                    binary.ByteOrder
+	// Args is the raw argument descriptor string from the .note.stapsdt section,
+	// e.g. "-8@%rax -8@%rcx 8@%r15" on amd64 or "-8@x8 -8@x21 8@x0" on arm64.
+	Args string
+	bo   binary.ByteOrder
 }
 
 func getSymbol(provider, function string) string {
@@ -121,6 +124,16 @@ func getLocationFromProbe(path, provider, probe string) (*Note, error) {
 		idx += providersz + 1
 		probesz := bytes.IndexByte(desc[idx:], 0)
 		pb := string(desc[idx : idx+probesz])
+
+		// The arguments string follows immediately after the probe name's null terminator.
+		idx += probesz + 1
+		if idx < len(desc) {
+			argssz := bytes.IndexByte(desc[idx:], 0)
+			if argssz < 0 {
+				argssz = len(desc) - idx
+			}
+			note.Args = string(desc[idx : idx+argssz])
+		}
 
 		if provider == pv && probe == pb {
 			return &note, nil

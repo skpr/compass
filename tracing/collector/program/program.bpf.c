@@ -33,6 +33,25 @@ struct {
   __uint(max_entries, 256 * 4096);
 } events SEC(".maps");
 
+// Byte offsets of probe arguments within struct pt_regs. These are populated
+// from Go (via ebpf.Variable / CollectionSpec.Variables) before the program is
+// loaded into the kernel, based on the USDT argument descriptors parsed from
+// the .note.stapsdt section of the instrumented binary.
+volatile const __u32 request_init_arg0_offset = 0;
+volatile const __u32 request_init_arg1_offset = 0;
+volatile const __u32 request_init_arg2_offset = 0;
+volatile const __u32 php_function_arg0_offset = 0;
+volatile const __u32 php_function_arg1_offset = 0;
+volatile const __u32 php_function_arg2_offset = 0;
+volatile const __u32 request_shutdown_arg0_offset = 0;
+
+// read_arg reads a 64-bit register value from pt_regs at a given byte offset.
+static __always_inline __u64 read_arg(struct pt_regs *ctx, __u32 offset) {
+  __u64 val = 0;
+  bpf_probe_read_kernel(&val, sizeof(val), (char *)ctx + offset);
+  return val;
+}
+
 SEC("uprobe/compass_canary")
 int uprobe_compass_canary(struct pt_regs *ctx) {
   return 0;
@@ -45,9 +64,12 @@ int uprobe_compass_request_init(struct pt_regs *ctx) {
     return 0;
 
   event->type = EVENT_TYPE_REQUEST_INIT;
-  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->cx);
-  bpf_core_read_user_str(&event->method, STRSZ, (void *)ctx->r15);
-  bpf_core_read_user_str(&event->uri, URI_MAX_LEN, (void *)ctx->ax);
+  bpf_core_read_user_str(&event->request_id, STRSZ,
+                         (void *)read_arg(ctx, request_init_arg0_offset));
+  bpf_core_read_user_str(&event->uri, URI_MAX_LEN,
+                         (void *)read_arg(ctx, request_init_arg1_offset));
+  bpf_core_read_user_str(&event->method, STRSZ,
+                         (void *)read_arg(ctx, request_init_arg2_offset));
   event->timestamp = bpf_ktime_get_ns();
   event->elapsed = 0;
 
@@ -62,10 +84,12 @@ int uprobe_compass_php_function(struct pt_regs *ctx) {
     return 0;
 
   event->type = EVENT_TYPE_FUNCTION;
-  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->r14);
-  bpf_core_read_user_str(&event->function_name, STRSZ, (void *)ctx->ax);
+  bpf_core_read_user_str(&event->request_id, STRSZ,
+                         (void *)read_arg(ctx, php_function_arg0_offset));
+  bpf_core_read_user_str(&event->function_name, STRSZ,
+                         (void *)read_arg(ctx, php_function_arg1_offset));
   event->timestamp = bpf_ktime_get_ns();
-  event->elapsed = ctx->r15;
+  event->elapsed = read_arg(ctx, php_function_arg2_offset);
 
   bpf_ringbuf_submit(event, 0);
   return 0;
@@ -78,7 +102,8 @@ int uprobe_compass_request_shutdown(struct pt_regs *ctx) {
     return 0;
 
   event->type = EVENT_TYPE_REQUEST_SHUTDOWN;
-  bpf_core_read_user_str(&event->request_id, STRSZ, (void *)ctx->ax);
+  bpf_core_read_user_str(&event->request_id, STRSZ,
+                         (void *)read_arg(ctx, request_shutdown_arg0_offset));
   event->timestamp = bpf_ktime_get_ns();
   event->elapsed = 0;
 

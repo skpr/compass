@@ -29,7 +29,7 @@ run = '''
 #!/usr/bin/env bash
 cd collector
 bpftool btf dump file /sys/kernel/btf/vmlinux format c > ./includes/vmlinux.h
-GOPACKAGE=collector bpf2go -cflags '-O2 -g -Wall -Werror' -type event bpf program/$(uname -m).bpf.c -- -I./includes
+GOPACKAGE=collector bpf2go -cflags '-O2 -g -Wall -Werror' -type event bpf program/program.bpf.c -- -I./includes
 '''
 depends = ["vendor"]
 
