@@ -11,12 +11,11 @@ services:
     network_mode: service:nginx
     environment:
       - COMPASS_ENABLED=true
+      - COMPASS_FUNCTION_THRESHOLD=1000000
       - RUST_BACKTRACE=1 # Debugging
 
   sidecar:
-    build:
-      dockerfile: sidecar/Dockerfile
-      context: tracing
+    build: .
     # environment:
     #   - COMPASS_SIDECAR_TOKEN=xxxyyyzzz
     network_mode: service:nginx
@@ -27,9 +26,7 @@ services:
       - php-fpm
 
   compass:
-    build:
-      dockerfile: cli/Dockerfile
-      context: tracing
+    build: .
     command: /bin/bash -c "sleep infinity"
     network_mode: service:nginx
     depends_on:
