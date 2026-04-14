@@ -17,3 +17,4 @@ RUN composer require drush/drush
 COPY drush /etc/drush
 
 RUN PHP_MEMORY_LIMIT=-1 vendor/bin/drush si demo_umami --db-url=sqlite://sites/default/files/.ht.sqlite
+RUN PHP_MEMORY_LIMIT=-1 vendor/bin/drush en -y jsonapi

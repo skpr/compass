@@ -5,14 +5,27 @@ services:
     ports:
       - "8080:8080"
       - "28624:28624"
+    volumes:
+      - ./docker/compose/nginx/20-node.conf:/etc/nginx/conf.d/location/20-node.conf
 
   php-fpm:
     build: ./docker/compose/php-fpm
     network_mode: service:nginx
+    pid: "service:nginx"
     environment:
       - COMPASS_ENABLED=true
       - COMPASS_FUNCTION_THRESHOLD=1000000
       - RUST_BACKTRACE=1 # Debugging
+
+  node:
+    build: ./docker/compose/node
+    network_mode: service:nginx
+    pid: "service:nginx"
+    depends_on:
+      - php-fpm
+    environment:
+      - COMPASS_ENABLED=true
+      - COMPASS_FUNCTION_THRESHOLD=0
 
   sidecar:
     build: .
@@ -21,9 +34,10 @@ services:
     network_mode: service:nginx
     # Compass needs these.
     privileged: true
-    pid: "service:php-fpm"
+    pid: "service:nginx"
     depends_on:
       - php-fpm
+      - node
 
   compass:
     build: .

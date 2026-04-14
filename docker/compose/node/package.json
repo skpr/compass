@@ -1,0 +1,7 @@
+{
+  "name": "compass-node-app",
+  "private": true,
+  "dependencies": {
+    "express": "^4"
+  }
+}

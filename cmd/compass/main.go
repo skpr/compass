@@ -34,7 +34,9 @@ A toolkit for pointing developers in the right direction for performance issues.
 
 // Options for the CLI.
 type Options struct {
-	URI string
+	URI         string
+	OllamaURL   string
+	OllamaModel string
 }
 
 func main() {
@@ -46,7 +48,7 @@ func main() {
 		Long:    cmdLong,
 		Example: cmdExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p := tea.NewProgram(app.NewModel(o.URI), tea.WithAltScreen())
+			p := tea.NewProgram(app.NewModel(o.URI, o.OllamaURL, o.OllamaModel), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
 			if err != nil {
@@ -84,6 +86,8 @@ func main() {
 	}
 
 	cmd.PersistentFlags().StringVar(&o.URI, "uri", env.String("COMPASS_URI", "http://localhost:28624/v1/traces"), "URI to connect to for tracing")
+	cmd.PersistentFlags().StringVar(&o.OllamaURL, "ollama-url", env.String("COMPASS_OLLAMA_URL", "http://localhost:11434"), "Ollama API URL for AI trace analysis")
+	cmd.PersistentFlags().StringVar(&o.OllamaModel, "ollama-model", env.String("COMPASS_OLLAMA_MODEL", "llama3.2"), "Ollama model to use for AI trace analysis")
 
 	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
 		return gchalk.WithHex(color.Orange).Bold(data)

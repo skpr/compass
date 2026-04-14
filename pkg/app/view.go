@@ -18,7 +18,7 @@ func (m Model) View() string {
 
 	switch m.PageSelected {
 	case PageSearch:
-		doc.WriteString(m.searchView() + "\n\n")
+		doc.WriteString(m.searchView() + "\n")
 	case PageSpans:
 		doc.WriteString(m.metadataView() + "\n")
 		doc.WriteString(m.spansView() + "\n")
@@ -31,5 +31,19 @@ func (m Model) View() string {
 
 	doc.WriteString(m.footerView())
 
-	return docStyle.Render(doc.String())
+	base := docStyle.Render(doc.String())
+
+	// Render the AI summary overlay on top if active.
+	if m.showSummary && m.PageSelected == PageSpans {
+		overlay := m.summaryView()
+		base = lipgloss.Place(
+			m.Width, m.Height,
+			lipgloss.Center, lipgloss.Center,
+			overlay,
+			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceForeground(lipgloss.Color("")),
+		)
+	}
+
+	return base
 }

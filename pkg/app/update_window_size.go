@@ -9,9 +9,10 @@ func (m *Model) updateWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.Width = msg.Width
 
 	// Search.
-	m.search.SetSize(msg.Width, msg.Height-5)
+	m.search.SetSize(msg.Width, msg.Height-4)
 
 	// Metadata (on the Spans page)
+	m.metadata.SetHeight(10)
 	m.metadataSetColums()
 
 	// Spans.

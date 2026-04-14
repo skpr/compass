@@ -28,6 +28,7 @@ description = "Executes bpf2go on multiple given directories"
 depends = [
   "bpf2go pkg/tracer/php/cli cli",
   "bpf2go pkg/tracer/php/fpm fpm",
+  "bpf2go pkg/tracer/node/http http",
 ]
 
 [tasks.bpf2go]

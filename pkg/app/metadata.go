@@ -15,7 +15,7 @@ import (
 func (m *Model) metadataInit() {
 	m.metadata = table.New(
 		table.WithFocused(true),
-		table.WithHeight(9),
+		table.WithHeight(10),
 	)
 
 	m.metadataSetColums()
@@ -75,28 +75,28 @@ func (m *Model) metadataSetRows() {
 	switch m.Current.Metadata.Source {
 	case trace.SourceHTTP:
 		rows = []table.Row{
+			{bold.Render("Runtime"), string(m.Current.Metadata.Runtime)},
 			{bold.Render("URI"), m.Current.Metadata.HTTP.URI},
 			{bold.Render("Method"), m.Current.Metadata.HTTP.Method},
 			{bold.Render("Execution Time"), fmt.Sprintf("%dms", skprtime.NanosecondsToMilliseconds(m.Current.Metadata.ExecutionTime()))},
-			{bold.Render("Function Calls"), fmt.Sprintf("%d", len(m.Current.FunctionCalls))},
 			{bold.Render("Max Memory"), formatBytes(m.Current.ResourceUtilisation.MaxMemory)},
 			{bold.Render("Request ID"), m.Current.Metadata.ID},
 			{bold.Render("Ingestion Time"), m.Current.IngestionTime.Format(time.RFC822)},
 		}
 	case trace.SourceCLI:
 		rows = []table.Row{
+			{bold.Render("Runtime"), string(m.Current.Metadata.Runtime)},
 			{bold.Render("Command"), m.Current.Metadata.CLI.Command},
 			{bold.Render("Execution Time"), fmt.Sprintf("%dms", skprtime.NanosecondsToMilliseconds(m.Current.Metadata.ExecutionTime()))},
-			{bold.Render("Function Calls"), fmt.Sprintf("%d", len(m.Current.FunctionCalls))},
 			{bold.Render("Max Memory"), formatBytes(m.Current.ResourceUtilisation.MaxMemory)},
 			{bold.Render("Process ID"), m.Current.Metadata.ID},
 			{bold.Render("Ingestion Time"), m.Current.IngestionTime.Format(time.RFC822)},
 		}
 	default:
 		rows = []table.Row{
+			{bold.Render("Runtime"), string(m.Current.Metadata.Runtime)},
 			{bold.Render("Source"), string(m.Current.Metadata.Source)},
 			{bold.Render("Execution Time"), fmt.Sprintf("%dms", skprtime.NanosecondsToMilliseconds(m.Current.Metadata.ExecutionTime()))},
-			{bold.Render("Function Calls"), fmt.Sprintf("%d", len(m.Current.FunctionCalls))},
 			{bold.Render("Max Memory"), formatBytes(m.Current.ResourceUtilisation.MaxMemory)},
 			{bold.Render("ID"), m.Current.Metadata.ID},
 			{bold.Render("Ingestion Time"), m.Current.IngestionTime.Format(time.RFC822)},

@@ -18,8 +18,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/skpr/compass/pkg/php/extension/discovery"
-	"github.com/skpr/compass/pkg/tracer/php"
+	phpdiscovery "github.com/skpr/compass/pkg/php/extension/discovery"
+	nodediscovery "github.com/skpr/compass/pkg/node/addon/discovery"
+	"github.com/skpr/compass/pkg/tracer"
 )
 
 var cmdExample = `
@@ -46,8 +47,10 @@ var (
 type Config struct {
 	Addr          string `yaml:"addr"           env:"COMPASS_SIDECAR_ADDR"           env-default:":28624"`
 	LogLevel      string `yaml:"log_level"      env:"COMPASS_SIDECAR_LOG_LEVEL"      env-default:"info"`
-	ProcessName   string `yaml:"log_level"      env:"COMPASS_SIDECAR_PROCESS_NAME"   env-default:"php-fpm"`
-	ExtensionPath string `yaml:"extension_path" env:"COMPASS_SIDECAR_EXTENSION_PATH" env-default:"/usr/lib/php/modules/compass.so"`
+	PHPProcessName   string `yaml:"php_process_name"      env:"COMPASS_SIDECAR_PHP_PROCESS_NAME"   env-default:"php-fpm"`
+	PHPExtensionPath string `yaml:"php_extension_path" env:"COMPASS_SIDECAR_PHP_EXTENSION_PATH" env-default:"/usr/lib/php/modules/compass.so"`
+  NodeProcessName string `yaml:"node_process_name" env:"COMPASS_SIDECAR_NODE_PROCESS_NAME" env-default:"node"`
+	NodeAddonPath string `yaml:"node_addon_path" env:"COMPASS_SIDECAR_NODE_ADDON_PATH" env-default:"/usr/lib/compass/node/compass.node"`
 	Token         string `yaml:"token"          env:"COMPASS_SIDECAR_TOKEN"`
 	CertFile      string `yaml:"cert_file"      env:"COMPASS_SIDECAR_CERT_FILE"`
 	KeyFile       string `yaml:"key_file"       env:"COMPASS_SIDECAR_KEY_FILE"`
@@ -85,14 +88,23 @@ func main() {
 				Level: lvl,
 			}))
 
-			logger.Info("Looking for extension", "process_name", config.ProcessName)
+			logger.Info("Looking for PHP extension", "php_process_name", config.PHPProcessName)
 
-			path, err := discovery.GetPathFromProcess(config.ProcessName, config.ExtensionPath)
+			phpExtensionPath, err := phpdiscovery.GetPathFromProcess(config.PHPProcessName, config.PHPExtensionPath)
 			if err != nil {
 				return err
 			}
 
-			logger.Info("Extension found", "process_name", config.ProcessName, "extension_path", path)
+			logger.Info("PHP Extension found", "php_process_name", config.PHPProcessName, "php_extension_path", phpExtensionPath)
+
+			logger.Info("Looking for Node addon", "node_process_name", config.NodeProcessName)
+
+			nodeAddonPath, err := nodediscovery.GetPathFromProcess(config.NodeProcessName, config.NodeAddonPath)
+			if err != nil {
+				return err
+			}
+
+			logger.Info("Node Addon found", "node_process_name", config.NodeProcessName, "node_addon_path", nodeAddonPath)
 
 			b := NewBroadcaster()
 
@@ -231,7 +243,7 @@ func main() {
 
 					collectorCtx, collectorCancel = context.WithCancel(ctx)
 
-					err := php.Run(collectorCtx, b, path)
+					err := tracer.Run(collectorCtx, b, phpExtensionPath, nodeAddonPath)
 					if err != nil && !errors.Is(err, context.Canceled) {
 						logger.Error("Failed to run collector", "error", err)
 					}

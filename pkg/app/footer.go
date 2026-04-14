@@ -22,9 +22,17 @@ var (
 )
 
 func (m *Model) footerView() string {
+	var statusContent string
+
+	if m.PageSelected == PageSpans && m.Current != nil {
+		statusContent = fmt.Sprintf("Using probes from %s  |  [s] AI Summary", m.ProbePath)
+	} else {
+		statusContent = fmt.Sprintf("Using probes from %s", m.ProbePath)
+	}
+
 	status := statusText.
 		Width(m.Width - lipgloss.Width(logo)).
-		Render(fmt.Sprintf("Using probes from %s", m.ProbePath))
+		Render(statusContent)
 
 	bar := lipgloss.JoinHorizontal(lipgloss.Top,
 		status,

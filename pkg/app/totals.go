@@ -27,7 +27,7 @@ func (m *Model) totalsInit() {
 		Bold(true)
 
 	styles.Selected = styles.Selected.
-		Foreground(lipgloss.Color(color.Blue)).
+		Foreground(lipgloss.Color(color.White)).
 		Background(lipgloss.Color(color.DarkBlueGrey)).
 		Bold(true)
 
@@ -70,7 +70,7 @@ func (m *Model) totalsSetRows() {
 		rows = append(rows, []string{
 			f.Name,
 			fmt.Sprintf("%d", f.Calls),
-			fmt.Sprintf("%d", f.Percentage),
+			fmt.Sprintf("%d%%", f.Percentage),
 		})
 	}
 

@@ -1,6 +1,7 @@
 // Package trace implements complete tracing data.
 package trace
 
+// Source describes the invocation mechanism of the trace.
 type Source string
 
 var (
@@ -10,9 +11,20 @@ var (
 	SourceCLI Source = "cli"
 )
 
+// Runtime describes the language runtime that produced the trace.
+type Runtime string
+
+var (
+	// RuntimePHP is the runtime for traces collected from PHP processes.
+	RuntimePHP Runtime = "php"
+	// RuntimeNode is the runtime for traces collected from Node.js processes.
+	RuntimeNode Runtime = "node"
+)
+
 // Metadata associated with this trace.
 type Metadata struct {
 	Source    Source       `json:"source"`
+	Runtime   Runtime      `json:"runtime"`
 	ID        string       `json:"id"`
 	HTTP      MetadataHTTP `json:"http,omitempty"`
 	CLI       MetadataCLI  `json:"cli,omitempty"`

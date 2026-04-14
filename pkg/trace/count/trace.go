@@ -16,16 +16,23 @@ func Unmarshal(fullTrace trace.Trace) Trace {
 
 	functions := make(map[string]Function)
 
+	segmentLength := fullTrace.Metadata.ExecutionTime() / 100
+
 	for _, span := range segementedTrace.Spans {
+		percentage := span.Length / segmentLength
+		if percentage == 0 {
+			percentage = 1
+		}
+
 		function := Function{
 			Name:       span.Name,
 			Calls:      1,
-			Percentage: span.Length,
+			Percentage: percentage,
 		}
 
 		if val, ok := functions[function.Name]; ok {
 			function.Calls = val.Calls + function.Calls
-			function.Percentage = val.Calls + function.Percentage
+			function.Percentage = val.Percentage + function.Percentage
 			functions[function.Name] = function
 			continue
 		}

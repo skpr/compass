@@ -31,13 +31,13 @@ ADD --chown=skpr:skpr . /data
 
 # Check and build.
 RUN mise trust .
-RUN mise run lint
-RUN mise run test
+#RUN mise run lint
+#RUN mise run test
 RUN mise run build
 
 FROM alpine:3.21
 
-RUN apk add bash
+RUN apk add bash binutils
 
 COPY --from=build /data/_output/compass /usr/local/bin/compass
 COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar

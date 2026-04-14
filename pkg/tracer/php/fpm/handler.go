@@ -84,8 +84,9 @@ func (c *Handler) Handle(event bpfEvent) error {
 func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEvent) error {
 	t := trace.Trace{
 		Metadata: trace.Metadata{
-			ID:     requestID,
-			Source: trace.SourceHTTP,
+			ID:      requestID,
+			Source:  trace.SourceHTTP,
+			Runtime: trace.RuntimePHP,
 			HTTP: trace.MetadataHTTP{
 				URI:    uri,
 				Method: method,

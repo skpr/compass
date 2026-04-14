@@ -9,9 +9,12 @@ import (
 )
 
 // NewModel for executing this application.
-func NewModel(probePath string) *Model {
+func NewModel(probePath, ollamaURL, ollamaModel string) *Model {
 	return &Model{
-		ProbePath: probePath,
+		ProbePath:    probePath,
+		OllamaURL:    ollamaURL,
+		OllamaModel:  ollamaModel,
+		summaryCache: make(map[string]string),
 	}
 }
 
@@ -19,6 +22,10 @@ func NewModel(probePath string) *Model {
 type Model struct {
 	// Path to the compass.so we are probing.
 	ProbePath string
+
+	// Ollama configuration.
+	OllamaURL   string
+	OllamaModel string
 
 	// The current display that is selected.
 	PageSelected Page
@@ -30,6 +37,13 @@ type Model struct {
 	// Storage.
 	Current *events.Trace
 	Traces  map[string]events.Trace
+
+	// AI Summary overlay state.
+	showSummary    bool
+	summaryText    string
+	summaryLoading bool
+	summaryError   string
+	summaryCache   map[string]string
 
 	// Models.
 	search   list.Model

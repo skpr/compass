@@ -1,4 +1,4 @@
-package cli
+package http
 
 import (
 	"context"
@@ -49,23 +49,30 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 
 // Handle the event and process it.
 func (c *Handler) Handle(event bpfEvent) error {
-	var pid = int64(event.Pid)
+	var (
+		requestID = unix.ByteSliceToString(event.RequestId[:])
+	)
 
-	if pid == 0 {
-		return fmt.Errorf("empty pid")
+	if requestID == "" {
+		return fmt.Errorf("empty request id")
 	}
 
 	switch event.Type {
 	case EventRequestInit:
-		if err := c.handleRequestInit(pid, event); err != nil {
+		var (
+			uri    = unix.ByteSliceToString(event.Uri[:])
+			method = unix.ByteSliceToString(event.Method[:])
+		)
+
+		if err := c.handleRequestInit(requestID, uri, method, event); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
 	case EventFunction:
-		if err := c.handleFunction(pid, event); err != nil {
+		if err := c.handleFunction(requestID, event); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(pid, event); err != nil {
+		if err := c.handleRequestShutdown(requestID, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -74,26 +81,27 @@ func (c *Handler) Handle(event bpfEvent) error {
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
+func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEvent) error {
 	t := trace.Trace{
 		Metadata: trace.Metadata{
-			Source:  trace.SourceCLI,
-			Runtime: trace.RuntimePHP,
-			ID:      c.getID(pid),
-			CLI: trace.MetadataCLI{
-				Command: unix.ByteSliceToString(event.Command[:]),
+			ID:      requestID,
+			Source:  trace.SourceHTTP,
+			Runtime: trace.RuntimeNode,
+			HTTP: trace.MetadataHTTP{
+				URI:    uri,
+				Method: method,
 			},
 			StartTime: int64(event.Timestamp),
 		},
 	}
 
-	c.storage.Set(c.getID(pid), t, cache.DefaultExpiration)
+	c.storage.Set(requestID, t, cache.DefaultExpiration)
 
 	return nil
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
+func (c *Handler) handleFunction(requestID string, event bpfEvent) error {
 	function := trace.FunctionCall{
 		Name: unix.ByteSliceToString(event.FunctionName[:]),
 		// The start time is the event time minus how long it look to execute.
@@ -103,7 +111,7 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 		Memory:    int64(event.Memory),
 	}
 
-	x, found := c.storage.Get(c.getID(pid))
+	x, found := c.storage.Get(requestID)
 	if !found {
 		return fmt.Errorf("not found in storage")
 	}
@@ -116,14 +124,14 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 
 	t.FunctionCalls = append(t.FunctionCalls, function)
 
-	c.storage.Set(c.getID(pid), t, cache.DefaultExpiration)
+	c.storage.Set(requestID, t, cache.DefaultExpiration)
 
 	return nil
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(pid int64, event bpfEvent) error {
-	x, found := c.storage.Get(c.getID(pid))
+func (c *Handler) handleRequestShutdown(requestID string, event bpfEvent) error {
+	x, found := c.storage.Get(requestID)
 	if !found {
 		return fmt.Errorf("not found in storage")
 	}
@@ -133,10 +141,10 @@ func (c *Handler) handleRequestShutdown(pid int64, event bpfEvent) error {
 	t.Metadata.EndTime = int64(event.Timestamp)
 
 	// Cleanup this request after we have processed it.
-	defer c.storage.Delete(c.getID(pid))
+	defer c.storage.Delete(requestID)
 
 	if len(t.FunctionCalls) == 0 {
-		return fmt.Errorf("no functions found for request with id: %s", c.getID(pid))
+		return fmt.Errorf("no functions found for request with id: %s", requestID)
 	}
 
 	err := c.plugin.ProcessTrace(context.TODO(), t)
@@ -145,9 +153,4 @@ func (c *Handler) handleRequestShutdown(pid int64, event bpfEvent) error {
 	}
 
 	return nil
-}
-
-// Returns an ID derived from the pid for tracking between events.
-func (c *Handler) getID(pid int64) string {
-	return fmt.Sprintf("%d", pid)
 }
