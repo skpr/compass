@@ -24,16 +24,33 @@ const (
 	ProtocolExtension = "extension"
 )
 
+// Config for connecting to a source of traces.
+type Config struct {
+	// URI of the trace stream.
+	URI string
+	// Token sent to the sidecar for authentication.
+	Token string
+	// CAFile containing the certificate authority which signed the sidecar certificate.
+	CAFile string
+	// InsecureSkipVerify disables verification of the sidecar certificate.
+	InsecureSkipVerify bool
+}
+
 // Start tracing and send traces to the program.
-func Start(ctx context.Context, logger *applogger.Logger, p *tea.Program, uri string) error {
-	u, err := url.Parse(uri)
+func Start(ctx context.Context, logger *applogger.Logger, p *tea.Program, config Config) error {
+	u, err := url.Parse(config.URI)
 	if err != nil {
 		return fmt.Errorf("failed to parse uri: %w", err)
 	}
 
 	switch u.Scheme {
 	case ProtocolHTTPS, ProtocolHTTP:
-		return http.Start(ctx, logger, p, uri)
+		return http.Start(ctx, logger, p, http.Config{
+			URI:                config.URI,
+			Token:              config.Token,
+			CAFile:             config.CAFile,
+			InsecureSkipVerify: config.InsecureSkipVerify,
+		})
 
 	case ProtocolExtension:
 		return extension.Start(ctx, logger, p, u.Path)

@@ -2,41 +2,67 @@
 package discovery
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/shirou/gopsutil/process"
 )
 
+// ErrNotFound is returned when the process or its extension could not be found.
+var ErrNotFound = errors.New("extension not found")
+
 // GetPathFromProcess will wait and return the path to the extension for a process.
-func GetPathFromProcess(processName, extensionPath string) (string, error) {
-	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
+//
+// ErrNotFound is returned if the process is not running, or is running without
+// the extension installed, by the time the timeout is reached. Callers treat
+// this as "this runtime is not present" rather than a failure.
+func GetPathFromProcess(ctx context.Context, processName, extensionPath string, timeout time.Duration) (string, error) {
+	policy := backoff.NewExponentialBackOff()
+	policy.MaxElapsedTime = timeout
 
-	for range ticker.C {
-		pid, ok, err := findParentProcess(processName)
-		if err != nil {
-			return "", fmt.Errorf("failed to find parent process from list: %w", err)
+	ticker := backoff.NewTicker(policy)
+	defer ticker.Stop()
+
+	// Reason we could not find the extension, returned when we give up.
+	reason := ErrNotFound
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case _, ok := <-ticker.C:
+			if !ok {
+				// The backoff policy has been exhausted.
+				return "", reason
+			}
+
+			pid, found, err := findParentProcess(processName)
+			if err != nil {
+				return "", fmt.Errorf("failed to find parent process from list: %w", err)
+			}
+
+			if !found {
+				reason = fmt.Errorf("%w: process not running: %s", ErrNotFound, processName)
+				continue
+			}
+
+			path := fmt.Sprintf("/proc/%d/root%s", pid, extensionPath)
+
+			// The process can be running before the extension has been installed,
+			// so keep waiting instead of failing outright.
+			if _, err := os.Stat(path); err != nil {
+				reason = fmt.Errorf("%w: %s", ErrNotFound, err)
+				continue
+			}
+
+			return path, nil
 		}
-
-		if !ok {
-			continue
-		}
-
-		ticker.Stop()
-
-		path := fmt.Sprintf("/proc/%d/root%s", pid, extensionPath)
-
-		_, err = os.Stat(path)
-		if err != nil {
-			return "", fmt.Errorf("failed to stat path %s: %w", path, err)
-		}
-
-		return path, nil
 	}
-
-	return "", fmt.Errorf("timed out")
 }
 
 // Helper function to find the parent process
@@ -49,7 +75,8 @@ func findParentProcess(name string) (int32, bool, error) {
 	for _, p := range processes {
 		n, err := p.Name()
 		if err != nil {
-			return 0, false, fmt.Errorf("error getting process name: %w", err)
+			// The process may have exited while we were looking at it.
+			continue
 		}
 
 		if n != name {

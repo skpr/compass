@@ -8,13 +8,18 @@ import (
 	"github.com/skpr/compass/pkg/app/events"
 )
 
+// DefaultMaxTraces is how many traces we retain when no limit has been configured.
+const DefaultMaxTraces = 500
+
 // NewModel for executing this application.
-func NewModel(probePath, ollamaURL, ollamaModel string) *Model {
+func NewModel(probePath string, maxTraces int) *Model {
+	if maxTraces <= 0 {
+		maxTraces = DefaultMaxTraces
+	}
+
 	return &Model{
-		ProbePath:    probePath,
-		OllamaURL:    ollamaURL,
-		OllamaModel:  ollamaModel,
-		summaryCache: make(map[string]string),
+		ProbePath: probePath,
+		MaxTraces: maxTraces,
 	}
 }
 
@@ -23,9 +28,8 @@ type Model struct {
 	// Path to the compass.so we are probing.
 	ProbePath string
 
-	// Ollama configuration.
-	OllamaURL   string
-	OllamaModel string
+	// MaxTraces is the maximum number of traces we retain, oldest are evicted first.
+	MaxTraces int
 
 	// The current display that is selected.
 	PageSelected Page
@@ -34,16 +38,12 @@ type Model struct {
 	Height int
 	Width  int
 
-	// Storage.
+	// Storage. Retained traces live in the search list, which is capped at
+	// MaxTraces, so there is no second copy of them to keep in sync.
 	Current *events.Trace
-	Traces  map[string]events.Trace
 
-	// AI Summary overlay state.
-	showSummary    bool
-	summaryText    string
-	summaryLoading bool
-	summaryError   string
-	summaryCache   map[string]string
+	// State of the connection to the trace stream.
+	connection events.Connection
 
 	// Models.
 	search   list.Model

@@ -1,0 +1,36 @@
+# Example configuration file for the Compass sidecar.
+#
+#   compass-sidecar --config=/etc/compass/sidecar.yaml
+#
+# Every value can also be set with the environment variable listed above it,
+# which takes precedence over this file.
+
+# COMPASS_SIDECAR_ADDR
+addr: ":28624"
+
+# COMPASS_SIDECAR_LOG_LEVEL - debug, info, warn or error.
+log_level: "info"
+
+# COMPASS_SIDECAR_PHP_PROCESS_NAME - process which loads the PHP extension.
+php_process_name: "php-fpm"
+
+# COMPASS_SIDECAR_PHP_EXTENSION_PATH - path to the extension, inside the PHP container.
+php_extension_path: "/usr/lib/php/modules/compass.so"
+
+# COMPASS_SIDECAR_NODE_PROCESS_NAME - process which loads the Node addon.
+node_process_name: "node"
+
+# COMPASS_SIDECAR_NODE_ADDON_PATH - path to the addon, inside the Node container.
+node_addon_path: "/usr/lib/compass/node/compass.node"
+
+# COMPASS_SIDECAR_DISCOVERY_TIMEOUT - how long to wait for a runtime to appear
+# before deciding it is not present. Runtimes are optional, the sidecar only
+# fails when none are found.
+discovery_timeout: "1m"
+
+# COMPASS_SIDECAR_TOKEN - clients must send this as the X-Skpr-Token header.
+# token: "xxxyyyzzz"
+
+# COMPASS_SIDECAR_CERT_FILE and COMPASS_SIDECAR_KEY_FILE - serve traces over TLS.
+# cert_file: "/etc/compass/tls/tls.crt"
+# key_file: "/etc/compass/tls/tls.key"

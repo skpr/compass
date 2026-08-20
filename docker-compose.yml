@@ -9,7 +9,8 @@ services:
       - ./docker/compose/nginx/20-node.conf:/etc/nginx/conf.d/location/20-node.conf
 
   php-fpm:
-    build: ./docker/compose/php-fpm
+    build:
+      context: ./docker/compose/php-fpm
     network_mode: service:nginx
     pid: "service:nginx"
     environment:
@@ -28,7 +29,9 @@ services:
       - COMPASS_FUNCTION_THRESHOLD=0
 
   sidecar:
-    build: .
+    build:
+      context: .
+      target: sidecar
     # environment:
     #   - COMPASS_SIDECAR_TOKEN=xxxyyyzzz
     network_mode: service:nginx
@@ -40,7 +43,9 @@ services:
       - node
 
   compass:
-    build: .
+    build:
+      context: .
+      target: cli
     command: /bin/bash -c "sleep infinity"
     network_mode: service:nginx
     depends_on:

@@ -1,0 +1,26 @@
+name: 📋 Test
+
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: test-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+
+      # The eBPF programs are generated with bpf2go, which needs clang, libbpf
+      # and the kernel BTF, so linting and testing runs in the build image.
+      - name: 🧪 Lint and Test
+        run: docker build --target=test .

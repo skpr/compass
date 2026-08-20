@@ -8,12 +8,3 @@ updates:
       go-dependencies:
         patterns:
           - "*"
-
-  - package-ecosystem: "cargo"
-    directory: "/extension"
-    schedule:
-      interval: "weekly"
-    groups:
-      rust-dependencies:
-        patterns:
-          - "*"

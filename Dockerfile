@@ -21,27 +21,39 @@ ENV PATH="/mise/shims:$PATH"
 
 RUN curl https://mise.run | sh
 
-# Make libclang easy to find for bindgen
-ENV LIBCLANG_PATH=/usr/lib/llvm19/lib
-
 ENV GOFLAGS=-buildvcs=false
 
 WORKDIR /data
-ADD --chown=skpr:skpr . /data
+ADD . /data
 
-# Check and build.
 RUN mise trust .
-#RUN mise run lint
-#RUN mise run test
+
+# Build both binaries.
 RUN mise run build
 
-FROM alpine:3.21
+# Lint and test, used by CI with "docker build --target=test".
+FROM build AS test
+
+RUN mise run lint
+RUN mise run test
+RUN mise run test:race
+
+# Compass CLI.
+FROM alpine:3.21 AS cli
 
 RUN apk add bash binutils
 
 COPY --from=build /data/_output/compass /usr/local/bin/compass
+
+CMD ["compass"]
+
+# Compass sidecar, the default target.
+FROM alpine:3.21 AS sidecar
+
+RUN apk add bash binutils
+
 COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar
 
-ENV COMPASS_SIDECAR_PROCESS_NAME=php-fpm
+ENV COMPASS_SIDECAR_PHP_PROCESS_NAME=php-fpm
 
 CMD ["compass-sidecar"]

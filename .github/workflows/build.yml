@@ -1,0 +1,42 @@
+name: 📋 Build
+
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+
+concurrency:
+  group: build-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.component }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: cli
+            os: ubuntu-latest
+            arch: amd64
+          - component: cli
+            os: ubuntu-24.04-arm
+            arch: arm64
+          - component: sidecar
+            os: ubuntu-latest
+            arch: amd64
+          - component: sidecar
+            os: ubuntu-24.04-arm
+            arch: arm64
+
+    steps:
+      - name: ⬇️ Git clone the repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Build
+        run: |
+          docker build \
+            --target=${{ matrix.component }} \
+            -t localhost/compass-${{ matrix.component }}:${{ matrix.arch }} \
+            .

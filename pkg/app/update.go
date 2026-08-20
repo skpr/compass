@@ -24,11 +24,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter.String():
 			return m.updateKeyEnter()
-
-		case "s":
-			if m.PageSelected == PageSpans {
-				return m.updateKeySummary()
-			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -40,11 +35,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case events.Log:
 		return m.updateLog(msg)
 
-	case events.SummaryResult:
-		return m.updateSummaryResult(msg)
-
-	case events.SummaryError:
-		return m.updateSummaryError(msg)
+	case events.Connection:
+		return m.updateConnection(msg)
 	}
 
 	var cmd tea.Cmd
