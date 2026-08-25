@@ -32,6 +32,18 @@ type Span struct {
 	TotalFunctionCalls int `json:"calls"`
 	// MaxMemory used during this span.
 	MaxMemory int64 `json:"maxMemory"`
+	// SelfTime is how long the calls in this span spent doing their own work,
+	// rather than waiting on the calls they made. See SelfTime.
+	SelfTime int64 `json:"selfTime"`
+}
+
+// SelfShare of the request this span was itself responsible for.
+func (s Span) SelfShare(executionTime int64) float64 {
+	if executionTime <= 0 {
+		return 0
+	}
+
+	return float64(s.SelfTime) / float64(executionTime)
 }
 
 // GetName of the span and include the amount when more than one call.

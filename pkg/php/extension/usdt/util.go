@@ -10,6 +10,12 @@ import (
 	"os"
 )
 
+// ErrProbeNotFound is returned when the binary carries no note for the probe
+// that was asked for. Probes which an older build of the instrumented binary
+// may not have are attached on a best effort basis, so callers need to tell
+// "this probe is absent" apart from "this binary could not be read".
+var ErrProbeNotFound = errors.New("probe not found")
+
 // Note represents a SystemTap note.
 type Note struct {
 	Location              uint64
@@ -140,7 +146,7 @@ func getLocationFromProbe(path, provider, probe string) (*Note, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("probe %s not found in provider %s", probe, provider)
+	return nil, fmt.Errorf("%w: %s in provider %s", ErrProbeNotFound, probe, provider)
 }
 
 func offset(f *elf.File, addr uint64) uint64 {

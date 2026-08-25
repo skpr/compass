@@ -120,10 +120,10 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string) error
 	logger.SetAttr(ProbeRequestInitArg1, riArgs[1].Offset)
 
 	// Inject php_function argument offsets.
-	// Arg order in the Rust probe: request_id, function_name, elapsed.
+	// Arg order in the Rust probe: pid, function_name, elapsed, memory.
 	fnArgs := probeArgs[ProbeNameFunction]
-	if len(fnArgs) < 3 {
-		return logger.WrapError(fmt.Errorf("expected 3 args for %s, got %d", ProbeNameFunction, len(fnArgs)))
+	if len(fnArgs) < 4 {
+		return logger.WrapError(fmt.Errorf("expected 4 args for %s, got %d", ProbeNameFunction, len(fnArgs)))
 	}
 
 	if err := setVar(ProbeFunctionArg0, fnArgs[0].Offset); err != nil {

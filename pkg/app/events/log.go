@@ -2,7 +2,6 @@
 package events
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -11,16 +10,6 @@ type Log struct {
 	Time    time.Time
 	Type    string
 	Message string
-}
-
-// Title of the log message.
-func (l Log) Title() string {
-	return l.Message
-}
-
-// Description of the log message.
-func (l Log) Description() string {
-	return fmt.Sprintf("type=%s time=%s", l.Type, l.Time.Local().Format(time.RFC1123))
 }
 
 // FilterValue for searching.

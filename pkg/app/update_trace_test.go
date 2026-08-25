@@ -48,11 +48,24 @@ func TestUpdateTrace_EvictsOldest(t *testing.T) {
 func traceIDs(m *Model) []string {
 	var ids []string
 
-	for _, item := range m.search.Items() {
-		ids = append(ids, item.(events.Trace).Metadata.ID)
+	for _, t := range m.traces {
+		ids = append(ids, t.Metadata.ID)
 	}
 
 	return ids
+}
+
+// The list renders from the retained traces, so the two must not drift: an
+// evicted trace has to leave the screen along with the slice.
+func TestUpdateTrace_RowsFollowTheRetainedTraces(t *testing.T) {
+	m := NewModel("/tmp/compass.so", 3)
+	m.Init()
+
+	for i := range 10 {
+		m.updateTrace(newTrace(fmt.Sprintf("trace-%d", i)))
+	}
+
+	assert.Equal(t, len(m.traces), m.search.Len())
 }
 
 func TestUpdateTrace_DefaultRetention(t *testing.T) {

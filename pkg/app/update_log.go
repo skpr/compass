@@ -7,6 +7,10 @@ import (
 )
 
 func (m *Model) updateLog(log events.Log) (tea.Model, tea.Cmd) {
-	m.logs.InsertItem(0, log)
+	// Newest first, matching the trace list.
+	m.logs = append([]events.Log{log}, m.logs...)
+
+	m.logsSetRows()
+
 	return m, nil
 }

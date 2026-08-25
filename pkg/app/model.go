@@ -2,10 +2,13 @@
 package app
 
 import (
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 
+	"github.com/skpr/compass/pkg/app/component/datatable"
 	"github.com/skpr/compass/pkg/app/events"
+	"github.com/skpr/compass/pkg/app/layout"
+	"github.com/skpr/compass/pkg/trace"
+	"github.com/skpr/compass/pkg/trace/segmented"
 )
 
 // DefaultMaxTraces is how many traces we retain when no limit has been configured.
@@ -38,17 +41,42 @@ type Model struct {
 	Height int
 	Width  int
 
-	// Storage. Retained traces live in the search list, which is capped at
-	// MaxTraces, so there is no second copy of them to keep in sync.
+	// Current is the trace which is open, if any.
 	Current *events.Trace
+
+	// Collected data. The tables render from these rather than holding the
+	// only copy, so a row can be rebuilt when the theme or the width changes.
+	traces []events.Trace
+	logs   []events.Log
 
 	// State of the connection to the trace stream.
 	connection events.Connection
 
-	// Models.
-	search   list.Model
-	metadata table.Model
-	spans    table.Model
-	totals   table.Model
-	logs     list.Model
+	// showHelp overlays the key map.
+	showHelp bool
+
+	// filter narrows the list on screen. filterFocused is whether it is being
+	// typed into; a filter stays in force after the cursor leaves it.
+	filter        textinput.Model
+	filterFocused bool
+
+	// The rows on the trace pages are cells; these are what the cells were made
+	// from, kept so the panel below each table can show a row in full.
+	functionSpans []segmented.Span
+	drupalEvents  []trace.CacheEvent
+
+	// visible maps a row on screen back to what it came from, so that opening
+	// a trace opens the one under the cursor rather than the one at that index
+	// in the unfiltered list.
+	visible []int
+
+	// regions the screen is divided into, recomputed on resize and on any
+	// change which adds or removes a strip.
+	regions layout.Regions
+
+	// Tables.
+	search    *datatable.Model
+	logsTable *datatable.Model
+	functions *datatable.Model
+	drupal    *datatable.Model
 }

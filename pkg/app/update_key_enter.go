@@ -2,8 +2,6 @@ package app
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-
-	"github.com/skpr/compass/pkg/app/events"
 )
 
 func (m *Model) updateKeyEnter() (tea.Model, tea.Cmd) {
@@ -11,15 +9,26 @@ func (m *Model) updateKeyEnter() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	trace, ok := m.search.SelectedItem().(events.Trace)
-	if ok {
-		m.Current = &trace
-		m.PageSelected = PageSpans
+	// Opening a trace is the only way into the pages which view one, so there
+	// is nothing to open when the search list has no selection.
+	selected, ok := m.selectedTrace()
+	if !ok {
+		return m, nil
 	}
 
-	m.metadataSetRows()
-	m.spansSetRows()
-	m.totalsSetRows()
+	m.Current = &selected
+
+	m.PageSelected = PageFunctions
+
+	// The trace pages carry a strip the top level does not, so the regions
+	// change along with the page.
+	m.relayout()
+
+	m.functions.GotoTop()
+	m.drupal.GotoTop()
+
+	m.functionsSetRows()
+	m.drupalSetRows()
 
 	return m, nil
 }

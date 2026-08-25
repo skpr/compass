@@ -14,9 +14,11 @@ func (m *Model) Init() tea.Cmd {
 
 	m.searchInit()
 	m.logsInit()
-	m.metadataInit()
-	m.spansInit()
-	m.totalsInit()
+	m.functionsInit()
+	m.drupalInit()
+	m.filterInit()
+
+	m.relayout()
 
 	return nil
 }

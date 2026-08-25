@@ -55,8 +55,95 @@ curl http://localhost:8080/frontend
 docker compose exec compass compass
 ```
 
-Navigate with `←` / `→` between **Search**, **Spans**, **Totals** and **Logs**,
-and press `enter` on the Search page to open a trace.
+The interface has two levels. **Search** and **Logs** are the top one, and `←` /
+`→` moves between them. Pressing `enter` on a trace in Search opens it, which
+swaps the tabs for that trace's own pages — **Functions** and **Drupal Cacheable
+Metadata** — that the same `←` / `→` then moves between. `esc` closes the trace
+and returns to the main menu. The filled tab is the one you are on.
+
+An open trace is described by a block of named fields above its pages: what was
+requested, its id, how long it took, how much memory it used, and what Drupal
+made of its cacheability. The block lays itself out in as many columns as the
+terminal is wide enough for, with the values nobody wants abbreviated — the URI
+and the request id — on rows of their own.
+
+`/` narrows the list on screen, `?` shows the keys and what the glyphs mean,
+and `q` quits.
+
+**Functions** is where the request spent its time, in the order it ran, so the
+page reads as a call sequence: what called what, and where the time went in
+between. The timeline beside each row shows *when* in the request the call
+happened and *for how long*, which puts a call visibly inside the one which
+made it. The bar sits on a rail rather than on empty space, so its position is
+readable even where the colour is not.
+
+Colour and weight come from **self** time — how long a function took minus how
+long the functions it called took. That distinction is what makes the page
+useful: a framework's kernel and dispatch frames wrap the whole request, so
+colouring by elapsed time paints them all at maximum severity while the function
+actually burning the time stays cool. Ordering is chronological and severity is
+self time, so the hotspot is still the heaviest mark on the page wherever in the
+sequence it falls.
+
+Self time is an upper bound rather than a measurement. The extension only fires
+a probe for calls above `compass.function_threshold`, so a child cheaper than
+the threshold is missing from the tree and its time is counted against its
+parent. Lower the threshold if a frame looks suspiciously hot.
+
+**Drupal Cacheable Metadata** is what the Drupal specific probes reported. The
+tab only appears when the trace has any: a Node trace, a PHP CLI run and any PHP
+application which is not Drupal all have none, and a page which can only say
+"there is nothing here" is not worth offering. Drupal derives the cacheability of a response as it builds it, and
+the lowest max age that any part of the page contributes wins, so a single line
+of code can make an otherwise cacheable page uncacheable. The page lists every
+cacheability event Drupal produced, most restrictive first, with a max age of
+zero — the thing which made the response uncacheable — shown in red.
+
+Both trace pages abbreviate, and both carry a panel beneath the table showing
+whichever row the cursor is on in full — so moving down a table is how you read
+through the detail, rather than something you do and then look elsewhere for.
+
+On **Functions** that is the whole name, which the table shortens to namespace
+initials and then truncates, along with the numbers behind the two columns which
+are a percentage and a picture: what the self share is in milliseconds, and
+where in the request the call sat. On **Drupal Cacheable Metadata** it is the
+cache tags and contexts, which the table only counts, and the object's full
+class name — the namespace being exactly what says which module it came from.
+
+Every list has a two cell gutter: the left marks the row the cursor is on, and
+the right carries severity as a *weight*, from a hairline to a solid block. It
+says the same thing as the colour beside it, in a channel which survives the
+colour being turned off — so the interface still reads under `NO_COLOR` or over
+a sixteen colour link.
+
+The masthead draws the wordmark as block letterforms — six rows of pixels
+rendered two to a character row with the half block glyphs — with a gradient
+running across them from Compass's primary blue to the palette's dim blue,
+standing in a field of diagonal hatching. At terminal resolution there is no
+type size to reach for, so the only way to make something bigger is to draw it
+out of more cells. The treatment is borrowed from
+[crush](https://github.com/charmbracelet/crush).
+
+Every colour on screen comes from the Skpr palette in `pkg/app/theme`, with two
+exceptions: a derived grey — a blend of the palette's own White and Grey, for
+the rung of the text hierarchy the palette does not have — and PHP's own purple
+in the runtime column, because that column is naming somebody else's project.
+There is a test asserting that list stays at two.
+
+A red `●` beside the runtime on the Search list marks a request worth going and
+looking at: something in it set a max age of zero, so the response cannot be
+cached. It fires for that and nothing else — a mark which means two things stops
+meaning either of them. `?` has the legend.
+
+The trace metadata carries the resulting max age, and a trace whose max age
+ended up at zero is flagged `C` on the Search page. A `D` there means events
+were dropped and the trace is truncated.
+
+Each trace carries its request ID, taken from the `X-Request-ID` header, or its
+process ID for a CLI run. Search shows the first eight characters, which is
+enough to recognise a trace and enough to grep a log with; the open trace shows
+the value in full. A request which arrived without the header has no ID, and
+shows `·` rather than the extension's `UNKNOWN` placeholder.
 
 ## Install
 
@@ -84,14 +171,9 @@ Then point the CLI at it:
 compass --uri http://localhost:28624/v1/traces
 ```
 
-The application also needs the extension or addon installed. The PHP extension
-is not published as an image, so the compose stack builds it from a pinned tag
-of its repository — see `docker/compose/php-fpm/Dockerfile` for a recipe you can
-copy into your own image, and override the tag with:
-
-```bash
-docker compose build --build-arg COMPASS_EXTENSION_REF=v0.0.6 php-fpm
-```
+The application also needs the extension or addon installed. The compose stack
+takes the PHP extension from its `skpr/php-fpm` base image, so the version it
+gets is whichever that image ships — see `docker/compose/php-fpm/Dockerfile`.
 
 The Node addon is installed from a `compass-node` release, see
 `docker/compose/node/Dockerfile`.
@@ -99,6 +181,11 @@ The Node addon is installed from a `compass-node` release, see
 The probe names and arities have to match the tracers in this repository
 (`fpm_request_init`, `fpm_function`, `fpm_request_shutdown`, `cli_*` and
 `canary`), so an older extension build will fail to attach.
+
+The Drupal probes (`drupal_cacheablemetadata_createfromrenderarray` and
+`drupal_cacheablemetadata_createfromobject`) are the exception: they are
+attached when the extension has them and skipped when it does not, so an
+extension predating them keeps its PHP tracing and loses only the Drupal page.
 
 ## Configuration
 

@@ -9,9 +9,10 @@ import (
 func (m *Model) updateTrace(trace events.Trace) (tea.Model, tea.Cmd) {
 	// Newest traces are shown first so the most recent activity does not
 	// require scrolling to the bottom of the list.
-	m.search.InsertItem(0, trace)
+	m.traces = append([]events.Trace{trace}, m.traces...)
 
 	m.evictTraces()
+	m.searchSetRows()
 
 	return m, nil
 }
@@ -26,8 +27,7 @@ func (m *Model) evictTraces() {
 		limit = DefaultMaxTraces
 	}
 
-	// The list is newest first, so the oldest trace is the last item.
-	for items := len(m.search.Items()); items > limit; items-- {
-		m.search.RemoveItem(items - 1)
+	if len(m.traces) > limit {
+		m.traces = m.traces[:limit]
 	}
 }

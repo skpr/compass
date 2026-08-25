@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/christgf/env"
-	"github.com/jwalton/gchalk"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/pkg/app"
-	"github.com/skpr/compass/pkg/app/color"
 	applogger "github.com/skpr/compass/pkg/app/logger"
+	"github.com/skpr/compass/pkg/app/theme"
 	"github.com/skpr/compass/pkg/app/tracer"
 )
 
@@ -104,9 +104,12 @@ func main() {
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure-skip-verify", env.Bool("COMPASS_INSECURE_SKIP_VERIFY", false), "Skip verification of the sidecar certificate")
 	cmd.PersistentFlags().IntVar(&o.MaxTraces, "max-traces", env.Int("COMPASS_MAX_TRACES", app.DefaultMaxTraces), "Maximum number of traces to retain, oldest are discarded first")
 
-	cobra.AddTemplateFunc("StyleHeading", func(data string) string {
-		return gchalk.WithHex(color.Orange).Bold(data)
-	})
+	// Through lipgloss like everything else. gchalk did its own terminal
+	// sniffing, independent of the renderer the interface uses, so the same
+	// build emitted different bytes depending on which library was asked.
+	heading := lipgloss.NewStyle().Foreground(theme.Default().Brand).Bold(true)
+
+	cobra.AddTemplateFunc("StyleHeading", heading.Render)
 
 	usageTemplate := cmd.UsageTemplate()
 	usageTemplate = strings.NewReplacer(

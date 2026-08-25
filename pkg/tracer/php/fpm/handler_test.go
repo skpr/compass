@@ -87,7 +87,7 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 	x, found := h.storage.Get("req-1")
 	require.True(t, found)
 
-	stored := x.(trace.Trace)
+	stored := x.(*state).trace
 	assert.Equal(t, "req-1", stored.Metadata.ID)
 	assert.Equal(t, trace.SourceHTTP, stored.Metadata.Source)
 	assert.Equal(t, "/api/test", stored.Metadata.HTTP.URI)
@@ -123,7 +123,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 	x, found := h.storage.Get("req-1")
 	require.True(t, found)
 
-	stored := x.(trace.Trace)
+	stored := x.(*state).trace
 	require.Len(t, stored.FunctionCalls, 1)
 	assert.Equal(t, "myFunc", stored.FunctionCalls[0].Name)
 	assert.Equal(t, int64(1300), stored.FunctionCalls[0].StartTime) // 1500 - 200
