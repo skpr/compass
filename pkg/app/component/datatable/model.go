@@ -62,12 +62,16 @@ func WithEmptyMessage(message string) Option {
 	}
 }
 
-// WithSelectionRail draws a marker in a reserved column at the left of the
+// WithSelectionRail draws a marker in a reserved column at each end of the
 // selected row.
 //
 // The background wash already says which row the cursor is on, but it is the
 // first thing to go when the terminal is down to sixteen colours and has no
 // backgrounds at all. The rail is a glyph, so it survives that.
+//
+// At each end rather than only at the left, because a row is as wide as the
+// terminal: the marker beside the first column is no help to an eye which is
+// already out at the last one.
 func WithSelectionRail() Option {
 	return func(m *Model) {
 		m.rail = true
@@ -296,7 +300,18 @@ func (m *Model) railWidth() int {
 	return 1
 }
 
+// railEndWidth reserved at the right of every row: the marker and a space
+// keeping it off the last column, which is usually a right aligned number
+// sitting hard against the edge.
+func (m *Model) railEndWidth() int {
+	if !m.rail {
+		return 0
+	}
+
+	return 2
+}
+
 // resolve the column widths for the current size.
 func (m *Model) resolve() {
-	m.widths = resolveWidths(m.columns, m.width-m.railWidth())
+	m.widths = resolveWidths(m.columns, m.width-m.railWidth()-m.railEndWidth())
 }

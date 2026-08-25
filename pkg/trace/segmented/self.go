@@ -2,6 +2,7 @@ package segmented
 
 import (
 	"sort"
+	"time"
 
 	"github.com/skpr/compass/pkg/trace"
 )
@@ -27,8 +28,8 @@ import (
 // a measurement, and the error on any one frame is bounded by the threshold
 // times the number of calls hidden beneath it. It is still far closer to the
 // truth than inclusive time, which is wrong by design.
-func SelfTime(calls []trace.FunctionCall) []int64 {
-	self := make([]int64, len(calls))
+func SelfTime(calls []trace.FunctionCall) []time.Duration {
+	self := make([]time.Duration, len(calls))
 
 	for i, call := range calls {
 		self[i] = call.Elapsed
@@ -42,8 +43,8 @@ func SelfTime(calls []trace.FunctionCall) []int64 {
 	sort.SliceStable(order, func(a, b int) bool {
 		left, right := calls[order[a]], calls[order[b]]
 
-		if left.StartTime != right.StartTime {
-			return left.StartTime < right.StartTime
+		if left.Offset != right.Offset {
+			return left.Offset < right.Offset
 		}
 
 		// A parent starting at the same instant as its child has to come first,
@@ -56,12 +57,12 @@ func SelfTime(calls []trace.FunctionCall) []int64 {
 
 	for _, index := range order {
 		call := calls[index]
-		end := call.StartTime + call.Elapsed
+		end := call.Offset + call.Elapsed
 
 		for len(stack) > 0 {
 			open := calls[stack[len(stack)-1]]
 
-			if open.StartTime+open.Elapsed > call.StartTime {
+			if open.Offset+open.Elapsed > call.Offset {
 				break
 			}
 
@@ -75,7 +76,7 @@ func SelfTime(calls []trace.FunctionCall) []int64 {
 			// Threshold filtering and aggregation can produce intervals which
 			// overhang, and charging a parent for time after it returned would
 			// take its self time negative.
-			overlap := min(end, calls[parent].StartTime+calls[parent].Elapsed) - call.StartTime
+			overlap := min(end, calls[parent].Offset+calls[parent].Elapsed) - call.Offset
 			if overlap > 0 {
 				self[parent] -= overlap
 			}

@@ -2,6 +2,7 @@ package count
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -9,13 +10,25 @@ import (
 	"github.com/skpr/compass/pkg/trace"
 )
 
-func newTestTrace(startTime, endTime int64, calls []trace.FunctionCall) trace.Trace {
+// origin the test traces are measured from.
+//
+// Timestamps are instants now, and the offsets below are still counted in
+// nanoseconds from the start of the request, so they read the way they did when
+// a timestamp was a count.
+var origin = time.Unix(1700000000, 0)
+
+// at an offset into the test request.
+func at(offset time.Duration) time.Time {
+	return origin.Add(offset)
+}
+
+func newTestTrace(startTime, endTime time.Duration, calls []trace.FunctionCall) trace.Trace {
 	return trace.Trace{
 		Metadata: trace.Metadata{
 			Source:    trace.SourceHTTP,
 			ID:        "test-id",
-			StartTime: startTime,
-			EndTime:   endTime,
+			StartTime: at(startTime),
+			EndTime:   at(endTime),
 			HTTP: trace.MetadataHTTP{
 				Method: "GET",
 				URI:    "/test",
@@ -27,7 +40,7 @@ func newTestTrace(startTime, endTime int64, calls []trace.FunctionCall) trace.Tr
 
 func TestUnmarshal_SingleFunction(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
 	})
 
 	result := Unmarshal(full)
@@ -41,8 +54,8 @@ func TestUnmarshal_MultipleSameFunction(t *testing.T) {
 	// Multiple calls to the same function in the same segment should be
 	// aggregated with accumulated Calls count.
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "foo", StartTime: 150, Elapsed: 50, Memory: 2048},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "foo", Offset: 150, Elapsed: 50, Memory: 2048},
 	})
 
 	result := Unmarshal(full)
@@ -60,8 +73,8 @@ func TestUnmarshal_MultipleSameFunction(t *testing.T) {
 
 func TestUnmarshal_DifferentFunctions(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "bar", StartTime: 500, Elapsed: 50, Memory: 2048},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "bar", Offset: 500, Elapsed: 50, Memory: 2048},
 	})
 
 	result := Unmarshal(full)
@@ -77,8 +90,8 @@ func TestUnmarshal_DifferentFunctions(t *testing.T) {
 func TestUnmarshal_SortOrder_ByPercentage(t *testing.T) {
 	// "bar" spans more of the request than "foo" so should appear first.
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "bar", StartTime: 200, Elapsed: 800, Memory: 2048},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "bar", Offset: 200, Elapsed: 800, Memory: 2048},
 	})
 
 	result := Unmarshal(full)
@@ -99,9 +112,9 @@ func TestUnmarshal_EmptyFunctionCalls(t *testing.T) {
 
 func TestUnmarshal_PreservesMetadata(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "bar", StartTime: 200, Elapsed: 50, Memory: 2048},
-		{Name: "baz", StartTime: 300, Elapsed: 50, Memory: 4096},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "bar", Offset: 200, Elapsed: 50, Memory: 2048},
+		{Name: "baz", Offset: 300, Elapsed: 50, Memory: 4096},
 	})
 
 	result := Unmarshal(full)

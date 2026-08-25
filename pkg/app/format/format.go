@@ -9,25 +9,25 @@ import (
 	"time"
 )
 
-// Milliseconds of a nanosecond duration, truncated.
-func Milliseconds(ns int64) int64 {
-	return ns / int64(time.Millisecond)
+// Milliseconds of a duration, truncated.
+func Milliseconds(d time.Duration) int64 {
+	return d.Milliseconds()
 }
 
-// Duration of a nanosecond span, in the largest unit which keeps it short.
+// Duration of a span, in the largest unit which keeps it short.
 //
 // A column of these is scanned rather than read, so the unit changes at the
 // point where the digits would otherwise start costing more than they say:
 // 8200ms is harder to place at a glance than 8.2s.
-func Duration(ns int64) string {
-	ms := Milliseconds(ns)
+func Duration(d time.Duration) string {
+	ms := Milliseconds(d)
 
 	switch {
 	// A call which ran for less than a millisecond is not a call which took no
 	// time. The threshold can be set to zero — the Node compose service does
 	// exactly that — so these do reach the screen, and rounding them to 0ms
 	// next to a bar which is plainly drawn reads as a contradiction.
-	case ms == 0 && ns > 0:
+	case ms == 0 && d > 0:
 		return "<1ms"
 	case ms < 1000:
 		return fmt.Sprintf("%dms", ms)

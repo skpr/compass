@@ -27,7 +27,7 @@ func Unmarshal(fullTrace trace.Trace) Trace {
 		function := Function{
 			Name:       span.Name,
 			Calls:      1,
-			Percentage: percentage,
+			Percentage: int64(percentage),
 		}
 
 		if val, ok := functions[function.Name]; ok {

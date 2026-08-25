@@ -24,6 +24,24 @@ func testTable(rows int) *Model {
 	return m
 }
 
+// testRailedTable is the same table with the selection rails, which reserve
+// width of their own.
+func testRailedTable(rows int) *Model {
+	m := New(
+		WithSelectionRail(),
+		WithColumns(
+			Column{Title: "name", Flex: 1, MinWidth: 10},
+			Column{Title: "value", Width: 8, Align: AlignRight},
+		),
+		WithEmptyMessage("nothing here"),
+	)
+
+	m.SetSize(60, 12)
+	m.SetRows(makeRows(rows))
+
+	return m
+}
+
 func makeRows(n int) []Row {
 	rows := make([]Row, 0, n)
 

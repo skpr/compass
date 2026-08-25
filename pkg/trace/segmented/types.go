@@ -2,6 +2,7 @@ package segmented
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/skpr/compass/pkg/trace"
 )
@@ -22,23 +23,22 @@ type Trace struct {
 type Span struct {
 	// Name of the function.
 	Name string `json:"name"`
-	// The original start time of the function called in the span.
-	StartTime int64 `json:"startTime"`
-	// Which segment this function started.
-	Start int64 `json:"start"`
-	// How many segments this function call spans.
-	Length int64 `json:"length"`
+	// Offset from the start of the request at which the earliest call in this
+	// span began.
+	Offset time.Duration `json:"offsetNanos"`
+	// Length of time this function call ran for.
+	Length time.Duration `json:"lengthNanos"`
 	// TotalFunctionCalls that were called during this span.
 	TotalFunctionCalls int `json:"calls"`
 	// MaxMemory used during this span.
 	MaxMemory int64 `json:"maxMemory"`
 	// SelfTime is how long the calls in this span spent doing their own work,
 	// rather than waiting on the calls they made. See SelfTime.
-	SelfTime int64 `json:"selfTime"`
+	SelfTime time.Duration `json:"selfTimeNanos"`
 }
 
 // SelfShare of the request this span was itself responsible for.
-func (s Span) SelfShare(executionTime int64) float64 {
+func (s Span) SelfShare(executionTime time.Duration) float64 {
 	if executionTime <= 0 {
 		return 0
 	}

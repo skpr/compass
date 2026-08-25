@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/skpr/compass/pkg/trace"
+	"github.com/skpr/compass/pkg/tracer/clock"
 )
 
 func makeCaller(caller string) [256]uint8 {
@@ -106,7 +107,7 @@ func TestHandler_HandleDrupalCache_RenderArray(t *testing.T) {
 	assert.Equal(t, int64(0), event.MaxAge)
 	assert.Equal(t, []string{"node:1", "config:system.site"}, event.Tags)
 	assert.Equal(t, []string{"url.path", "user.roles"}, event.Contexts)
-	assert.Equal(t, int64(1500), event.StartTime)
+	assert.Equal(t, 500*time.Nanosecond, event.Offset)
 	assert.Equal(t, int64(1), event.Calls)
 }
 
@@ -165,10 +166,10 @@ func TestHandler_HandleDrupalCache_IdenticalEventsAggregate(t *testing.T) {
 
 	require.Len(t, stored.Drupal.CacheEvents, 2)
 	assert.Equal(t, int64(500), stored.Drupal.CacheEvents[0].Calls)
-	// The retained start time is that of the first event of its kind.
-	assert.Equal(t, int64(1500), stored.Drupal.CacheEvents[0].StartTime)
+	// The retained offset is that of the first event of its kind.
+	assert.Equal(t, 500*time.Nanosecond, stored.Drupal.CacheEvents[0].Offset)
 	assert.Equal(t, int64(1), stored.Drupal.CacheEvents[1].Calls)
-	assert.Equal(t, int64(9000), stored.Drupal.CacheEvents[1].StartTime)
+	assert.Equal(t, 8000*time.Nanosecond, stored.Drupal.CacheEvents[1].Offset)
 	assert.Zero(t, stored.Drupal.CacheEventsDropped)
 }
 
@@ -196,7 +197,7 @@ func TestHandler_HandleDrupalCache_OriginIsPartOfTheKey(t *testing.T) {
 func TestHandler_HandleDrupalCache_DistinctEventsAreCapped(t *testing.T) {
 	sink := &mockSink{}
 
-	h, err := NewHandler(sink, Options{Expire: time.Minute, MaxCacheEvents: 3})
+	h, err := NewHandler(sink, Options{Expire: time.Minute, MaxCacheEvents: 3, Clock: clock.Monotonic{Boot: testBoot}})
 	require.NoError(t, err)
 
 	startRequest(t, h, "req-1")
@@ -219,7 +220,7 @@ func TestHandler_HandleDrupalCache_DistinctEventsAreCapped(t *testing.T) {
 func TestHandler_HandleDrupalCache_CappedEventsStillAggregate(t *testing.T) {
 	sink := &mockSink{}
 
-	h, err := NewHandler(sink, Options{Expire: time.Minute, MaxCacheEvents: 1})
+	h, err := NewHandler(sink, Options{Expire: time.Minute, MaxCacheEvents: 1, Clock: clock.Monotonic{Boot: testBoot}})
 	require.NoError(t, err)
 
 	startRequest(t, h, "req-1")

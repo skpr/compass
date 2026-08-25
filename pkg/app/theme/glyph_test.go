@@ -32,6 +32,7 @@ func TestGlyphsAreOneCell(t *testing.T) {
 		"MarkerItem":        MarkerItem,
 		"MarkerRepeat":      MarkerRepeat,
 		"SelectionRail":     SelectionRail,
+		"SelectionRailEnd":  SelectionRailEnd,
 	}
 
 	for name, glyph := range glyphs {

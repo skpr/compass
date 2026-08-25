@@ -20,15 +20,20 @@ func (m *Model) updateKeyEnter() (tea.Model, tea.Cmd) {
 
 	m.PageSelected = PageFunctions
 
-	// The trace pages carry a strip the top level does not, so the regions
-	// change along with the page.
-	m.relayout()
+	// The rows are built before the layout rather than after it. The panel
+	// below the table describes the row under the cursor, so its height is a
+	// property of the rows: laying out first sizes it for a page which has no
+	// rows yet, and the panel then renders taller than the region it was given
+	// and scrolls the masthead off the top of the terminal.
+	m.functionsSetRows()
+	m.drupalSetRows()
 
 	m.functions.GotoTop()
 	m.drupal.GotoTop()
 
-	m.functionsSetRows()
-	m.drupalSetRows()
+	// The trace pages carry a strip the top level does not, so the regions
+	// change along with the page.
+	m.relayout()
 
 	return m, nil
 }

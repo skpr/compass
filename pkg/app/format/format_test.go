@@ -8,34 +8,34 @@ import (
 )
 
 func TestMilliseconds(t *testing.T) {
-	assert.Equal(t, int64(1), Milliseconds(1_000_000))
+	assert.Equal(t, int64(1), Milliseconds(time.Millisecond))
 	assert.Equal(t, int64(0), Milliseconds(0))
 	// Sub-millisecond truncates rather than rounding up, so a span shorter
 	// than the probe threshold never reports as a whole millisecond.
-	assert.Equal(t, int64(0), Milliseconds(500_000))
-	assert.Equal(t, int64(5000), Milliseconds(5_000_000_000))
+	assert.Equal(t, int64(0), Milliseconds(500*time.Microsecond))
+	assert.Equal(t, int64(5000), Milliseconds(5*time.Second))
 }
 
 func TestDuration(t *testing.T) {
 	tests := []struct {
 		name     string
-		ns       int64
+		duration time.Duration
 		expected string
 	}{
-		{name: "zero", ns: 0, expected: "0ms"},
-		{name: "sub millisecond", ns: 40_000, expected: "<1ms"},
-		{name: "just under a millisecond", ns: 999_999, expected: "<1ms"},
-		{name: "milliseconds", ns: 402_000_000, expected: "402ms"},
-		{name: "just under a second", ns: 999_000_000, expected: "999ms"},
-		{name: "one second", ns: 1_000_000_000, expected: "1.0s"},
-		{name: "seconds", ns: 8_200_000_000, expected: "8.2s"},
-		{name: "just under a minute", ns: 59_900_000_000, expected: "59.9s"},
-		{name: "minutes", ns: 62_000_000_000, expected: "1m2s"},
+		{name: "zero", duration: 0, expected: "0ms"},
+		{name: "sub millisecond", duration: 40 * time.Microsecond, expected: "<1ms"},
+		{name: "just under a millisecond", duration: time.Millisecond - 1, expected: "<1ms"},
+		{name: "milliseconds", duration: 402 * time.Millisecond, expected: "402ms"},
+		{name: "just under a second", duration: 999 * time.Millisecond, expected: "999ms"},
+		{name: "one second", duration: time.Second, expected: "1.0s"},
+		{name: "seconds", duration: 8200 * time.Millisecond, expected: "8.2s"},
+		{name: "just under a minute", duration: 59900 * time.Millisecond, expected: "59.9s"},
+		{name: "minutes", duration: 62 * time.Second, expected: "1m2s"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, Duration(tt.ns))
+			assert.Equal(t, tt.expected, Duration(tt.duration))
 		})
 	}
 }

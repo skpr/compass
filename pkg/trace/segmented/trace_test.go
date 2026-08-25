@@ -2,6 +2,7 @@ package segmented
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -9,13 +10,25 @@ import (
 	"github.com/skpr/compass/pkg/trace"
 )
 
-func newTestTrace(startTime, endTime int64, calls []trace.FunctionCall) trace.Trace {
+// origin the test traces are measured from.
+//
+// Timestamps are instants now, and the offsets below are still counted in
+// nanoseconds from the start of the request, so they read the way they did when
+// a timestamp was a count.
+var origin = time.Unix(1700000000, 0)
+
+// at an offset into the test request.
+func at(offset time.Duration) time.Time {
+	return origin.Add(offset)
+}
+
+func newTestTrace(startTime, endTime time.Duration, calls []trace.FunctionCall) trace.Trace {
 	return trace.Trace{
 		Metadata: trace.Metadata{
 			Source:    trace.SourceHTTP,
 			ID:        "test-id",
-			StartTime: startTime,
-			EndTime:   endTime,
+			StartTime: at(startTime),
+			EndTime:   at(endTime),
 			HTTP: trace.MetadataHTTP{
 				Method: "GET",
 				URI:    "/test",
@@ -27,16 +40,16 @@ func newTestTrace(startTime, endTime int64, calls []trace.FunctionCall) trace.Tr
 
 func TestUnmarshal_SingleFunction(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 200, Memory: 1024},
+		{Name: "foo", Offset: 100, Elapsed: 200, Memory: 1024},
 	})
 
 	result := Unmarshal(full, 10)
 
 	require.Len(t, result.Spans, 1)
 	assert.Equal(t, "foo", result.Spans[0].Name)
-	assert.Equal(t, int64(100), result.Spans[0].StartTime)
-	assert.Equal(t, int64(100), result.Spans[0].Start)
-	assert.Equal(t, int64(200), result.Spans[0].Length)
+	assert.Equal(t, 100*time.Nanosecond, result.Spans[0].Offset)
+	assert.Equal(t, 100*time.Nanosecond, result.Spans[0].Offset)
+	assert.Equal(t, 200*time.Nanosecond, result.Spans[0].Length)
 	assert.Equal(t, int64(1024), result.Spans[0].MaxMemory)
 	assert.Equal(t, 1, result.Spans[0].TotalFunctionCalls)
 }
@@ -48,16 +61,16 @@ func TestUnmarshal_MultipleFunctions_SameSegment(t *testing.T) {
 	// Both have elapsed 50, keyLength = 50/100 = 0 → clamped to 1.
 	// Same key: "foo-1-1".
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 150, Elapsed: 50, Memory: 2048},
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
+		{Name: "foo", Offset: 150, Elapsed: 50, Memory: 2048},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
 	})
 
 	result := Unmarshal(full, 10)
 
 	require.Len(t, result.Spans, 1)
 	assert.Equal(t, 2, result.Spans[0].TotalFunctionCalls)
-	// Should keep the earliest StartTime.
-	assert.Equal(t, int64(100), result.Spans[0].StartTime)
+	// Should keep the earliest offset.
+	assert.Equal(t, 100*time.Nanosecond, result.Spans[0].Offset)
 	// Should keep the highest MaxMemory.
 	assert.Equal(t, int64(2048), result.Spans[0].MaxMemory)
 }
@@ -67,8 +80,8 @@ func TestUnmarshal_MultipleFunctions_DifferentSegments(t *testing.T) {
 	// First call: keyStart = (100-0)/100 = 1 → key "foo-1-1".
 	// Second call: keyStart = (500-0)/100 = 5 → key "foo-5-1".
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "foo", StartTime: 500, Elapsed: 50, Memory: 2048},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "foo", Offset: 500, Elapsed: 50, Memory: 2048},
 	})
 
 	result := Unmarshal(full, 10)
@@ -78,8 +91,8 @@ func TestUnmarshal_MultipleFunctions_DifferentSegments(t *testing.T) {
 
 func TestUnmarshal_DifferentFunctions(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "bar", StartTime: 100, Elapsed: 50, Memory: 2048},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "bar", Offset: 100, Elapsed: 50, Memory: 2048},
 	})
 
 	result := Unmarshal(full, 10)
@@ -93,22 +106,22 @@ func TestUnmarshal_DifferentFunctions(t *testing.T) {
 
 func TestUnmarshal_SortOrder(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "beta", StartTime: 500, Elapsed: 50, Memory: 1024},
-		{Name: "alpha", StartTime: 500, Elapsed: 50, Memory: 1024},
-		{Name: "alpha", StartTime: 100, Elapsed: 50, Memory: 1024},
+		{Name: "beta", Offset: 500, Elapsed: 50, Memory: 1024},
+		{Name: "alpha", Offset: 500, Elapsed: 50, Memory: 1024},
+		{Name: "alpha", Offset: 100, Elapsed: 50, Memory: 1024},
 	})
 
 	result := Unmarshal(full, 10)
 
 	require.Len(t, result.Spans, 3)
 
-	// First sorted by StartTime, then by Name.
+	// First sorted by Offset, then by Name.
 	assert.Equal(t, "alpha", result.Spans[0].Name)
-	assert.Equal(t, int64(100), result.Spans[0].StartTime)
+	assert.Equal(t, 100*time.Nanosecond, result.Spans[0].Offset)
 	assert.Equal(t, "alpha", result.Spans[1].Name)
-	assert.Equal(t, int64(500), result.Spans[1].StartTime)
+	assert.Equal(t, 500*time.Nanosecond, result.Spans[1].Offset)
 	assert.Equal(t, "beta", result.Spans[2].Name)
-	assert.Equal(t, int64(500), result.Spans[2].StartTime)
+	assert.Equal(t, 500*time.Nanosecond, result.Spans[2].Offset)
 }
 
 func TestUnmarshal_EmptyFunctionCalls(t *testing.T) {
@@ -122,7 +135,7 @@ func TestUnmarshal_EmptyFunctionCalls(t *testing.T) {
 
 func TestUnmarshal_PreservesMetadata(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
 	})
 
 	result := Unmarshal(full, 10)
@@ -133,9 +146,9 @@ func TestUnmarshal_PreservesMetadata(t *testing.T) {
 
 func TestUnmarshal_TotalFunctionCalls(t *testing.T) {
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 50, Memory: 1024},
-		{Name: "bar", StartTime: 200, Elapsed: 50, Memory: 1024},
-		{Name: "baz", StartTime: 300, Elapsed: 50, Memory: 1024},
+		{Name: "foo", Offset: 100, Elapsed: 50, Memory: 1024},
+		{Name: "bar", Offset: 200, Elapsed: 50, Memory: 1024},
+		{Name: "baz", Offset: 300, Elapsed: 50, Memory: 1024},
 	})
 
 	result := Unmarshal(full, 10)
@@ -146,7 +159,7 @@ func TestUnmarshal_TotalFunctionCalls(t *testing.T) {
 func TestUnmarshal_MinKeyLength(t *testing.T) {
 	// Segment length = 1000/10 = 100. Elapsed=10, 10/100=0 → clamped to 1.
 	full := newTestTrace(0, 1000, []trace.FunctionCall{
-		{Name: "foo", StartTime: 100, Elapsed: 10, Memory: 1024},
+		{Name: "foo", Offset: 100, Elapsed: 10, Memory: 1024},
 	})
 
 	result := Unmarshal(full, 10)

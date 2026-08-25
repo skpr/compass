@@ -128,7 +128,17 @@ func (m *Model) renderRow(row Row, selected bool) string {
 		}
 	})
 
-	return m.padSelected(b.String(), selected)
+	line := m.padSelected(b.String(), m.width-m.railEndWidth(), selected)
+
+	if m.rail {
+		if selected {
+			line += m.spacer(selected, 1) + theme.S.SelectRail.Background(background).Render(theme.SelectionRailEnd)
+		} else {
+			line += "  "
+		}
+	}
+
+	return line
 }
 
 // alignmentOf a column.
@@ -184,9 +194,10 @@ func (m *Model) spacer(selected bool, width int) string {
 	return theme.S.Selected.Render(blanks)
 }
 
-// padSelected fills a rendered row out to the full width.
-func (m *Model) padSelected(line string, selected bool) string {
-	if padding := m.width - ansi.StringWidth(line); padding > 0 {
+// padSelected fills a rendered row out to a width, carrying the selected
+// background across the padding.
+func (m *Model) padSelected(line string, width int, selected bool) string {
+	if padding := width - ansi.StringWidth(line); padding > 0 {
 		return line + m.spacer(selected, padding)
 	}
 

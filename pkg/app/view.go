@@ -40,22 +40,44 @@ func (m Model) View() string {
 	}
 
 	if m.regions.Detail > 0 {
-		sections = append(sections, m.viewDetail())
+		sections = append(sections, fit(m.viewDetail(), m.regions.Detail))
 	}
 
 	if m.regions.Filter > 0 {
-		sections = append(sections, m.viewFilter())
+		sections = append(sections, fit(m.viewFilter(), m.regions.Filter))
 	}
 
-	sections = append(sections, m.pageView())
+	sections = append(sections, fit(m.pageView(), m.regions.Content))
 
 	if m.regions.Inspect > 0 {
-		sections = append(sections, m.inspectView())
+		sections = append(sections, fit(m.inspectView(), m.regions.Inspect))
 	}
 
 	sections = append(sections, m.viewFooter())
 
 	return strings.Join(sections, "\n")
+}
+
+// fit a section to the height its region was given.
+//
+// The regions are computed from what each section says it needs, so the two
+// agree whenever the layout pass ran against the same state the frame is drawn
+// from. This is what happens when they do not: the section on screen is the one
+// the arithmetic accounted for, and a section which has grown since is cut
+// rather than allowed to push the interface past the bottom of the terminal and
+// scroll the masthead away.
+func fit(section string, height int) string {
+	if height <= 0 {
+		return ""
+	}
+
+	lines := strings.Split(section, "\n")
+
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+
+	return strings.Join(lines[:height], "\n")
 }
 
 // pageView of whichever page is selected.

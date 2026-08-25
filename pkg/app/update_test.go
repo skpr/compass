@@ -86,7 +86,7 @@ func openedTrace(t *testing.T) *Model {
 		Metadata: trace.Metadata{
 			ID: "req-1", Source: trace.SourceHTTP,
 			HTTP:      trace.MetadataHTTP{Method: "GET", URI: "/node/1"},
-			StartTime: 0, EndTime: 1_000_000,
+			StartTime: at(0), EndTime: at(1_000_000),
 		},
 		Drupal: &trace.Drupal{CacheEvents: []trace.CacheEvent{
 			{Caller: "A::a", MaxAge: 0, Calls: 1},
@@ -125,8 +125,8 @@ func TestUpdateKeyEnter_OpensTheTrace(t *testing.T) {
 				ID:        "req-1",
 				Source:    trace.SourceHTTP,
 				HTTP:      trace.MetadataHTTP{Method: "GET", URI: "/node/1"},
-				StartTime: 1_000_000,
-				EndTime:   2_000_000,
+				StartTime: at(1_000_000),
+				EndTime:   at(2_000_000),
 			},
 		},
 	})

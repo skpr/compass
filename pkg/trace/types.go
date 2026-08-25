@@ -1,6 +1,10 @@
 // Package trace implements complete tracing data.
 package trace
 
+import (
+	"time"
+)
+
 // Source describes the invocation mechanism of the trace.
 type Source string
 
@@ -31,18 +35,23 @@ const IDUnknown = "UNKNOWN"
 
 // Metadata associated with this trace.
 type Metadata struct {
-	Source    Source       `json:"source"`
-	Runtime   Runtime      `json:"runtime"`
-	ID        string       `json:"id"`
-	HTTP      MetadataHTTP `json:"http,omitempty"`
-	CLI       MetadataCLI  `json:"cli,omitempty"`
-	StartTime int64        `json:"startTime"`
-	EndTime   int64        `json:"endTime"`
+	Source  Source       `json:"source"`
+	Runtime Runtime      `json:"runtime"`
+	ID      string       `json:"id"`
+	HTTP    MetadataHTTP `json:"http,omitempty"`
+	CLI     MetadataCLI  `json:"cli,omitempty"`
+	// StartTime and EndTime of the request, as instants.
+	//
+	// These two are what a reader outside this process correlates against: its
+	// own logs, another trace, a deployment. Everything inside the trace is
+	// placed relative to StartTime instead.
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
 }
 
 // ExecutionTime of the trace.
-func (m Metadata) ExecutionTime() int64 {
-	return m.EndTime - m.StartTime
+func (m Metadata) ExecutionTime() time.Duration {
+	return m.EndTime.Sub(m.StartTime)
 }
 
 // Identified reports whether the trace carries an ID worth showing.
@@ -72,11 +81,18 @@ type ResourceUtilisation struct {
 }
 
 // FunctionCall provides information about the function call.
+//
+// The call is placed by how far into the request it started rather than by the
+// instant it started at. An absolute time for one frame says nothing on its
+// own — every consumer immediately subtracts the request start to get back to
+// this — and it costs a formatted timestamp per call on the wire.
 type FunctionCall struct {
-	Name      string `json:"name"`
-	StartTime int64  `json:"startTime"`
-	Elapsed   int64  `json:"elapsed"`
-	Memory    int64  `json:"memory"`
+	Name string `json:"name"`
+	// Offset from the start of the request at which the call began.
+	Offset time.Duration `json:"offsetNanos"`
+	// Elapsed is how long the call ran for.
+	Elapsed time.Duration `json:"elapsedNanos"`
+	Memory  int64         `json:"memory"`
 }
 
 // Drupal specific data collected for a trace.
@@ -125,8 +141,9 @@ type CacheEvent struct {
 	Tags []string `json:"tags,omitempty"`
 	// Contexts which the cached item varies by.
 	Contexts []string `json:"contexts,omitempty"`
-	// StartTime of the first of these events.
-	StartTime int64 `json:"startTime"`
+	// Offset from the start of the request at which the first of these events
+	// occurred.
+	Offset time.Duration `json:"offsetNanos"`
 	// Calls is how many identical events were aggregated into this one.
 	Calls int64 `json:"calls"`
 }

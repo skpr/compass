@@ -37,8 +37,15 @@ const (
 	MarkerItem   = "▸"
 	MarkerRepeat = "×"
 
-	// SelectionRail marks the row the cursor is on.
+	// SelectionRail marks the row the cursor is on, at the left edge.
 	SelectionRail = "▌"
+	// SelectionRailEnd closes it at the right edge.
+	//
+	// The band alone locates the row; a marker at each end locates it at each
+	// end. On a wide terminal the last column is a long way from the first, and
+	// an eye which is already at the numbers should not have to travel back to
+	// the left margin to confirm it is reading the right ones.
+	SelectionRailEnd = "▐"
 )
 
 // Sparks are the eight heights of a sparkline, shortest first.

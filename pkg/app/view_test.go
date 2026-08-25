@@ -42,12 +42,12 @@ func testTrace(uri string) events.Trace {
 				Source: trace.SourceHTTP, Runtime: trace.RuntimePHP,
 				ID:        "58bb2c6e56c13ce04c1cb9a87083d735",
 				HTTP:      trace.MetadataHTTP{Method: "GET", URI: uri},
-				StartTime: 0, EndTime: 402_000_000,
+				StartTime: at(0), EndTime: at(402_000_000),
 			},
 			ResourceUtilisation: trace.ResourceUtilisation{MaxMemory: 18 << 20},
 			FunctionCalls: []trace.FunctionCall{
-				{Name: `Drupal\Core\DrupalKernel::handle`, StartTime: 0, Elapsed: 400_000_000, Memory: 18 << 20},
-				{Name: `Drupal\Core\Render\Renderer::renderRoot`, StartTime: 100_000_000, Elapsed: 150_000_000, Memory: 16 << 20},
+				{Name: `Drupal\Core\DrupalKernel::handle`, Offset: 0, Elapsed: 400_000_000, Memory: 18 << 20},
+				{Name: `Drupal\Core\Render\Renderer::renderRoot`, Offset: 100_000_000, Elapsed: 150_000_000, Memory: 16 << 20},
 			},
 			Drupal: &trace.Drupal{
 				CacheEvents: []trace.CacheEvent{
@@ -94,6 +94,36 @@ func TestView_IsExactlyTheTerminal(t *testing.T) {
 					"line %d on %s at %dx%d: %q", i, page, size.width, size.height, ansi.Strip(line))
 			}
 		}
+	}
+}
+
+// Opening a trace is a layout change, and the regression it caused is the
+// reason the rows are built before the layout pass rather than after it: the
+// panel below the table is sized from the row under the cursor, so a layout
+// computed while the page still had no rows left the screen two lines taller
+// than the terminal. The terminal then scrolled, and the masthead went with it
+// until the next resize recomputed everything.
+//
+// This goes through the key rather than through relayout, because relayout is
+// what was wrong about it.
+func TestView_IsExactlyTheTerminalAfterOpeningATrace(t *testing.T) {
+	for _, size := range []struct{ width, height int }{{200, 60}, {140, 30}, {120, 24}, {80, 20}, {60, 12}} {
+		m := testModel(size.width, size.height)
+		m.updateKeyEnter()
+
+		assert.Equal(t, size.height, lipgloss.Height(m.View()), "at %dx%d", size.width, size.height)
+
+		// The height alone is held to by the composition, which cuts a section
+		// which does not fit rather than letting it scroll the screen. What
+		// says the layout was computed against the right state is that the
+		// panel got the room it asks for, so nothing had to be cut.
+		if m.regions.Inspect > 0 {
+			assert.Equal(t, m.inspectHeight(), m.regions.Inspect, "the panel was laid out for a different page at %dx%d", size.width, size.height)
+		}
+
+		m.updateKeyRight()
+
+		assert.Equal(t, size.height, lipgloss.Height(m.View()), "on the drupal page at %dx%d", size.width, size.height)
 	}
 }
 
@@ -264,15 +294,15 @@ func TestFunctions_OrderedByExecution(t *testing.T) {
 
 	m.Current = &events.Trace{Trace: trace.Trace{
 		Metadata: trace.Metadata{
-			Source: trace.SourceHTTP, StartTime: 0, EndTime: 1_000_000_000,
+			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
 		FunctionCalls: []trace.FunctionCall{
 			// Deliberately out of order, and with the hottest last, so that
 			// neither insertion order nor self time could produce this result
 			// by accident.
-			{Name: "third", StartTime: 600_000_000, Elapsed: 100_000_000},
-			{Name: "first", StartTime: 100_000_000, Elapsed: 50_000_000},
-			{Name: "second", StartTime: 300_000_000, Elapsed: 500_000_000},
+			{Name: "third", Offset: 600_000_000, Elapsed: 100_000_000},
+			{Name: "first", Offset: 100_000_000, Elapsed: 50_000_000},
+			{Name: "second", Offset: 300_000_000, Elapsed: 500_000_000},
 		},
 	}}
 
@@ -288,11 +318,11 @@ func TestFunctions_CallerBeforeCallee(t *testing.T) {
 
 	m.Current = &events.Trace{Trace: trace.Trace{
 		Metadata: trace.Metadata{
-			Source: trace.SourceHTTP, StartTime: 0, EndTime: 1_000_000_000,
+			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
 		FunctionCalls: []trace.FunctionCall{
-			{Name: "child", StartTime: 0, Elapsed: 200_000_000},
-			{Name: "parent", StartTime: 0, Elapsed: 900_000_000},
+			{Name: "child", Offset: 0, Elapsed: 200_000_000},
+			{Name: "parent", Offset: 0, Elapsed: 900_000_000},
 		},
 	}}
 
@@ -308,13 +338,13 @@ func TestFunctions_HotspotIsFindableOutOfOrder(t *testing.T) {
 
 	m.Current = &events.Trace{Trace: trace.Trace{
 		Metadata: trace.Metadata{
-			Source: trace.SourceHTTP, StartTime: 0, EndTime: 1_000_000_000,
+			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
 		FunctionCalls: []trace.FunctionCall{
 			// A frame which wraps the whole request but does none of the work,
 			// and the function actually burning the time underneath it.
-			{Name: "wrapper", StartTime: 0, Elapsed: 1_000_000_000},
-			{Name: "hotspot", StartTime: 100_000_000, Elapsed: 800_000_000},
+			{Name: "wrapper", Offset: 0, Elapsed: 1_000_000_000},
+			{Name: "hotspot", Offset: 100_000_000, Elapsed: 800_000_000},
 		},
 	}}
 

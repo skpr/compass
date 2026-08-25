@@ -69,7 +69,7 @@ func (m *Model) functionsSetRows() {
 	var (
 		executionTime  = m.Current.Metadata.ExecutionTime()
 		segmentedTrace = segmented.Unmarshal(m.Current.Trace, SpanSegments)
-		timeline       = span.New(time.Duration(executionTime)*time.Nanosecond, functionsWidthTimeline)
+		timeline       = span.New(executionTime, functionsWidthTimeline)
 	)
 
 	spans := make([]segmented.Span, len(segmentedTrace.Spans))
@@ -83,8 +83,8 @@ func (m *Model) functionsSetRows() {
 	// Where two calls start together the longer comes first, which puts a
 	// caller above the call it made rather than beneath it.
 	sort.SliceStable(spans, func(i, j int) bool {
-		if spans[i].StartTime != spans[j].StartTime {
-			return spans[i].StartTime < spans[j].StartTime
+		if spans[i].Offset != spans[j].Offset {
+			return spans[i].Offset < spans[j].Offset
 		}
 
 		if spans[i].Length != spans[j].Length {
@@ -108,8 +108,8 @@ func (m *Model) functionsSetRows() {
 			datatable.Styled(format.Percent(share), theme.S.Severity(theme.ForShare(share))),
 			datatable.Styled(format.Bytes(s.MaxMemory), theme.S.CellDim),
 			timelineCell(timeline.Bar(span.Span{
-				Start:    time.Duration(s.Start) * time.Nanosecond,
-				Duration: time.Duration(s.Length) * time.Nanosecond,
+				Start:    s.Offset,
+				Duration: s.Length,
 				Share:    share,
 			})),
 			datatable.Styled(format.Duration(s.Length), theme.S.CellDim),
@@ -180,7 +180,7 @@ func (m *Model) functionsInspectLines() []string {
 	)
 
 	window := fmt.Sprintf("%s in, ran for %s  %s",
-		format.Duration(span.Start),
+		format.Duration(span.Offset),
 		format.Duration(span.Length),
 		format.Count(span.TotalFunctionCalls, "call", "calls"),
 	)

@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/pkg/trace"
+	"github.com/skpr/compass/pkg/tracer/clock"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -52,6 +53,9 @@ type Options struct {
 	// MaxCacheEvents is how many distinct Drupal cache events a trace retains.
 	// Defaults to DefaultMaxCacheEvents.
 	MaxCacheEvents int
+	// Clock relates the monotonic timestamps the probes emit to the wall clock.
+	// The zero value reads the offset from the system.
+	Clock clock.Monotonic
 }
 
 // state of a request which is still being assembled.
@@ -68,6 +72,15 @@ type state struct {
 func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	if options.MaxCacheEvents <= 0 {
 		options.MaxCacheEvents = DefaultMaxCacheEvents
+	}
+
+	if options.Clock.Boot.IsZero() {
+		systemClock, err := clock.System()
+		if err != nil {
+			return nil, err
+		}
+
+		options.Clock = systemClock
 	}
 
 	client := &Handler{
@@ -141,6 +154,15 @@ func (c *Handler) HandleDrupalCache(event bpfDrupalCacheEvent) error {
 	return nil
 }
 
+// offset of a probe timestamp into the request it belongs to.
+//
+// The probes report against the monotonic clock, and the trace places
+// everything inside it relative to the request start, so the conversion to an
+// instant is only worth doing for the two ends of the request itself.
+func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duration {
+	return c.options.Clock.Time(timestamp).Sub(metadata.StartTime)
+}
+
 // Process the function event and store the data.
 func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEvent) error {
 	s := &state{
@@ -153,7 +175,7 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEven
 					URI:    uri,
 					Method: method,
 				},
-				StartTime: int64(event.Timestamp),
+				StartTime: c.options.Clock.Time(event.Timestamp),
 			},
 		},
 		cacheIndex: make(map[string]int),
@@ -166,18 +188,19 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEven
 
 // Process the function event and store the data.
 func (c *Handler) handleFunction(requestID string, event bpfEvent) error {
-	function := trace.FunctionCall{
-		Name: unix.ByteSliceToString(event.FunctionName[:]),
-		// The start time is the event time minus how long it look to execute.
-		// The event is triggerd after a the function is called and we have collected the elapsed time.
-		StartTime: int64(event.Timestamp - event.Elapsed),
-		Elapsed:   int64(event.Elapsed),
-		Memory:    int64(event.Memory),
-	}
-
 	s, err := c.get(requestID)
 	if err != nil {
 		return err
+	}
+
+	function := trace.FunctionCall{
+		Name: unix.ByteSliceToString(event.FunctionName[:]),
+		// The call started at the event time minus how long it took to execute:
+		// the probe fires once the function has returned and its elapsed time
+		// has been collected.
+		Offset:  c.offset(s.trace.Metadata, event.Timestamp-event.Elapsed),
+		Elapsed: time.Duration(event.Elapsed),
+		Memory:  int64(event.Memory),
 	}
 
 	if s.trace.ResourceUtilisation.MaxMemory < function.Memory {
@@ -244,7 +267,7 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 		MaxAge:     event.MaxAge,
 		Tags:       splitList(tags),
 		Contexts:   splitList(contexts),
-		StartTime:  int64(event.Timestamp),
+		Offset:     c.offset(s.trace.Metadata, event.Timestamp),
 		Calls:      1,
 	})
 
@@ -260,7 +283,7 @@ func (c *Handler) handleRequestShutdown(requestID string, event bpfEvent) error 
 		return err
 	}
 
-	s.trace.Metadata.EndTime = int64(event.Timestamp)
+	s.trace.Metadata.EndTime = c.options.Clock.Time(event.Timestamp)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)

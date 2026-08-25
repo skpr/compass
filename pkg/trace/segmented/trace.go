@@ -4,6 +4,7 @@ package segmented
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/skpr/compass/pkg/trace"
 )
@@ -16,7 +17,7 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 
 	// A request shorter than the number of segments would give every span a
 	// segment length of zero, and the bucketing below divides by it.
-	segmentLength := max((fullTrace.Metadata.EndTime-fullTrace.Metadata.StartTime)/segments, 1)
+	segmentLength := max(fullTrace.Metadata.ExecutionTime()/time.Duration(segments), 1)
 
 	selfTimes := SelfTime(fullTrace.FunctionCalls)
 
@@ -25,8 +26,7 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 	for i, call := range fullTrace.FunctionCalls {
 		span := Span{
 			Name:               call.Name,
-			StartTime:          call.StartTime,
-			Start:              call.StartTime - fullTrace.Metadata.StartTime,
+			Offset:             call.Offset,
 			Length:             call.Elapsed,
 			TotalFunctionCalls: 1,
 			MaxMemory:          call.Memory,
@@ -34,7 +34,7 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 		}
 
 		var (
-			keyStart  = (call.StartTime - fullTrace.Metadata.StartTime) / segmentLength
+			keyStart  = call.Offset / segmentLength
 			keyLength = span.Length / segmentLength
 		)
 
@@ -47,8 +47,8 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 		if val, ok := spans[key]; ok {
 			span.TotalFunctionCalls = val.TotalFunctionCalls + 1
 
-			if span.StartTime > val.StartTime {
-				span.StartTime = val.StartTime
+			if span.Offset > val.Offset {
+				span.Offset = val.Offset
 			}
 
 			if span.MaxMemory < val.MaxMemory {
@@ -79,8 +79,8 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 
 	// We also need to sort these now that all the spans have gone through a map which does not have ordering.
 	sort.Slice(segmentedTrace.Spans, func(i, j int) bool {
-		if segmentedTrace.Spans[i].StartTime != segmentedTrace.Spans[j].StartTime {
-			return segmentedTrace.Spans[i].StartTime < segmentedTrace.Spans[j].StartTime
+		if segmentedTrace.Spans[i].Offset != segmentedTrace.Spans[j].Offset {
+			return segmentedTrace.Spans[i].Offset < segmentedTrace.Spans[j].Offset
 		}
 
 		if segmentedTrace.Spans[i].Name != segmentedTrace.Spans[j].Name {

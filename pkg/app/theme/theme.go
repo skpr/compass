@@ -102,7 +102,7 @@ func Default() Theme {
 
 		// Empty ANSI means no colour is emitted at sixteen, which for a
 		// background is exactly right: the terminal's own is used instead.
-		SurfaceSelected: complete(DarkBlueGrey, idxDarkBlueGrey, ""),
+		SurfaceSelected: complete(DarkGrey, idxDarkGrey, ""),
 		SurfaceRaised:   complete(DarkBlueGrey, idxDarkBlueGrey, ""),
 
 		// The palette's own delimiters and rails.

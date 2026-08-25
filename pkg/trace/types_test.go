@@ -2,32 +2,36 @@ package trace
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
+// start of the requests these tests measure.
+var start = time.Unix(1700000000, 0).UTC()
+
 func TestMetadata_ExecutionTime(t *testing.T) {
 	m := Metadata{
-		StartTime: 100,
-		EndTime:   200,
+		StartTime: start,
+		EndTime:   start.Add(100 * time.Millisecond),
 	}
-	assert.Equal(t, int64(100), m.ExecutionTime())
+	assert.Equal(t, 100*time.Millisecond, m.ExecutionTime())
 }
 
 func TestMetadata_ExecutionTime_Zero(t *testing.T) {
 	m := Metadata{
-		StartTime: 100,
-		EndTime:   100,
+		StartTime: start,
+		EndTime:   start,
 	}
-	assert.Equal(t, int64(0), m.ExecutionTime())
+	assert.Equal(t, time.Duration(0), m.ExecutionTime())
 }
 
 func TestMetadata_ExecutionTime_Negative(t *testing.T) {
 	m := Metadata{
-		StartTime: 200,
-		EndTime:   100,
+		StartTime: start.Add(100 * time.Millisecond),
+		EndTime:   start,
 	}
-	assert.Equal(t, int64(-100), m.ExecutionTime())
+	assert.Equal(t, -100*time.Millisecond, m.ExecutionTime())
 }
 
 func TestMetadata_Identified(t *testing.T) {

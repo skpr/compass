@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/pkg/trace"
+	"github.com/skpr/compass/pkg/tracer/clock"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -34,10 +35,22 @@ type Handler struct {
 // Options for configuring the Handler.
 type Options struct {
 	Expire time.Duration
+	// Clock relates the monotonic timestamps the probes emit to the wall clock.
+	// The zero value reads the offset from the system.
+	Clock clock.Monotonic
 }
 
 // NewHandler creates a new handler for processing events and sending profiles to the sink.
 func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
+	if options.Clock.Boot.IsZero() {
+		systemClock, err := clock.System()
+		if err != nil {
+			return nil, err
+		}
+
+		options.Clock = systemClock
+	}
+
 	client := &Handler{
 		storage: cache.New(options.Expire, options.Expire),
 		plugin:  plugin,
@@ -73,6 +86,15 @@ func (c *Handler) Handle(event bpfEvent) error {
 	return nil
 }
 
+// offset of a probe timestamp into the request it belongs to.
+//
+// The probes report against the monotonic clock, and the trace places
+// everything inside it relative to the request start, so the conversion to an
+// instant is only worth doing for the two ends of the request itself.
+func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duration {
+	return c.options.Clock.Time(timestamp).Sub(metadata.StartTime)
+}
+
 // Process the function event and store the data.
 func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
 	t := trace.Trace{
@@ -83,7 +105,7 @@ func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
 			CLI: trace.MetadataCLI{
 				Command: unix.ByteSliceToString(event.Command[:]),
 			},
-			StartTime: int64(event.Timestamp),
+			StartTime: c.options.Clock.Time(event.Timestamp),
 		},
 	}
 
@@ -94,21 +116,22 @@ func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
 
 // Process the function event and store the data.
 func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
-	function := trace.FunctionCall{
-		Name: unix.ByteSliceToString(event.FunctionName[:]),
-		// The start time is the event time minus how long it look to execute.
-		// The event is triggerd after a the function is called and we have collected the elapsed time.
-		StartTime: int64(event.Timestamp - event.Elapsed),
-		Elapsed:   int64(event.Elapsed),
-		Memory:    int64(event.Memory),
-	}
-
 	x, found := c.storage.Get(c.getID(pid))
 	if !found {
 		return fmt.Errorf("not found in storage")
 	}
 
 	t := x.(trace.Trace)
+
+	function := trace.FunctionCall{
+		Name: unix.ByteSliceToString(event.FunctionName[:]),
+		// The call started at the event time minus how long it took to execute:
+		// the probe fires once the function has returned and its elapsed time
+		// has been collected.
+		Offset:  c.offset(t.Metadata, event.Timestamp-event.Elapsed),
+		Elapsed: time.Duration(event.Elapsed),
+		Memory:  int64(event.Memory),
+	}
 
 	if t.ResourceUtilisation.MaxMemory < function.Memory {
 		t.ResourceUtilisation.MaxMemory = function.Memory
@@ -130,7 +153,7 @@ func (c *Handler) handleRequestShutdown(pid int64, event bpfEvent) error {
 
 	t := x.(trace.Trace)
 
-	t.Metadata.EndTime = int64(event.Timestamp)
+	t.Metadata.EndTime = c.options.Clock.Time(event.Timestamp)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(c.getID(pid))

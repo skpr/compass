@@ -91,7 +91,7 @@ func Unmarshal(fullTrace trace.Trace) Summary {
 			return left.Caller < right.Caller
 		}
 
-		return left.StartTime < right.StartTime
+		return left.Offset < right.Offset
 	})
 
 	return summary

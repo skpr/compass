@@ -2,6 +2,7 @@ package segmented
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -9,8 +10,8 @@ import (
 	"github.com/skpr/compass/pkg/trace"
 )
 
-func call(name string, start, elapsed int64) trace.FunctionCall {
-	return trace.FunctionCall{Name: name, StartTime: start, Elapsed: elapsed}
+func call(name string, offset, elapsed time.Duration) trace.FunctionCall {
+	return trace.FunctionCall{Name: name, Offset: offset, Elapsed: elapsed}
 }
 
 func TestSelfTime_NoCalls(t *testing.T) {
@@ -18,7 +19,7 @@ func TestSelfTime_NoCalls(t *testing.T) {
 }
 
 func TestSelfTime_SingleCall(t *testing.T) {
-	assert.Equal(t, []int64{100}, SelfTime([]trace.FunctionCall{call("a", 0, 100)}))
+	assert.Equal(t, []time.Duration{100}, SelfTime([]trace.FunctionCall{call("a", 0, 100)}))
 }
 
 func TestSelfTime_Siblings(t *testing.T) {
@@ -28,7 +29,7 @@ func TestSelfTime_Siblings(t *testing.T) {
 		call("b", 40, 20),
 	})
 
-	assert.Equal(t, []int64{30, 20}, self)
+	assert.Equal(t, []time.Duration{30, 20}, self)
 }
 
 func TestSelfTime_ParentAndChild(t *testing.T) {
@@ -37,7 +38,7 @@ func TestSelfTime_ParentAndChild(t *testing.T) {
 		call("child", 10, 60),
 	})
 
-	assert.Equal(t, []int64{40, 60}, self)
+	assert.Equal(t, []time.Duration{40, 60}, self)
 }
 
 func TestSelfTime_OnlyDirectChildrenAreDeducted(t *testing.T) {
@@ -49,7 +50,7 @@ func TestSelfTime_OnlyDirectChildrenAreDeducted(t *testing.T) {
 		call("grandchild", 20, 50),
 	})
 
-	assert.Equal(t, []int64{20, 30, 50}, self)
+	assert.Equal(t, []time.Duration{20, 30, 50}, self)
 }
 
 func TestSelfTime_MultipleChildren(t *testing.T) {
@@ -59,7 +60,7 @@ func TestSelfTime_MultipleChildren(t *testing.T) {
 		call("second", 40, 40),
 	})
 
-	assert.Equal(t, []int64{30, 30, 40}, self)
+	assert.Equal(t, []time.Duration{30, 30, 40}, self)
 }
 
 // A parent which starts at the same instant as its child has to be recognised
@@ -70,7 +71,7 @@ func TestSelfTime_SharedStart(t *testing.T) {
 		call("parent", 0, 100),
 	})
 
-	assert.Equal(t, []int64{40, 60}, self)
+	assert.Equal(t, []time.Duration{40, 60}, self)
 }
 
 func TestSelfTime_OrderOfInputDoesNotMatter(t *testing.T) {
@@ -97,7 +98,7 @@ func TestSelfTime_NeverNegative(t *testing.T) {
 	})
 
 	for i, value := range self {
-		assert.GreaterOrEqual(t, value, int64(0), "call %d", i)
+		assert.GreaterOrEqual(t, value, time.Duration(0), "call %d", i)
 	}
 }
 
@@ -128,13 +129,13 @@ func TestSelfTime_FindsTheHotspotUnderTheFramework(t *testing.T) {
 		"self time should rank the hotspot first, not the frames wrapping it")
 
 	// And the frames which merely wrap it are nearly free.
-	assert.Less(t, self[0], int64(10))
-	assert.Less(t, self[1], int64(10))
+	assert.Less(t, self[0], 10*time.Nanosecond)
+	assert.Less(t, self[1], 10*time.Nanosecond)
 }
 
 func TestUnmarshal_CarriesSelfTime(t *testing.T) {
 	segmentedTrace := Unmarshal(trace.Trace{
-		Metadata: trace.Metadata{StartTime: 0, EndTime: 1000},
+		Metadata: trace.Metadata{StartTime: at(0), EndTime: at(1000)},
 		FunctionCalls: []trace.FunctionCall{
 			call("parent", 0, 1000),
 			call("child", 100, 600),
@@ -146,8 +147,8 @@ func TestUnmarshal_CarriesSelfTime(t *testing.T) {
 		byName[span.Name] = span
 	}
 
-	assert.Equal(t, int64(400), byName["parent"].SelfTime)
-	assert.Equal(t, int64(600), byName["child"].SelfTime)
+	assert.Equal(t, 400*time.Nanosecond, byName["parent"].SelfTime)
+	assert.Equal(t, 600*time.Nanosecond, byName["child"].SelfTime)
 	assert.InDelta(t, 0.6, byName["child"].SelfShare(1000), 0.001)
 }
 
@@ -157,7 +158,7 @@ func TestUnmarshal_AggregatesSelfTime(t *testing.T) {
 	// A thousand nanoseconds over fifty segments is twenty per segment, so both
 	// of these fall in the first one.
 	segmentedTrace := Unmarshal(trace.Trace{
-		Metadata: trace.Metadata{StartTime: 0, EndTime: 1000},
+		Metadata: trace.Metadata{StartTime: at(0), EndTime: at(1000)},
 		FunctionCalls: []trace.FunctionCall{
 			call("repeated", 0, 10),
 			call("repeated", 11, 10),
@@ -165,7 +166,7 @@ func TestUnmarshal_AggregatesSelfTime(t *testing.T) {
 	}, 50)
 
 	require.Len(t, segmentedTrace.Spans, 1)
-	assert.Equal(t, int64(20), segmentedTrace.Spans[0].SelfTime)
+	assert.Equal(t, 20*time.Nanosecond, segmentedTrace.Spans[0].SelfTime)
 	assert.Equal(t, 2, segmentedTrace.Spans[0].TotalFunctionCalls)
 }
 
@@ -174,7 +175,7 @@ func TestUnmarshal_AggregatesSelfTime(t *testing.T) {
 func TestUnmarshal_VeryShortTrace(t *testing.T) {
 	assert.NotPanics(t, func() {
 		Unmarshal(trace.Trace{
-			Metadata:      trace.Metadata{StartTime: 0, EndTime: 5},
+			Metadata:      trace.Metadata{StartTime: at(0), EndTime: at(5)},
 			FunctionCalls: []trace.FunctionCall{call("a", 0, 5)},
 		}, 50)
 	})
@@ -183,7 +184,7 @@ func TestUnmarshal_VeryShortTrace(t *testing.T) {
 func TestUnmarshal_ZeroDurationTrace(t *testing.T) {
 	assert.NotPanics(t, func() {
 		Unmarshal(trace.Trace{
-			Metadata:      trace.Metadata{StartTime: 100, EndTime: 100},
+			Metadata:      trace.Metadata{StartTime: at(100), EndTime: at(100)},
 			FunctionCalls: []trace.FunctionCall{call("a", 100, 0)},
 		}, 50)
 	})

@@ -2,14 +2,14 @@ package theme
 
 // The Skpr palette.
 //
-// These ten are the whole palette. Nothing outside this file names a colour and
-// nothing here is derived: a repaint happens by changing a value here, and the
-// tokens in theme.go keep their meaning.
+// These eleven are the whole palette. Nothing outside this file names a colour
+// and nothing here is derived: a repaint happens by changing a value here, and
+// the tokens in theme.go keep their meaning.
 //
-// Two of them are not usable as text on a dark terminal — DarkBlueGrey at
-// 1.45:1 and DimGrey at 2.82:1 against black — and the roles they are given
-// below reflect that. Their own comments say as much: one is a background, the
-// other draws delimiters.
+// Three of them are not usable as text on a dark terminal — DarkBlueGrey at
+// 1.45:1, DarkGrey at 1.66:1 and DimGrey at 2.82:1 against black — and the
+// roles they are given below reflect that. Their own comments say as much: two
+// are backgrounds, the third draws delimiters.
 const (
 	// White for content that needs focus.
 	White = "#FFFFFF"
@@ -25,8 +25,23 @@ const (
 	Yellow = "#f8df3d"
 	// Red is the branding red.
 	Red = "#ff6058"
-	// DarkBlueGrey is for selected row backgrounds.
+	// DarkBlueGrey is for raised surfaces: a tab you could move to, a card.
 	DarkBlueGrey = "#1e2a3a"
+	// DarkGrey is the band under the row the cursor is on.
+	//
+	// Grey rather than the blue grey above it, and a shade lighter. Contrast
+	// against the terminal's own ground is luminance and nothing else, so the
+	// blue was being paid for in chroma and returning none of it: at the same
+	// strength of band a neutral leaves more contrast for the row sitting on
+	// it. It was DarkBlueGrey, which at 1.45:1 is a difference you can find
+	// once you know it is there rather than one you can see across a full width
+	// row — and finding which row is selected is the whole job. This reads at
+	// 1.66:1 with every value on the row still above 4.5:1.
+	//
+	// It also leaves the blue greys to mean one thing. Those are the raised
+	// surfaces, which share the chrome's family because they are part of it; a
+	// selected row is not a tab, and now does not look like one.
+	DarkGrey = "#333333"
 	// DimBlue is for low intensity blues.
 	DimBlue = "#5f87af"
 	// DimGrey is for delimiters and rails.
@@ -85,9 +100,12 @@ const (
 	// The cube has no dark blue greys at all, so this is the nearest neutral.
 	// It is only ever a background, where losing the blue cast costs nothing.
 	idxDarkBlueGrey = "235"
-	idxDimBlue      = "67"
-	idxDimGrey      = "240"
-	idxPHPPurple    = "103"
+	// The band is already a neutral, so its fallback is the cube's own grey
+	// ramp and loses nothing at all.
+	idxDarkGrey  = "236"
+	idxDimBlue   = "67"
+	idxDimGrey   = "240"
+	idxPHPPurple = "103"
 )
 
 // ANSI codes for the sixteen colour fallback, where only the eight hues exist.

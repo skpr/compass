@@ -3,6 +3,7 @@ package trace
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func TestTrace_JSON_RoundTripsDrupal(t *testing.T) {
 					MaxAge:     0,
 					Tags:       []string{"node:1"},
 					Contexts:   []string{"user.roles"},
-					StartTime:  1500,
+					Offset:     1500 * time.Millisecond,
 					Calls:      3,
 				},
 			},

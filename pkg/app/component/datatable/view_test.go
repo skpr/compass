@@ -22,17 +22,18 @@ func TestView_IsExactlyItsSize(t *testing.T) {
 
 	for _, rows := range []int{0, 1, 3, 100} {
 		for _, size := range sizes {
-			m := testTable(rows)
-			m.SetSize(size.width, size.height)
+			for _, m := range []*Model{testTable(rows), testRailedTable(rows)} {
+				m.SetSize(size.width, size.height)
 
-			view := m.View()
+				view := m.View()
 
-			assert.Equal(t, size.height, lipgloss.Height(view),
-				"height rows=%d size=%dx%d", rows, size.width, size.height)
+				assert.Equal(t, size.height, lipgloss.Height(view),
+					"height rows=%d size=%dx%d", rows, size.width, size.height)
 
-			for i, line := range strings.Split(view, "\n") {
-				assert.Equal(t, size.width, ansi.StringWidth(line),
-					"line %d, rows=%d size=%dx%d", i, rows, size.width, size.height)
+				for i, line := range strings.Split(view, "\n") {
+					assert.Equal(t, size.width, ansi.StringWidth(line),
+						"line %d, rows=%d size=%dx%d", i, rows, size.width, size.height)
+				}
 			}
 		}
 	}
@@ -92,6 +93,31 @@ func TestView_UnselectedRowHasNoBackground(t *testing.T) {
 	for _, line := range strings.Split(m.View(), "\n")[2:] {
 		assert.NotContains(t, line, backgroundOf(t, theme.S.Selected.Render("x")))
 	}
+}
+
+// The row the cursor is on is marked at both ends, and the marks are glyphs
+// rather than colour: a sixteen colour terminal has no background to wash the
+// row with, and that is exactly the terminal where the wash is missing.
+func TestView_SelectedRowIsRailedAtBothEnds(t *testing.T) {
+	m := New(WithSelectionRail(), WithColumns(
+		Column{Title: "name", Flex: 1, MinWidth: 10},
+		Column{Title: "n", Width: 8, Align: AlignRight},
+	))
+	m.SetSize(60, 6)
+	m.SetRows([]Row{{Text("first"), Text("1")}, {Text("second"), Text("2")}})
+	m.SetCursor(1)
+
+	rows := strings.Split(m.View(), "\n")[2:]
+
+	selected := ansi.Strip(rows[1])
+
+	assert.True(t, strings.HasPrefix(selected, theme.SelectionRail), "no rail at the left of %q", selected)
+	assert.True(t, strings.HasSuffix(selected, theme.SelectionRailEnd), "no rail at the right of %q", selected)
+
+	unselected := ansi.Strip(rows[0])
+
+	assert.NotContains(t, unselected, theme.SelectionRail)
+	assert.NotContains(t, unselected, theme.SelectionRailEnd)
 }
 
 func TestView_RightAlignment(t *testing.T) {

@@ -24,7 +24,7 @@ const ground = "#000000"
 func TestEveryTokenComesFromThePalette(t *testing.T) {
 	palette := map[string]struct{}{
 		White: {}, Grey: {}, Orange: {}, Blue: {}, Green: {},
-		Yellow: {}, Red: {}, DarkBlueGrey: {}, DimBlue: {}, DimGrey: {},
+		Yellow: {}, Red: {}, DarkBlueGrey: {}, DarkGrey: {}, DimBlue: {}, DimGrey: {},
 		GreyBright: {}, GreyMid: {}, GreySoft: {}, PHPPurple: {},
 	}
 
@@ -142,6 +142,46 @@ func TestForegroundsAreLegible(t *testing.T) {
 	} {
 		assert.GreaterOrEqual(t, contrast(mustColour(t, colour), black), 4.5,
 			"%s is not legible on the ground", name)
+	}
+}
+
+// The band under the selected row has two jobs which pull against each other:
+// it has to be visible as a band, and it has to leave the row on it readable.
+//
+// A neutral is what lets both hold at once. Contrast against the ground is
+// luminance alone, so a blue grey pays for its hue in the only budget the band
+// has — the greys are what the whole ladder is written in, and every rung of it
+// clears 4.5:1 on a grey band of the same strength.
+//
+// The ramp is the exception, and has to be: the hot end is a hue rather than a
+// grey, and a red which read as a grey on a band would not read as a red
+// anywhere. Three to one is where a mark stops being a shape you can make out.
+func TestSelectedBandIsVisibleAndCarriesItsRow(t *testing.T) {
+	th := Default()
+
+	band := mustColour(t, th.SurfaceSelected.TrueColor)
+
+	assert.Greater(t, contrast(band, mustColour(t, ground)), 1.6,
+		"the selected row does not read as a band")
+
+	for name, colour := range map[string]string{
+		"TextStrong":  th.TextStrong.TrueColor,
+		"TextPrimary": th.TextPrimary.TrueColor,
+		"TextDim":     th.TextDim.TrueColor,
+		"TextFaint":   th.TextFaint.TrueColor,
+	} {
+		assert.GreaterOrEqual(t, contrast(mustColour(t, colour), band), 4.5,
+			"%s is not legible on the selected row", name)
+	}
+
+	assert.GreaterOrEqual(t, contrast(mustColour(t, th.AccentBright.TrueColor), band), 3.0,
+		"the selection rail cannot be made out on the row it marks")
+
+	for step := 0; step <= RampSteps; step++ {
+		colour := mustColour(t, RampAt(float64(step)/float64(RampSteps)).TrueColor)
+
+		assert.GreaterOrEqual(t, contrast(colour, band), 3.0,
+			"the ramp at step %d cannot be made out on the selected row", step)
 	}
 }
 
