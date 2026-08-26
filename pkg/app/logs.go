@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/skpr/compass/pkg/app/component/datatable"
 	"github.com/skpr/compass/pkg/app/events"
@@ -128,15 +127,6 @@ func logSeverity(level string) theme.Severity {
 	default:
 		return theme.LevelNone
 	}
-}
-
-// logsSince reports how long ago the most recent log arrived.
-func (m *Model) logsSince(now time.Time) (time.Duration, bool) {
-	if len(m.logs) == 0 {
-		return 0, false
-	}
-
-	return now.Sub(m.logs[0].Time), true
 }
 
 func (m *Model) logsView() string {

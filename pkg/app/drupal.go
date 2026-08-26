@@ -90,10 +90,10 @@ func (m *Model) drupalSetRows() {
 // Zero is what made the response uncacheable, so it is the loudest thing on the
 // row; permanent is the good case and recedes.
 func maxAgeStyle(maxAge int64) lipgloss.Style {
-	switch {
-	case maxAge == 0:
+	switch maxAge {
+	case 0:
 		return theme.S.Severity(theme.LevelCritical).Bold(true)
-	case maxAge == trace.CacheMaxAgePermanent:
+	case trace.CacheMaxAgePermanent:
 		return theme.S.CellFaint
 	default:
 		return theme.S.Severity(theme.ForMaxAge(maxAge))
