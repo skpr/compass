@@ -110,7 +110,6 @@ const (
 
 // ANSI codes for the sixteen colour fallback, where only the eight hues exist.
 const (
-	ansiBlack   = "0"
 	ansiRed     = "1"
 	ansiGreen   = "2"
 	ansiYellow  = "3"

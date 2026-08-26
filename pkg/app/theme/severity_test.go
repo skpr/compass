@@ -164,7 +164,6 @@ func TestForegroundTokensHaveASixteenColourFallback(t *testing.T) {
 		"TextPrimary":     th.TextPrimary,
 		"TextDim":         th.TextDim,
 		"TextFaint":       th.TextFaint,
-		"TextInverse":     th.TextInverse,
 		"Track":           th.Track,
 		"Border":          th.Border,
 		"BorderStrong":    th.BorderStrong,

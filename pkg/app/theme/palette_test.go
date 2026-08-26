@@ -35,7 +35,6 @@ func TestEveryTokenComesFromThePalette(t *testing.T) {
 		"TextPrimary":     th.TextPrimary.TrueColor,
 		"TextDim":         th.TextDim.TrueColor,
 		"TextFaint":       th.TextFaint.TrueColor,
-		"TextInverse":     th.TextInverse.TrueColor,
 		"SurfaceSelected": th.SurfaceSelected.TrueColor,
 		"SurfaceRaised":   th.SurfaceRaised.TrueColor,
 		"Border":          th.Border.TrueColor,

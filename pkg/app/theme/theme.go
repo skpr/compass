@@ -18,9 +18,6 @@ type Theme struct {
 	TextPrimary lipgloss.CompleteColor
 	TextDim     lipgloss.CompleteColor
 	TextFaint   lipgloss.CompleteColor
-	// TextInverse is for text on a light severity fill, where the usual white
-	// would be unreadable.
-	TextInverse lipgloss.CompleteColor
 
 	// Surfaces. These resolve to no background on a sixteen colour terminal,
 	// which the rest of the design is built to survive.
@@ -98,7 +95,6 @@ func Default() Theme {
 		TextPrimary: complete(GreyBright, idxGreyBright, ansiBrWhite),
 		TextDim:     complete(GreyMid, idxGreyMid, ansiGrey),
 		TextFaint:   complete(GreySoft, idxGreySoft, ansiGrey),
-		TextInverse: complete(DarkBlueGrey, idxDarkBlueGrey, ansiBlack),
 
 		// Empty ANSI means no colour is emitted at sixteen, which for a
 		// background is exactly right: the terminal's own is used instead.
