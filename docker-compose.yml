@@ -48,6 +48,12 @@ services:
       target: cli
     command: /bin/bash -c "sleep infinity"
     network_mode: service:nginx
+    environment:
+      # `docker compose exec` sets TERM=xterm and forwards nothing about colour,
+      # so the terminal's real depth is passed through here instead. Left to
+      # detection Compass renders from the sixteen colour palette, where the
+      # brand blue is whichever colour the reader's theme has named blue.
+      - COLORTERM=${COLORTERM:-}
     depends_on:
       - sidecar
 

@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/christgf/env"
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
@@ -46,6 +47,18 @@ type Options struct {
 }
 
 func main() {
+	// Before anything renders, the usage template below included.
+	//
+	// EnvColorProfile is what lipgloss would have asked for itself, so NO_COLOR
+	// and CLICOLOR_FORCE keep working; taking the answer here is what lets the
+	// sixteen colour case be corrected. Set once, because lipgloss caches the
+	// profile the moment it is told explicitly.
+	lipgloss.SetColorProfile(colorProfile(
+		env.String(EnvColor, ""),
+		os.Getenv("TERM"),
+		termenv.NewOutput(os.Stdout).EnvColorProfile(),
+	))
+
 	o := Options{}
 
 	cmd := &cobra.Command{

@@ -198,9 +198,17 @@ extension predating them keeps its PHP tracing and loses only the Drupal page.
 | `--ca-file` | `COMPASS_CA_FILE` | | Certificate authority which signed the sidecar certificate. |
 | `--insecure-skip-verify` | `COMPASS_INSECURE_SKIP_VERIFY` | `false` | Skip verification of the sidecar certificate. |
 | `--max-traces` | `COMPASS_MAX_TRACES` | `500` | Traces to retain, oldest are discarded first. |
+| | `COMPASS_COLOR` | | Colour depth, when detection gets it wrong: `truecolor`, `256`, `16` or `none`. |
 
 The CLI reconnects with a backoff if the sidecar restarts, and the footer shows
 the current connection state.
+
+Colour depth is detected from `TERM` and `COLORTERM`, and `NO_COLOR` turns it
+off. A terminal which announces itself as a bare `xterm` — which is what
+`docker exec` and some ssh setups hand over — is taken as 256 colours rather
+than 16, because at 16 every colour resolves to an index in the reader's own
+terminal theme and the palette stops being the palette. Set `COMPASS_COLOR` to
+state the depth outright.
 
 ### Sidecar
 
