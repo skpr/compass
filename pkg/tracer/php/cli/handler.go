@@ -61,7 +61,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 }
 
 // Handle the event and process it.
-func (c *Handler) Handle(event bpfEvent) error {
+func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 	var pid = int64(event.Pid)
 
 	if pid == 0 {
@@ -78,7 +78,7 @@ func (c *Handler) Handle(event bpfEvent) error {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(pid, event); err != nil {
+		if err := c.handleRequestShutdown(ctx, pid, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -145,7 +145,7 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(pid int64, event bpfEvent) error {
+func (c *Handler) handleRequestShutdown(ctx context.Context, pid int64, event bpfEvent) error {
 	x, found := c.storage.Get(c.getID(pid))
 	if !found {
 		return fmt.Errorf("not found in storage")
@@ -162,7 +162,7 @@ func (c *Handler) handleRequestShutdown(pid int64, event bpfEvent) error {
 		return fmt.Errorf("no functions found for request with id: %s", c.getID(pid))
 	}
 
-	err := c.plugin.ProcessTrace(context.TODO(), t)
+	err := c.plugin.ProcessTrace(ctx, t)
 	if err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}

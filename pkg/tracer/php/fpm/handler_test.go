@@ -2,6 +2,7 @@ package fpm
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,23 +23,42 @@ func at(timestamp uint64) time.Time {
 	return testBoot.Add(time.Duration(timestamp))
 }
 
-// mockSink captures traces sent to ProcessTrace.
+// mockSink captures traces sent to ProcessTrace. Guarded because requests are
+// completed from either of the two ring buffer goroutines.
 type mockSink struct {
+	mu     sync.Mutex
 	traces []trace.Trace
 }
 
 func (m *mockSink) Initialize() error { return nil }
 
 func (m *mockSink) ProcessTrace(_ context.Context, t trace.Trace) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.traces = append(m.traces, t)
+
 	return nil
+}
+
+// Traces captured so far.
+func (m *mockSink) Traces() []trace.Trace {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return append([]trace.Trace(nil), m.traces...)
+}
+
+// testOptions with the clock pinned, so timestamps land on nameable instants.
+func testOptions() Options {
+	return Options{Expire: 5 * time.Minute, Clock: clock.Monotonic{Boot: testBoot}}
 }
 
 func newTestHandler(t *testing.T) (*Handler, *mockSink) {
 	t.Helper()
 
 	sink := &mockSink{}
-	h, err := NewHandler(sink, Options{Expire: 5 * time.Minute, Clock: clock.Monotonic{Boot: testBoot}})
+	h, err := NewHandler(sink, testOptions())
 	require.NoError(t, err)
 
 	return h, sink
@@ -76,7 +96,7 @@ func TestHandler_Handle_EmptyRequestID(t *testing.T) {
 		// RequestId is all zeros → empty string.
 	}
 
-	err := h.Handle(event)
+	err := h.Handle(t.Context(), event)
 	assert.ErrorContains(t, err, "empty request id")
 }
 
@@ -91,7 +111,7 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 		Timestamp: 1000,
 	}
 
-	err := h.Handle(event)
+	err := h.Handle(t.Context(), event)
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
@@ -117,7 +137,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 		Method:    makeMethod("GET"),
 		Timestamp: 1000,
 	}
-	require.NoError(t, h.Handle(initEvent))
+	require.NoError(t, h.Handle(t.Context(), initEvent))
 
 	// Then, send a function event.
 	funcEvent := bpfEvent{
@@ -128,7 +148,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 		Elapsed:      200,
 		Memory:       4096,
 	}
-	require.NoError(t, h.Handle(funcEvent))
+	require.NoError(t, h.Handle(t.Context(), funcEvent))
 
 	// Verify the function was stored.
 	x, found := h.storage.Get("req-1")
@@ -155,7 +175,7 @@ func TestHandler_Handle_Function_NotFound(t *testing.T) {
 		Memory:       4096,
 	}
 
-	err := h.Handle(event)
+	err := h.Handle(t.Context(), event)
 	assert.ErrorContains(t, err, "not found in storage")
 }
 
@@ -163,7 +183,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	h, sink := newTestHandler(t)
 
 	// Init.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		RequestId: makeRequestID("req-1"),
 		Uri:       makeURI("/test"),
@@ -172,7 +192,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	}))
 
 	// Function.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		RequestId:    makeRequestID("req-1"),
 		FunctionName: makeFunctionName("handler"),
@@ -182,7 +202,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	}))
 
 	// Shutdown.
-	err := h.Handle(bpfEvent{
+	err := h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-1"),
 		Timestamp: 2000,
@@ -203,7 +223,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 func TestHandler_Handle_RequestShutdown_NotFound(t *testing.T) {
 	h, _ := newTestHandler(t)
 
-	err := h.Handle(bpfEvent{
+	err := h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-nonexistent"),
 		Timestamp: 2000,
@@ -215,7 +235,7 @@ func TestHandler_Handle_RequestShutdown_NoFunctions(t *testing.T) {
 	h, _ := newTestHandler(t)
 
 	// Init without any functions.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		RequestId: makeRequestID("req-1"),
 		Uri:       makeURI("/test"),
@@ -224,7 +244,7 @@ func TestHandler_Handle_RequestShutdown_NoFunctions(t *testing.T) {
 	}))
 
 	// Shutdown immediately.
-	err := h.Handle(bpfEvent{
+	err := h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-1"),
 		Timestamp: 2000,
@@ -236,7 +256,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	h, sink := newTestHandler(t)
 
 	// Init.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		RequestId: makeRequestID("req-full"),
 		Uri:       makeURI("/lifecycle"),
@@ -245,7 +265,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	}))
 
 	// Multiple functions.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		RequestId:    makeRequestID("req-full"),
 		FunctionName: makeFunctionName("funcA"),
@@ -253,7 +273,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 		Elapsed:      200,
 		Memory:       1024,
 	}))
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		RequestId:    makeRequestID("req-full"),
 		FunctionName: makeFunctionName("funcB"),
@@ -263,7 +283,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	}))
 
 	// Shutdown.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-full"),
 		Timestamp: 3000,

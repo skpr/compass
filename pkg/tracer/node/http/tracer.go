@@ -250,7 +250,7 @@ func Run(ctx context.Context, plugin sink.Interface, addonPath string) error {
 				return logger.WrapError(fmt.Errorf("failed to read event: %w", err))
 			}
 
-			if err := manager.Handle(event); err != nil {
+			if err := manager.Handle(ctx, event); err != nil {
 				return logger.WrapError(fmt.Errorf("failed to handle event: %w", err))
 			}
 		}

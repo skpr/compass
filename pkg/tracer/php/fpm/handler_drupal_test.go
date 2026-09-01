@@ -40,7 +40,7 @@ func makeContexts(contexts string) [512]uint8 {
 func startRequest(t *testing.T, h *Handler, requestID string) {
 	t.Helper()
 
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		RequestId: makeRequestID(requestID),
 		Uri:       makeURI("/node/1"),
@@ -52,7 +52,7 @@ func startRequest(t *testing.T, h *Handler, requestID string) {
 func TestHandler_HandleDrupalCache_EmptyRequestID(t *testing.T) {
 	h, _ := newTestHandler(t)
 
-	err := h.HandleDrupalCache(bpfDrupalCacheEvent{
+	err := h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type: EventDrupalCacheRenderArray,
 	})
 	assert.ErrorContains(t, err, "empty request id")
@@ -63,7 +63,7 @@ func TestHandler_HandleDrupalCache_UnknownType(t *testing.T) {
 
 	startRequest(t, h, "req-1")
 
-	err := h.HandleDrupalCache(bpfDrupalCacheEvent{
+	err := h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type:      99,
 		RequestId: makeRequestID("req-1"),
 	})
@@ -73,7 +73,7 @@ func TestHandler_HandleDrupalCache_UnknownType(t *testing.T) {
 func TestHandler_HandleDrupalCache_NotFound(t *testing.T) {
 	h, _ := newTestHandler(t)
 
-	err := h.HandleDrupalCache(bpfDrupalCacheEvent{
+	err := h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type:      EventDrupalCacheRenderArray,
 		RequestId: makeRequestID("req-nonexistent"),
 	})
@@ -85,7 +85,7 @@ func TestHandler_HandleDrupalCache_RenderArray(t *testing.T) {
 
 	startRequest(t, h, "req-1")
 
-	require.NoError(t, h.HandleDrupalCache(bpfDrupalCacheEvent{
+	require.NoError(t, h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type:      EventDrupalCacheRenderArray,
 		RequestId: makeRequestID("req-1"),
 		Caller:    makeCaller(`Drupal\Core\Render\Renderer::doRender`),
@@ -116,7 +116,7 @@ func TestHandler_HandleDrupalCache_Object(t *testing.T) {
 
 	startRequest(t, h, "req-1")
 
-	require.NoError(t, h.HandleDrupalCache(bpfDrupalCacheEvent{
+	require.NoError(t, h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type:       EventDrupalCacheObject,
 		RequestId:  makeRequestID("req-1"),
 		Caller:     makeCaller(`Drupal\node\NodeViewBuilder::build`),
@@ -153,14 +153,14 @@ func TestHandler_HandleDrupalCache_IdenticalEventsAggregate(t *testing.T) {
 	}
 
 	for range 500 {
-		require.NoError(t, h.HandleDrupalCache(event))
+		require.NoError(t, h.HandleDrupalCache(t.Context(), event))
 	}
 
 	// A later, different event must not fold into the first.
 	other := event
 	other.MaxAge = 0
 	other.Timestamp = 9000
-	require.NoError(t, h.HandleDrupalCache(other))
+	require.NoError(t, h.HandleDrupalCache(t.Context(), other))
 
 	stored := h.storage.Items()["req-1"].Object.(*state).trace
 
@@ -185,10 +185,10 @@ func TestHandler_HandleDrupalCache_OriginIsPartOfTheKey(t *testing.T) {
 		MaxAge:    -1,
 		Tags:      makeTags("node:1"),
 	}
-	require.NoError(t, h.HandleDrupalCache(event))
+	require.NoError(t, h.HandleDrupalCache(t.Context(), event))
 
 	event.Type = EventDrupalCacheObject
-	require.NoError(t, h.HandleDrupalCache(event))
+	require.NoError(t, h.HandleDrupalCache(t.Context(), event))
 
 	stored := h.storage.Items()["req-1"].Object.(*state).trace
 	assert.Len(t, stored.Drupal.CacheEvents, 2)
@@ -203,7 +203,7 @@ func TestHandler_HandleDrupalCache_DistinctEventsAreCapped(t *testing.T) {
 	startRequest(t, h, "req-1")
 
 	for i := range 10 {
-		require.NoError(t, h.HandleDrupalCache(bpfDrupalCacheEvent{
+		require.NoError(t, h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 			Type:      EventDrupalCacheRenderArray,
 			RequestId: makeRequestID("req-1"),
 			Caller:    makeCaller(fmt.Sprintf("Caller%d::render", i)),
@@ -232,8 +232,8 @@ func TestHandler_HandleDrupalCache_CappedEventsStillAggregate(t *testing.T) {
 		MaxAge:    0,
 	}
 
-	require.NoError(t, h.HandleDrupalCache(kept))
-	require.NoError(t, h.HandleDrupalCache(kept))
+	require.NoError(t, h.HandleDrupalCache(t.Context(), kept))
+	require.NoError(t, h.HandleDrupalCache(t.Context(), kept))
 
 	stored := h.storage.Items()["req-1"].Object.(*state).trace
 
@@ -247,7 +247,7 @@ func TestHandler_HandleDrupalCache_ReachesTheSink(t *testing.T) {
 
 	startRequest(t, h, "req-1")
 
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		RequestId:    makeRequestID("req-1"),
 		FunctionName: makeFunctionName("handler"),
@@ -256,7 +256,7 @@ func TestHandler_HandleDrupalCache_ReachesTheSink(t *testing.T) {
 		Memory:       2048,
 	}))
 
-	require.NoError(t, h.HandleDrupalCache(bpfDrupalCacheEvent{
+	require.NoError(t, h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type:      EventDrupalCacheRenderArray,
 		RequestId: makeRequestID("req-1"),
 		Caller:    makeCaller("Blocker::render"),
@@ -264,7 +264,7 @@ func TestHandler_HandleDrupalCache_ReachesTheSink(t *testing.T) {
 		Timestamp: 1600,
 	}))
 
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-1"),
 		Timestamp: 2000,
@@ -283,14 +283,14 @@ func TestHandler_HandleDrupalCache_TraceWithoutFunctionsIsSent(t *testing.T) {
 
 	startRequest(t, h, "req-1")
 
-	require.NoError(t, h.HandleDrupalCache(bpfDrupalCacheEvent{
+	require.NoError(t, h.HandleDrupalCache(t.Context(), bpfDrupalCacheEvent{
 		Type:      EventDrupalCacheRenderArray,
 		RequestId: makeRequestID("req-1"),
 		Caller:    makeCaller("Blocker::render"),
 		MaxAge:    0,
 	}))
 
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-1"),
 		Timestamp: 2000,
@@ -305,7 +305,7 @@ func TestHandler_HandleDrupalCache_NonDrupalTraceHasNoDrupalData(t *testing.T) {
 
 	startRequest(t, h, "req-1")
 
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		RequestId:    makeRequestID("req-1"),
 		FunctionName: makeFunctionName("handler"),
@@ -313,7 +313,7 @@ func TestHandler_HandleDrupalCache_NonDrupalTraceHasNoDrupalData(t *testing.T) {
 		Elapsed:      300,
 	}))
 
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		RequestId: makeRequestID("req-1"),
 		Timestamp: 2000,

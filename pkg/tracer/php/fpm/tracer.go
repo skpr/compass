@@ -353,7 +353,7 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 				return logger.WrapError(fmt.Errorf("failed to read event: %w", err))
 			}
 
-			if err := manager.Handle(event); err != nil {
+			if err := manager.Handle(ctx, event); err != nil {
 				eventsSkipped.Add(1)
 			}
 		}
@@ -379,7 +379,7 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 				return logger.WrapError(fmt.Errorf("failed to read drupal cache event: %w", err))
 			}
 
-			if err := manager.HandleDrupalCache(event); err != nil {
+			if err := manager.HandleDrupalCache(ctx, event); err != nil {
 				drupalCacheEventsSkipped.Add(1)
 			}
 		}

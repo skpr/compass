@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -38,7 +39,12 @@ const (
 const DefaultMaxCacheEvents = 250
 
 // Handler for handling events.
+//
+// The tracer reads its two ring buffers in separate goroutines, so every method
+// here can be called concurrently with any other.
 type Handler struct {
+	// mu guards the state behind the pointers held in storage.
+	mu sync.Mutex
 	// Consider an interface for the storage.
 	storage *cache.Cache
 	// Plugin for sending completed requests to.
@@ -93,7 +99,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 }
 
 // Handle the event and process it.
-func (c *Handler) Handle(event bpfEvent) error {
+func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 	var (
 		requestID = unix.ByteSliceToString(event.RequestId[:])
 	)
@@ -117,7 +123,7 @@ func (c *Handler) Handle(event bpfEvent) error {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(requestID, event); err != nil {
+		if err := c.handleRequestShutdown(ctx, requestID, event); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -129,7 +135,7 @@ func (c *Handler) Handle(event bpfEvent) error {
 //
 // Drupal cache events arrive on their own ring buffer, with their own event
 // type, so they enter the handler separately from the request lifecycle.
-func (c *Handler) HandleDrupalCache(event bpfDrupalCacheEvent) error {
+func (c *Handler) HandleDrupalCache(_ context.Context, event bpfDrupalCacheEvent) error {
 	requestID := unix.ByteSliceToString(event.RequestId[:])
 
 	if requestID == "" {
@@ -165,6 +171,9 @@ func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duratio
 
 // Process the function event and store the data.
 func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEvent) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	s := &state{
 		trace: trace.Trace{
 			Metadata: trace.Metadata{
@@ -188,6 +197,9 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEven
 
 // Process the function event and store the data.
 func (c *Handler) handleFunction(requestID string, event bpfEvent) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	s, err := c.get(requestID)
 	if err != nil {
 		return err
@@ -222,6 +234,9 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 		tags       = unix.ByteSliceToString(event.Tags[:])
 		contexts   = unix.ByteSliceToString(event.Contexts[:])
 	)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	s, err := c.get(requestID)
 	if err != nil {
@@ -277,10 +292,30 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(requestID string, event bpfEvent) error {
-	s, err := c.get(requestID)
+func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, event bpfEvent) error {
+	t, err := c.complete(requestID, event)
 	if err != nil {
 		return err
+	}
+
+	// Sent without the lock held: a sink which blocks would otherwise stall the
+	// other ring buffer reader.
+	if err := c.plugin.ProcessTrace(ctx, t); err != nil {
+		return fmt.Errorf("failed to send profile data to plugin: %w", err)
+	}
+
+	return nil
+}
+
+// complete a request, removing it from storage so that the caller is left
+// holding the only reference to its trace.
+func (c *Handler) complete(requestID string, event bpfEvent) (trace.Trace, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	s, err := c.get(requestID)
+	if err != nil {
+		return trace.Trace{}, err
 	}
 
 	s.trace.Metadata.EndTime = c.options.Clock.Time(event.Timestamp)
@@ -289,18 +324,14 @@ func (c *Handler) handleRequestShutdown(requestID string, event bpfEvent) error 
 	defer c.storage.Delete(requestID)
 
 	if len(s.trace.FunctionCalls) == 0 && s.trace.Drupal == nil {
-		return fmt.Errorf("no functions found for request with id: %s", requestID)
+		return trace.Trace{}, fmt.Errorf("no functions found for request with id: %s", requestID)
 	}
 
-	err = c.plugin.ProcessTrace(context.TODO(), s.trace)
-	if err != nil {
-		return fmt.Errorf("failed to send profile data to plugin: %w", err)
-	}
-
-	return nil
+	return s.trace, nil
 }
 
-// get the state of a request which is still being assembled.
+// get the state of a request which is still being assembled. This is a pointer
+// into the storage, so the caller must hold c.mu for as long as it uses it.
 func (c *Handler) get(requestID string) (*state, error) {
 	x, found := c.storage.Get(requestID)
 	if !found {
@@ -316,7 +347,7 @@ func (c *Handler) get(requestID string) (*state, error) {
 }
 
 // touch the stored request so that its expiry is measured from the last event
-// it received rather than from when it started.
+// it received rather than from when it started. The caller must hold c.mu.
 func (c *Handler) touch(requestID string, s *state) {
 	c.storage.Set(requestID, s, cache.DefaultExpiration)
 }

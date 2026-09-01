@@ -64,7 +64,7 @@ func TestHandler_Handle_EmptyPID(t *testing.T) {
 		Pid:  0,
 	}
 
-	err := h.Handle(event)
+	err := h.Handle(t.Context(), event)
 	assert.ErrorContains(t, err, "empty pid")
 }
 
@@ -78,7 +78,7 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 		Timestamp: 1000,
 	}
 
-	err := h.Handle(event)
+	err := h.Handle(t.Context(), event)
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
@@ -96,7 +96,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 	h, _ := newTestHandler(t)
 
 	// Init.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		Pid:       42,
 		Command:   makeCommand("drush cr"),
@@ -104,7 +104,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 	}))
 
 	// Function.
-	err := h.Handle(bpfEvent{
+	err := h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		Pid:          42,
 		FunctionName: makeFunctionName("myFunc"),
@@ -128,7 +128,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 func TestHandler_Handle_Function_NotFound(t *testing.T) {
 	h, _ := newTestHandler(t)
 
-	err := h.Handle(bpfEvent{
+	err := h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		Pid:          999,
 		FunctionName: makeFunctionName("myFunc"),
@@ -143,7 +143,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	h, sink := newTestHandler(t)
 
 	// Init.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		Pid:       42,
 		Command:   makeCommand("drush status"),
@@ -151,7 +151,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	}))
 
 	// Function.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		Pid:          42,
 		FunctionName: makeFunctionName("handler"),
@@ -161,7 +161,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	}))
 
 	// Shutdown.
-	err := h.Handle(bpfEvent{
+	err := h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		Pid:       42,
 		Timestamp: 2000,
@@ -182,7 +182,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	h, sink := newTestHandler(t)
 
 	// Init.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestInit,
 		Pid:       100,
 		Command:   makeCommand("php script.php"),
@@ -190,7 +190,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	}))
 
 	// Multiple functions.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		Pid:          100,
 		FunctionName: makeFunctionName("funcA"),
@@ -198,7 +198,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 		Elapsed:      200,
 		Memory:       1024,
 	}))
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:         EventFunction,
 		Pid:          100,
 		FunctionName: makeFunctionName("funcB"),
@@ -208,7 +208,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	}))
 
 	// Shutdown.
-	require.NoError(t, h.Handle(bpfEvent{
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
 		Type:      EventRequestShutdown,
 		Pid:       100,
 		Timestamp: 3000,
