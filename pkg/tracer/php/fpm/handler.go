@@ -13,6 +13,7 @@ import (
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
+	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -105,7 +106,7 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 	)
 
 	if requestID == "" {
-		return fmt.Errorf("empty request id")
+		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 
 	switch event.Type {
@@ -139,7 +140,7 @@ func (c *Handler) HandleDrupalCache(_ context.Context, event bpfDrupalCacheEvent
 	requestID := unix.ByteSliceToString(event.RequestId[:])
 
 	if requestID == "" {
-		return fmt.Errorf("empty request id")
+		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 
 	var origin trace.CacheOrigin
@@ -324,7 +325,7 @@ func (c *Handler) complete(requestID string, event bpfEvent) (trace.Trace, error
 	defer c.storage.Delete(requestID)
 
 	if len(s.trace.FunctionCalls) == 0 && s.trace.Drupal == nil {
-		return trace.Trace{}, fmt.Errorf("no functions found for request with id: %s", requestID)
+		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, requestID)
 	}
 
 	return s.trace, nil
@@ -335,7 +336,7 @@ func (c *Handler) complete(requestID string, event bpfEvent) (trace.Trace, error
 func (c *Handler) get(requestID string) (*state, error) {
 	x, found := c.storage.Get(requestID)
 	if !found {
-		return nil, fmt.Errorf("not found in storage")
+		return nil, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
 	}
 
 	s, ok := x.(*state)

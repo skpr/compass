@@ -10,6 +10,7 @@ import (
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
+	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -65,7 +66,7 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 	var pid = int64(event.Pid)
 
 	if pid == 0 {
-		return fmt.Errorf("empty pid")
+		return fmt.Errorf("%w: empty pid", ingest.ErrInvalidIdentifier)
 	}
 
 	switch event.Type {
@@ -118,7 +119,7 @@ func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
 func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 	x, found := c.storage.Get(c.getID(pid))
 	if !found {
-		return fmt.Errorf("not found in storage")
+		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, c.getID(pid))
 	}
 
 	t := x.(trace.Trace)
@@ -148,7 +149,7 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 func (c *Handler) handleRequestShutdown(ctx context.Context, pid int64, event bpfEvent) error {
 	x, found := c.storage.Get(c.getID(pid))
 	if !found {
-		return fmt.Errorf("not found in storage")
+		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, c.getID(pid))
 	}
 
 	t := x.(trace.Trace)
@@ -159,7 +160,7 @@ func (c *Handler) handleRequestShutdown(ctx context.Context, pid int64, event bp
 	defer c.storage.Delete(c.getID(pid))
 
 	if len(t.FunctionCalls) == 0 {
-		return fmt.Errorf("no functions found for request with id: %s", c.getID(pid))
+		return fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, c.getID(pid))
 	}
 
 	err := c.plugin.ProcessTrace(ctx, t)

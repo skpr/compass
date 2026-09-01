@@ -2,9 +2,7 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -17,6 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/pkg/php/extension/usdt"
+	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -220,14 +219,13 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string) error
 	if err != nil {
 		return logger.WrapError(fmt.Errorf("failed to start perf event reader: %w", err))
 	}
+	skips := ingest.NewSkips(ingest.RuntimePHPCLI)
 
 	g, ctx := errgroup.WithContext(ctx)
 
 	// Goroutine that reads from the ringbuf and handles traces.
 	g.Go(func() error {
 		defer reader.Close()
-
-		var event bpfEvent
 
 		for {
 			record, err := reader.Read()
@@ -240,12 +238,8 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string) error
 				continue
 			}
 
-			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
-				return logger.WrapError(fmt.Errorf("failed to read event: %w", err))
-			}
-
-			if err := manager.Handle(ctx, event); err != nil {
-				return logger.WrapError(fmt.Errorf("failed to handle event: %w", err))
+			if err := processEvent(ctx, record.RawSample, manager, skips); err != nil {
+				return logger.WrapError(err)
 			}
 		}
 	})
@@ -257,9 +251,20 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string) error
 		return nil
 	})
 
-	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+	err = g.Wait()
+
+	logger.SetAttr("events_skipped", skips.Total())
+	logger.SetAttr("events_skipped_request_not_tracked", skips.Count(ingest.ReasonRequestNotTracked))
+	logger.SetAttr("events_skipped_invalid_identifier", skips.Count(ingest.ReasonInvalidIdentifier))
+	logger.SetAttr("events_skipped_trace_empty", skips.Count(ingest.ReasonTraceEmpty))
+
+	if err != nil && !errors.Is(err, context.Canceled) {
 		return logger.WrapError(err)
 	}
 
 	return ctx.Err()
+}
+
+func processEvent(ctx context.Context, rawSample []byte, manager *Handler, skips *ingest.Skips) error {
+	return ingest.DecodeAndHandle(ctx, rawSample, manager.Handle, skips)
 }

@@ -2,13 +2,10 @@
 package fpm
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -19,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/pkg/php/extension/usdt"
+	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -321,22 +319,14 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 		return logger.WrapError(fmt.Errorf("failed to start drupal cache event reader: %w", err))
 	}
 
-	// An event whose request we know nothing about cannot be handled, and that
-	// is routine rather than exceptional: attaching part way through a request
-	// means its events arrive without the request init that would have opened
-	// it. These count how often that happened instead of ending the tracer.
-	var (
-		eventsSkipped            atomic.Int64
-		drupalCacheEventsSkipped atomic.Int64
-	)
+	eventsSkipped := ingest.NewSkips(ingest.RuntimePHPFPM)
+	drupalCacheEventsSkipped := ingest.NewSkips(ingest.RuntimePHPFPM)
 
 	g, ctx := errgroup.WithContext(ctx)
 
 	// Goroutine that reads from the ringbuf and handles traces.
 	g.Go(func() error {
 		defer reader.Close()
-
-		var event bpfEvent
 
 		for {
 			record, err := reader.Read()
@@ -349,12 +339,8 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 				continue
 			}
 
-			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
-				return logger.WrapError(fmt.Errorf("failed to read event: %w", err))
-			}
-
-			if err := manager.Handle(ctx, event); err != nil {
-				eventsSkipped.Add(1)
+			if err := processEvent(ctx, record.RawSample, manager, eventsSkipped); err != nil {
+				return logger.WrapError(err)
 			}
 		}
 	})
@@ -362,8 +348,6 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 	// Goroutine that reads Drupal cache events from their own ringbuf.
 	g.Go(func() error {
 		defer drupalReader.Close()
-
-		var event bpfDrupalCacheEvent
 
 		for {
 			record, err := drupalReader.Read()
@@ -375,12 +359,8 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 				continue
 			}
 
-			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
-				return logger.WrapError(fmt.Errorf("failed to read drupal cache event: %w", err))
-			}
-
-			if err := manager.HandleDrupalCache(ctx, event); err != nil {
-				drupalCacheEventsSkipped.Add(1)
+			if err := processDrupalCacheEvent(ctx, record.RawSample, manager, drupalCacheEventsSkipped); err != nil {
+				return logger.WrapError(fmt.Errorf("failed to process drupal cache event: %w", err))
 			}
 		}
 	})
@@ -395,12 +375,23 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 
 	err = g.Wait()
 
-	logger.SetAttr("events_skipped", eventsSkipped.Load())
-	logger.SetAttr("drupal_cache_events_skipped", drupalCacheEventsSkipped.Load())
+	logger.SetAttr("events_skipped", eventsSkipped.Total())
+	logger.SetAttr("events_skipped_request_not_tracked", eventsSkipped.Count(ingest.ReasonRequestNotTracked))
+	logger.SetAttr("events_skipped_invalid_identifier", eventsSkipped.Count(ingest.ReasonInvalidIdentifier))
+	logger.SetAttr("events_skipped_trace_empty", eventsSkipped.Count(ingest.ReasonTraceEmpty))
+	logger.SetAttr("drupal_cache_events_skipped", drupalCacheEventsSkipped.Total())
 
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return logger.WrapError(err)
 	}
 
 	return ctx.Err()
+}
+
+func processEvent(ctx context.Context, rawSample []byte, manager *Handler, skips *ingest.Skips) error {
+	return ingest.DecodeAndHandle(ctx, rawSample, manager.Handle, skips)
+}
+
+func processDrupalCacheEvent(ctx context.Context, rawSample []byte, manager *Handler, skips *ingest.Skips) error {
+	return ingest.DecodeAndHandle(ctx, rawSample, manager.HandleDrupalCache, skips)
 }

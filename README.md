@@ -233,7 +233,10 @@ The sidecar only fails to start when neither is found.
 
 `/metrics` exposes Prometheus metrics, including
 `compass_sidecar_runtime_discovered`, `compass_sidecar_subscriptions`,
-`compass_sidecar_collector_running` and `compass_sidecar_traces_dropped_total`.
+`compass_sidecar_collector_running`, `compass_sidecar_traces_dropped_total` and
+`compass_sidecar_tracer_events_skipped_total`. The tracer skip counter is labelled
+by the fixed runtime and reason sets so attach-mid-request gaps are visible without
+unbounded metric cardinality.
 
 ## Development
 
