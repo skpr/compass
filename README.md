@@ -90,6 +90,11 @@ a probe for calls above `compass.function_threshold`, so a child cheaper than
 the threshold is missing from the tree and its time is counted against its
 parent. Lower the threshold if a frame looks suspiciously hot.
 
+The sidecar retains at most `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` calls per trace.
+When a request exceeds that bound, Search adds `+` to its retained call count,
+the open trace reports the exact number dropped, and **self*** marks timing
+derived from retained calls only. Peak memory still includes later dropped calls.
+
 **Drupal Cacheable Metadata** is what the Drupal specific probes reported. The
 tab only appears when the trace has any: a Node trace, a PHP CLI run and any PHP
 application which is not Drupal all have none, and a page which can only say
@@ -135,9 +140,9 @@ looking at: something in it set a max age of zero, so the response cannot be
 cached. It fires for that and nothing else — a mark which means two things stops
 meaning either of them. `?` has the legend.
 
-The trace metadata carries the resulting max age, and a trace whose max age
-ended up at zero is flagged `C` on the Search page. A `D` there means events
-were dropped and the trace is truncated.
+Function-call truncation is marked by `+` on the retained call count, while
+dropped Drupal cache events are reported in the open trace. Neither changes the
+attention dot, which remains reserved for an uncacheable response.
 
 Each trace carries its request ID, taken from the `X-Request-ID` header, or its
 process ID for a CLI run. Search shows the first eight characters, which is
@@ -224,6 +229,7 @@ see [`docs/sidecar-config.yaml`](docs/sidecar-config.yaml).
 | `COMPASS_SIDECAR_NODE_PROCESS_NAME` | `node` | Process which loads the Node addon. |
 | `COMPASS_SIDECAR_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, inside the Node container. |
 | `COMPASS_SIDECAR_DISCOVERY_TIMEOUT` | `1m` | How long to wait for a runtime before deciding it is not present. |
+| `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` | `10000` | Function calls retained per trace; later calls are counted as dropped. |
 | `COMPASS_SIDECAR_TOKEN` | | Require this token from clients. |
 | `COMPASS_SIDECAR_CERT_FILE` | | Serve traces over TLS with this certificate. |
 | `COMPASS_SIDECAR_KEY_FILE` | | Key for the TLS certificate. |
@@ -233,9 +239,10 @@ The sidecar only fails to start when neither is found.
 
 `/metrics` exposes Prometheus metrics, including
 `compass_sidecar_runtime_discovered`, `compass_sidecar_subscriptions`,
-`compass_sidecar_collector_running`, `compass_sidecar_traces_dropped_total` and
-`compass_sidecar_tracer_events_skipped_total`. The tracer skip counter is labelled
-by the fixed runtime and reason sets so attach-mid-request gaps are visible without
+`compass_sidecar_collector_running`, `compass_sidecar_traces_dropped_total`,
+`compass_sidecar_function_events_dropped_total` and
+`compass_sidecar_tracer_events_skipped_total`. The tracer counters use fixed
+runtime and, where applicable, reason labels so losses are visible without
 unbounded metric cardinality.
 
 ## Development

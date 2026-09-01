@@ -22,6 +22,9 @@ import (
 // HeaderToken is the header the sidecar authenticates requests with.
 const HeaderToken = "X-Skpr-Token"
 
+// maxLineBytes is the largest trace payload supported by the stream client.
+const maxLineBytes = 10 * 1024 * 1024
+
 // Backoff configuration for reconnecting to the sidecar, variables so that
 // tests do not have to wait for real world delays.
 var (
@@ -149,10 +152,9 @@ func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, c
 
 	scanner := bufio.NewScanner(resp.Body)
 
-	// Start with a 64KB initial buffer, allow up to, say, 10MB per line.
-	const maxLine = 10 * 1024 * 1024
+	// Start with a 64KB initial buffer and grow only for larger traces.
 	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, maxLine)
+	scanner.Buffer(buf, maxLineBytes)
 
 	for scanner.Scan() {
 		select {

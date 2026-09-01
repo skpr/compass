@@ -68,6 +68,7 @@ type Config struct {
 	NodeProcessName  string        `yaml:"node_process_name"  env:"COMPASS_SIDECAR_NODE_PROCESS_NAME"  env-default:"node"`
 	NodeAddonPath    string        `yaml:"node_addon_path"    env:"COMPASS_SIDECAR_NODE_ADDON_PATH"    env-default:"/usr/lib/compass/node/compass.node"`
 	DiscoveryTimeout time.Duration `yaml:"discovery_timeout"  env:"COMPASS_SIDECAR_DISCOVERY_TIMEOUT"  env-default:"1m"`
+	MaxFunctionCalls int           `yaml:"max_function_calls" env:"COMPASS_SIDECAR_MAX_FUNCTION_CALLS" env-default:"10000"`
 	Token            string        `yaml:"token"              env:"COMPASS_SIDECAR_TOKEN"`
 	CertFile         string        `yaml:"cert_file"          env:"COMPASS_SIDECAR_CERT_FILE"`
 	KeyFile          string        `yaml:"key_file"           env:"COMPASS_SIDECAR_KEY_FILE"`
@@ -247,7 +248,7 @@ func main() {
 
 					collectorCtx, collectorCancel = context.WithCancel(ctx)
 
-					err := tracer.Run(collectorCtx, b, runtimes)
+					err := tracer.Run(collectorCtx, b, runtimes, tracer.Options{MaxFunctionCalls: config.MaxFunctionCalls})
 					if err != nil && !errors.Is(err, context.Canceled) {
 						logger.Error("Failed to run collector", "error", err)
 					}

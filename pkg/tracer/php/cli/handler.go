@@ -10,6 +10,7 @@ import (
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
+	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
@@ -30,12 +31,16 @@ type Handler struct {
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
-	options Options
+	options       Options
+	functionCalls functioncalls.Limiter
 }
 
 // Options for configuring the Handler.
 type Options struct {
 	Expire time.Duration
+	// MaxFunctionCalls is how many function records each trace retains.
+	// Non-positive values use functioncalls.DefaultMax.
+	MaxFunctionCalls int
 	// Clock relates the monotonic timestamps the probes emit to the wall clock.
 	// The zero value reads the offset from the system.
 	Clock clock.Monotonic
@@ -53,9 +58,10 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage: cache.New(options.Expire, options.Expire),
-		plugin:  plugin,
-		options: options,
+		storage:       cache.New(options.Expire, options.Expire),
+		plugin:        plugin,
+		options:       options,
+		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimePHPCLI),
 	}
 
 	return client, nil
@@ -124,21 +130,16 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 
 	t := x.(trace.Trace)
 
-	function := trace.FunctionCall{
-		Name: unix.ByteSliceToString(event.FunctionName[:]),
+	c.functionCalls.Add(
+		&t,
+		event.FunctionName[:],
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
 		// has been collected.
-		Offset:  c.offset(t.Metadata, event.Timestamp-event.Elapsed),
-		Elapsed: time.Duration(event.Elapsed),
-		Memory:  int64(event.Memory),
-	}
-
-	if t.ResourceUtilisation.MaxMemory < function.Memory {
-		t.ResourceUtilisation.MaxMemory = function.Memory
-	}
-
-	t.FunctionCalls = append(t.FunctionCalls, function)
+		c.offset(t.Metadata, event.Timestamp-event.Elapsed),
+		time.Duration(event.Elapsed),
+		int64(event.Memory),
+	)
 
 	c.storage.Set(c.getID(pid), t, cache.DefaultExpiration)
 

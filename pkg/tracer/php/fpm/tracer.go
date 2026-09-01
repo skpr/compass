@@ -88,7 +88,7 @@ var (
 )
 
 // Run the collector.
-func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error {
+func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFunctionCalls int) error {
 	logger := yolog.NewLogger(LoggerStream)
 	defer logger.Log(os.Stdout)
 
@@ -303,7 +303,8 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error
 	}
 
 	manager, err := NewHandler(plugin, Options{
-		Expire: time.Minute,
+		Expire:           time.Minute,
+		MaxFunctionCalls: maxFunctionCalls,
 	})
 	if err != nil {
 		return logger.WrapError(fmt.Errorf("unable to initialize event manager: %w", err))

@@ -105,7 +105,7 @@ func (m *Model) traceRow(t events.Trace) datatable.Row {
 		runtimeSourceCell(t.Metadata.Runtime, t.Metadata.Source),
 		datatable.Styled(format.Duration(t.Metadata.ExecutionTime()), theme.S.Severity(severity)),
 		datatable.Styled(format.Bytes(t.ResourceUtilisation.MaxMemory), theme.S.CellDim),
-		datatable.Styled(fmt.Sprintf("%d", len(t.FunctionCalls)), theme.S.CellDim),
+		datatable.Styled(functionCallCount(t), theme.S.CellDim),
 		idCell(t),
 		identityCell(t),
 	}
@@ -179,6 +179,24 @@ func idCell(t events.Trace) datatable.Cell {
 	}
 
 	return datatable.Styled(shortID(t.Metadata.ID), theme.S.CellDim)
+}
+
+// Markers for partial function-call data.
+const (
+	// TruncatedMarker after a call count means additional calls were dropped.
+	TruncatedMarker = "+"
+	// PartialTimingMarker means derived timing uses retained calls only.
+	PartialTimingMarker = "*"
+)
+
+// functionCallCount reports retained calls and marks partial traces.
+func functionCallCount(t events.Trace) string {
+	marker := ""
+	if t.FunctionCallsDropped > 0 {
+		marker = TruncatedMarker
+	}
+
+	return fmt.Sprintf("%d%s", len(t.FunctionCalls), marker)
 }
 
 // AttentionMarker is set beside the runtime on a request worth going and
