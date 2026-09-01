@@ -770,3 +770,51 @@ func TestView_PanelDoesNotRunIntoTheKeyRail(t *testing.T) {
 	assert.Equal(t, strings.Repeat("─", 120), lines[len(lines)-2],
 		"the key rail should sit under a rule, not under the panel's last value")
 }
+
+func TestFunctionTruncation_IsVisibleAndDerivedTimingIsMarkedPartial(t *testing.T) {
+	m := testModel(120, 34)
+
+	partial := testTrace("/partial")
+	partial.FunctionCallsDropped = 7
+	m.updateTrace(partial)
+	m.search.SetCursor(0)
+
+	row, ok := m.search.SelectedRow()
+	require.True(t, ok)
+	assert.Equal(t, "2+", row[4].String(), "the search call count should mark retained-only data")
+
+	m.updateKeyEnter()
+
+	detail := ansi.Strip(m.viewDetail())
+	assert.Contains(t, detail, "CALL DATA")
+	assert.Contains(t, detail, "partial")
+	assert.Contains(t, detail, "7 dropped")
+
+	columns := m.functions.Columns()
+	require.GreaterOrEqual(t, len(columns), 2)
+	assert.Equal(t, "self*", columns[1].Title)
+
+	inspect := ansi.Strip(m.inspectView())
+	assert.Contains(t, inspect, "7 calls dropped")
+	assert.Contains(t, inspect, "self time uses retained calls only")
+}
+
+func TestFunctionTruncation_CleanTraceHasNoPartialMarkers(t *testing.T) {
+	m := testModel(120, 34)
+	m.updateKeyEnter()
+
+	assert.NotContains(t, ansi.Strip(m.viewDetail()), "CALL DATA")
+	columns := m.functions.Columns()
+	require.GreaterOrEqual(t, len(columns), 2)
+	assert.Equal(t, "self", columns[1].Title)
+	assert.NotContains(t, ansi.Strip(m.inspectView()), "retained calls only")
+}
+
+func TestFunctionTruncation_IsExplainedInHelp(t *testing.T) {
+	m := testModel(120, 40)
+	m.showHelp = true
+
+	help := ansi.Strip(m.viewHelp())
+	assert.Contains(t, help, "additional function calls were dropped")
+	assert.Contains(t, help, "derived timing uses retained function calls only")
+}

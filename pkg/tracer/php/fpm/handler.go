@@ -13,6 +13,7 @@ import (
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
+	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
@@ -51,12 +52,16 @@ type Handler struct {
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
-	options Options
+	options       Options
+	functionCalls functioncalls.Limiter
 }
 
 // Options for configuring the Handler.
 type Options struct {
 	Expire time.Duration
+	// MaxFunctionCalls is how many function records each trace retains.
+	// Non-positive values use functioncalls.DefaultMax.
+	MaxFunctionCalls int
 	// MaxCacheEvents is how many distinct Drupal cache events a trace retains.
 	// Defaults to DefaultMaxCacheEvents.
 	MaxCacheEvents int
@@ -91,9 +96,10 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage: cache.New(options.Expire, options.Expire),
-		plugin:  plugin,
-		options: options,
+		storage:       cache.New(options.Expire, options.Expire),
+		plugin:        plugin,
+		options:       options,
+		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimePHPFPM),
 	}
 
 	return client, nil
@@ -206,21 +212,16 @@ func (c *Handler) handleFunction(requestID string, event bpfEvent) error {
 		return err
 	}
 
-	function := trace.FunctionCall{
-		Name: unix.ByteSliceToString(event.FunctionName[:]),
+	c.functionCalls.Add(
+		&s.trace,
+		event.FunctionName[:],
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
 		// has been collected.
-		Offset:  c.offset(s.trace.Metadata, event.Timestamp-event.Elapsed),
-		Elapsed: time.Duration(event.Elapsed),
-		Memory:  int64(event.Memory),
-	}
-
-	if s.trace.ResourceUtilisation.MaxMemory < function.Memory {
-		s.trace.ResourceUtilisation.MaxMemory = function.Memory
-	}
-
-	s.trace.FunctionCalls = append(s.trace.FunctionCalls, function)
+		c.offset(s.trace.Metadata, event.Timestamp-event.Elapsed),
+		time.Duration(event.Elapsed),
+		int64(event.Memory),
+	)
 
 	c.touch(requestID, s)
 

@@ -10,15 +10,15 @@ import (
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
-func Run(ctx context.Context, plugin sink.Interface, extensionPath string) error {
+func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFunctionCalls int) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return fpm.Run(ctx, plugin, extensionPath)
+		return fpm.Run(ctx, plugin, extensionPath, maxFunctionCalls)
 	})
 
 	g.Go(func() error {
-		return cli.Run(ctx, plugin, extensionPath)
+		return cli.Run(ctx, plugin, extensionPath, maxFunctionCalls)
 	})
 
 	return g.Wait()

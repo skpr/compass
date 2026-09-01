@@ -37,6 +37,8 @@ func (m *Model) viewHelp() string {
 			rows: [][2]string{
 				{theme.SelectionRail, "the row the cursor is on"},
 				{AttentionMarker, "uncacheable: something set a max age of zero"},
+				{TruncatedMarker, "after calls: additional function calls were dropped"},
+				{PartialTimingMarker, "derived timing uses retained function calls only"},
 			},
 		},
 		{

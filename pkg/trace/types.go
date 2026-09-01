@@ -73,7 +73,10 @@ type Trace struct {
 	Metadata            Metadata            `json:"metadata"`
 	ResourceUtilisation ResourceUtilisation `json:"resourceUtilisation"`
 	FunctionCalls       []FunctionCall      `json:"functionCalls"`
-	Drupal              *Drupal             `json:"drupal,omitempty"`
+	// FunctionCallsDropped is the exact number of function events not retained
+	// after this trace reached its configured limit.
+	FunctionCallsDropped int     `json:"functionCallsDropped,omitempty"`
+	Drupal               *Drupal `json:"drupal,omitempty"`
 }
 
 type ResourceUtilisation struct {

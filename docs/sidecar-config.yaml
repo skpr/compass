@@ -28,6 +28,10 @@ node_addon_path: "/usr/lib/compass/node/compass.node"
 # fails when none are found.
 discovery_timeout: "1m"
 
+# COMPASS_SIDECAR_MAX_FUNCTION_CALLS - function calls retained per trace. Calls
+# beyond the limit are counted and reported as dropped rather than retained.
+max_function_calls: 10000
+
 # COMPASS_SIDECAR_TOKEN - clients must send this as the X-Skpr-Token header.
 # token: "xxxyyyzzz"
 

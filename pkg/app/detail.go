@@ -84,6 +84,14 @@ func (m *Model) detailFields() []field {
 		field{label: "Calls", value: fmt.Sprintf("%d", len(t.FunctionCalls)), style: theme.S.CellDim},
 	)
 
+	if t.FunctionCallsDropped > 0 {
+		fields = append(fields, field{
+			label: "Call data",
+			value: fmt.Sprintf("partial · %d dropped", t.FunctionCallsDropped),
+			style: theme.S.Severity(theme.LevelWarn),
+		})
+	}
+
 	if t.Metadata.Identified() {
 		fields = append(fields, field{label: "ID", value: t.Metadata.ID, style: theme.S.CellDim, wide: true})
 	}

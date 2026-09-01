@@ -12,6 +12,12 @@ import (
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
+// Options which apply to every discovered runtime.
+type Options struct {
+	// MaxFunctionCalls is how many function records each trace retains.
+	MaxFunctionCalls int
+}
+
 // Runtimes which have been discovered and can be traced.
 //
 // A deployment usually only runs one of these, so an empty path means that
@@ -29,7 +35,7 @@ func (r Runtimes) Empty() bool {
 }
 
 // Run the collector for all discovered runtimes.
-func Run(ctx context.Context, plugin sink.Interface, runtimes Runtimes) error {
+func Run(ctx context.Context, plugin sink.Interface, runtimes Runtimes, options Options) error {
 	if runtimes.Empty() {
 		return fmt.Errorf("no runtimes to trace")
 	}
@@ -38,13 +44,13 @@ func Run(ctx context.Context, plugin sink.Interface, runtimes Runtimes) error {
 
 	if runtimes.PHPExtensionPath != "" {
 		g.Go(func() error {
-			return php.Run(ctx, plugin, runtimes.PHPExtensionPath)
+			return php.Run(ctx, plugin, runtimes.PHPExtensionPath, options.MaxFunctionCalls)
 		})
 	}
 
 	if runtimes.NodeAddonPath != "" {
 		g.Go(func() error {
-			return node.Run(ctx, plugin, runtimes.NodeAddonPath)
+			return node.Run(ctx, plugin, runtimes.NodeAddonPath, options.MaxFunctionCalls)
 		})
 	}
 

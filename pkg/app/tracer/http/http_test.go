@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/skpr/compass/pkg/app/events"
 	"github.com/skpr/compass/pkg/trace"
+	"github.com/skpr/compass/pkg/tracer/functioncalls"
 )
 
 // sender collects the messages which would have been sent to the application.
@@ -166,4 +168,47 @@ func TestStart_Reconnects(t *testing.T) {
 		events.ConnectionStateConnecting,
 		events.ConnectionStateConnected,
 	}, s.states())
+}
+
+func TestDefaultFunctionCallLimitFitsTransport(t *testing.T) {
+	const maxInt64 = int64(^uint64(0) >> 1)
+
+	tr := trace.Trace{
+		Metadata: trace.Metadata{
+			ID: "ffffffffffffffffffffffffffffffff",
+			HTTP: trace.MetadataHTTP{
+				Method: strings.Repeat("M", 100),
+				URI:    strings.Repeat("u", 2_000),
+			},
+		},
+		FunctionCalls: make([]trace.FunctionCall, functioncalls.DefaultMax),
+		Drupal: &trace.Drupal{
+			CacheEvents: make([]trace.CacheEvent, 250),
+		},
+	}
+
+	for i := range tr.FunctionCalls {
+		tr.FunctionCalls[i] = trace.FunctionCall{
+			Name:    strings.Repeat("f", 100),
+			Offset:  time.Duration(maxInt64),
+			Elapsed: time.Duration(maxInt64),
+			Memory:  maxInt64,
+		}
+	}
+
+	for i := range tr.Drupal.CacheEvents {
+		tr.Drupal.CacheEvents[i] = trace.CacheEvent{
+			Caller:     strings.Repeat("c", 255),
+			ObjectType: strings.Repeat("o", 255),
+			Tags:       []string{strings.Repeat("t", 1_024)},
+			Contexts:   []string{strings.Repeat("x", 512)},
+			MaxAge:     maxInt64,
+			Offset:     time.Duration(maxInt64),
+			Calls:      maxInt64,
+		}
+	}
+
+	encoded, err := json.Marshal(tr)
+	require.NoError(t, err)
+	assert.Less(t, len(encoded)+1, maxLineBytes, "JSON line is %d bytes", len(encoded)+1)
 }
