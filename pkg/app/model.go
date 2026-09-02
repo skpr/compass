@@ -72,14 +72,22 @@ type Model struct {
 	showHelp bool
 
 	// filter narrows the list on screen. filterFocused is whether it is being
-	// typed into; a filter stays in force after the cursor leaves it.
-	filter        textinput.Model
-	filterFocused bool
+	// typed into; a filter stays in force after the cursor leaves it. Search
+	// and Logs share a value, while each trace page keeps its own so a URI
+	// query does not accidentally hide every function in an opened trace.
+	filter               textinput.Model
+	filterFocused        bool
+	listFilterValue      string
+	functionsFilterValue string
+	drupalFilterValue    string
 
 	// The rows on the trace pages are cells; these are what the cells were made
-	// from, kept so the panel below each table can show a row in full.
-	functionSpans []segmented.Span
-	drupalEvents  []trace.CacheEvent
+	// from, and the visible maps take a filtered table row back to that source
+	// so the panel below it still describes the selected row.
+	functionSpans   []segmented.Span
+	functionVisible []int
+	drupalEvents    []trace.CacheEvent
+	drupalVisible   []int
 
 	// visible maps a row on screen back to what it came from, so that opening
 	// a trace opens the one under the cursor rather than the one at that index

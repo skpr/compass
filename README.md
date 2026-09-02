@@ -67,8 +67,9 @@ made of its cacheability. The block lays itself out in as many columns as the
 terminal is wide enough for, with the values nobody wants abbreviated — the URI
 and the request id — on rows of their own.
 
-`/` narrows the list on screen, `?` shows the keys and what the glyphs mean,
-and `q` quits.
+`/` narrows whichever list is on screen, including the Functions and Drupal
+pages of an open trace; `?` shows the keys and what the glyphs mean, and `q`
+quits.
 
 **Functions** is where the request spent its time, in the order it ran, so the
 page reads as a call sequence: what called what, and where the time went in

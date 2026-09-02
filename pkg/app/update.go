@@ -96,9 +96,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// filterable reports whether the page on screen is a list worth narrowing.
+// filterable reports whether the page on screen has rows worth narrowing.
 func (m *Model) filterable() bool {
-	return m.PageSelected == PageSearch || m.PageSelected == PageLogs
+	return m.currentTable() != nil
 }
 
 // currentTable of the selected page.

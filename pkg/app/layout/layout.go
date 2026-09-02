@@ -18,8 +18,8 @@ const (
 	MenuHeight = 2
 	// FooterHeight is the key rail.
 	FooterHeight = 1
-	// FilterHeight is the input shown while a list is being narrowed.
-	FilterHeight = 1
+	// FilterHeight is the rounded search field: top frame, input and bottom frame.
+	FilterHeight = 3
 )
 
 // MinContentHeight is a header, a rule and a single row.

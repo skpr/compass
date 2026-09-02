@@ -56,20 +56,21 @@ func (m *Model) hints() []hint {
 		return []hint{{key: "?", desc: "close"}, {key: "q", desc: "quit"}}
 	}
 
-	if m.inTrace() {
-		return []hint{
-			{key: "↑↓", desc: "move"},
-			{key: "←→", desc: "page"},
-			{key: "esc", desc: "back"},
-			{key: "?", desc: "keys"},
-			{key: "q", desc: "quit"},
-		}
-	}
-
 	if m.filterFocused {
 		return []hint{
 			{key: "enter", desc: "keep"},
 			{key: "esc", desc: "clear"},
+		}
+	}
+
+	if m.inTrace() {
+		return []hint{
+			{key: "↑↓", desc: "move"},
+			{key: "/", desc: "filter"},
+			{key: "←→", desc: "page"},
+			{key: "esc", desc: "back"},
+			{key: "?", desc: "keys"},
+			{key: "q", desc: "quit"},
 		}
 	}
 

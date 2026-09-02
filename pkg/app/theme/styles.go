@@ -41,6 +41,13 @@ type Styles struct {
 	Empty       lipgloss.Style
 	SurfaceCard lipgloss.Style
 
+	// Interactive filter field.
+	FilterSurface     lipgloss.Style
+	FilterPrompt      lipgloss.Style
+	FilterText        lipgloss.Style
+	FilterPlaceholder lipgloss.Style
+	FilterMeta        lipgloss.Style
+
 	// Categorical.
 	RuntimePHP  lipgloss.Style
 	RuntimeNode lipgloss.Style
@@ -93,6 +100,12 @@ func NewStyles(t Theme) Styles {
 		Track:       base.Foreground(t.Track),
 		Empty:       base.Foreground(t.TextFaint),
 		SurfaceCard: base.Background(t.SurfaceRaised).Foreground(t.TextPrimary),
+
+		FilterSurface:     base.Background(t.SurfaceRaised).Foreground(t.TextPrimary),
+		FilterPrompt:      base.Background(t.SurfaceRaised).Foreground(t.AccentBright).Bold(true),
+		FilterText:        base.Background(t.SurfaceRaised).Foreground(t.TextPrimary),
+		FilterPlaceholder: base.Background(t.SurfaceRaised).Foreground(t.TextFaint),
+		FilterMeta:        base.Background(t.SurfaceRaised).Foreground(t.TextFaint),
 
 		RuntimePHP:  base.Foreground(t.RuntimePHP),
 		RuntimeNode: base.Foreground(t.RuntimeNode),

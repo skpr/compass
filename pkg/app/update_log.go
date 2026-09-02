@@ -12,7 +12,7 @@ func (m *Model) updateLog(event events.Log) (tea.Model, tea.Cmd) {
 	m.ensureLogHistory()
 	newRun := m.appendLog(event)
 
-	if strings.TrimSpace(m.filter.Value()) != "" || m.logsTable == nil {
+	if strings.TrimSpace(m.filterValue(PageLogs)) != "" || m.logsTable == nil {
 		if m.logsTable != nil {
 			m.logsSetRows()
 		}

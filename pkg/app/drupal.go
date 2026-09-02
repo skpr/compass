@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -54,10 +55,12 @@ func (m *Model) drupalInit() {
 }
 
 func (m *Model) drupalSetRows() {
+	selectedIndex, preserveSelection := m.selectedDrupalIndex()
 	summary := m.drupalSummary()
 
 	if !summary.Collected {
 		m.drupalEvents = nil
+		m.drupalVisible = nil
 		m.drupal.SetRows(nil)
 
 		return
@@ -68,9 +71,16 @@ func (m *Model) drupalSetRows() {
 	// cells were made from.
 	m.drupalEvents = summary.Events
 
-	rows := make([]datatable.Row, 0, len(summary.Events))
-
+	values := make([]string, 0, len(summary.Events))
 	for _, event := range summary.Events {
+		values = append(values, drupalFilterValue(event))
+	}
+	m.drupalVisible = matches(values, m.filterValue(PageDrupal))
+
+	rows := make([]datatable.Row, 0, len(m.drupalVisible))
+
+	for _, index := range m.drupalVisible {
+		event := summary.Events[index]
 		rows = append(rows, datatable.Row{
 			identifierCell(event.Caller),
 			datatable.Styled(format.MaxAge(event.MaxAge), maxAgeStyle(event.MaxAge)),
@@ -83,6 +93,25 @@ func (m *Model) drupalSetRows() {
 	}
 
 	m.drupal.SetRows(rows)
+	if preserveSelection {
+		for row, index := range m.drupalVisible {
+			if index == selectedIndex {
+				m.drupal.SetCursor(row)
+				break
+			}
+		}
+	}
+}
+
+func drupalFilterValue(event trace.CacheEvent) string {
+	return strings.Join([]string{
+		event.Caller,
+		event.ObjectType,
+		string(event.Origin),
+		format.MaxAge(event.MaxAge),
+		strings.Join(event.Tags, " "),
+		strings.Join(event.Contexts, " "),
+	}, " ")
 }
 
 // maxAgeStyle for a cacheability value.
@@ -137,14 +166,22 @@ func (m *Model) drupalView() string {
 }
 
 // selectedCacheEvent under the cursor, and whether there was one.
-func (m *Model) selectedCacheEvent() (trace.CacheEvent, bool) {
+func (m *Model) selectedDrupalIndex() (int, bool) {
 	cursor := m.drupal.Cursor()
+	if cursor < 0 || cursor >= len(m.drupalVisible) {
+		return 0, false
+	}
 
-	if cursor < 0 || cursor >= len(m.drupalEvents) {
+	return m.drupalVisible[cursor], true
+}
+
+func (m *Model) selectedCacheEvent() (trace.CacheEvent, bool) {
+	index, ok := m.selectedDrupalIndex()
+	if !ok || index < 0 || index >= len(m.drupalEvents) {
 		return trace.CacheEvent{}, false
 	}
 
-	return m.drupalEvents[cursor], true
+	return m.drupalEvents[index], true
 }
 
 // drupalInspectLines describe the cacheability event under the cursor.
