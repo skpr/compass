@@ -11,18 +11,30 @@ import (
 	"github.com/skpr/compass/pkg/trace/segmented"
 )
 
-// DefaultMaxTraces is how many traces we retain when no limit has been configured.
-const DefaultMaxTraces = 500
+const (
+	// DefaultMaxTraces is how many traces we retain when no limit has been configured.
+	DefaultMaxTraces = 500
+	// DefaultMaxLogs bounds log history for unattended sessions when no limit
+	// has been configured.
+	DefaultMaxLogs = 1000
+)
 
 // NewModel for executing this application.
-func NewModel(probePath string, maxTraces int) *Model {
+func NewModel(probePath string, maxTraces, maxLogs int) *Model {
 	if maxTraces <= 0 {
 		maxTraces = DefaultMaxTraces
 	}
+	if maxLogs <= 0 {
+		maxLogs = DefaultMaxLogs
+	}
 
 	return &Model{
-		ProbePath: probePath,
-		MaxTraces: maxTraces,
+		ProbePath:  probePath,
+		MaxTraces:  maxTraces,
+		MaxLogs:    maxLogs,
+		traces:     newHistory[events.Trace](maxTraces),
+		logs:       newHistory[events.Log](maxLogs),
+		logEntries: newHistory[logEntry](maxLogs),
 	}
 }
 
@@ -33,6 +45,9 @@ type Model struct {
 
 	// MaxTraces is the maximum number of traces we retain, oldest are evicted first.
 	MaxTraces int
+	// MaxLogs is the maximum number of raw log events we retain, oldest are
+	// evicted first. Collapsed rows are derived incrementally from this bound.
+	MaxLogs int
 
 	// The current display that is selected.
 	PageSelected Page
@@ -44,10 +59,11 @@ type Model struct {
 	// Current is the trace which is open, if any.
 	Current *events.Trace
 
-	// Collected data. The tables render from these rather than holding the
-	// only copy, so a row can be rebuilt when the theme or the width changes.
-	traces []events.Trace
-	logs   []events.Log
+	// Collected data is held oldest-to-newest in fixed-capacity rings. Tables
+	// present it newest-first without prepending and copying retained events.
+	traces     history[events.Trace]
+	logs       history[events.Log]
+	logEntries history[logEntry]
 
 	// State of the connection to the trace stream.
 	connection events.Connection

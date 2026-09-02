@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/skpr/compass/pkg/app/component/datatable"
 	"github.com/skpr/compass/pkg/app/events"
@@ -59,9 +60,10 @@ func (m *Model) searchInit() {
 
 // searchSetRows from the retained traces, narrowed by the filter.
 func (m *Model) searchSetRows() {
-	values := make([]string, 0, len(m.traces))
+	values := make([]string, 0, m.traces.len())
 
-	for _, t := range m.traces {
+	for i := 0; i < m.traces.len(); i++ {
+		t, _ := m.traces.newest(i)
 		values = append(values, t.FilterValue())
 	}
 
@@ -70,7 +72,8 @@ func (m *Model) searchSetRows() {
 	rows := make([]datatable.Row, 0, len(m.visible))
 
 	for _, index := range m.visible {
-		rows = append(rows, m.traceRow(m.traces[index]))
+		t, _ := m.traces.newest(index)
+		rows = append(rows, m.traceRow(t))
 	}
 
 	m.search.SetRows(rows)
@@ -83,16 +86,15 @@ func (m *Model) searchSetRows() {
 func (m *Model) selectedTrace() (events.Trace, bool) {
 	cursor := m.search.Cursor()
 
+	if strings.TrimSpace(m.filter.Value()) == "" {
+		return m.traces.newest(cursor)
+	}
+
 	if cursor < 0 || cursor >= len(m.visible) {
 		return events.Trace{}, false
 	}
 
-	index := m.visible[cursor]
-	if index < 0 || index >= len(m.traces) {
-		return events.Trace{}, false
-	}
-
-	return m.traces[index], true
+	return m.traces.newest(m.visible[cursor])
 }
 
 // traceRow of the search list.

@@ -182,3 +182,43 @@ func TestModel_BlurredIgnoresKeys(t *testing.T) {
 	assert.Zero(t, m.Cursor())
 	assert.False(t, m.Focused())
 }
+
+func TestModel_PrependRowBoundedWrapsAndEvictsTheOldest(t *testing.T) {
+	m := testTable(0)
+
+	for i := range 6 {
+		m.PrependRowBounded(Row{Text(fmt.Sprintf("row-%d", i))}, 3)
+	}
+
+	require.Equal(t, 3, m.Len())
+	rows := m.Rows()
+	assert.Equal(t, "row-5", rows[0][0].String())
+	assert.Equal(t, "row-4", rows[1][0].String())
+	assert.Equal(t, "row-3", rows[2][0].String())
+}
+
+func TestModel_PrependRowBoundedPreservesSelection(t *testing.T) {
+	m := testTable(3)
+	m.SetCursor(1)
+
+	m.PrependRowBounded(Row{Text("new")}, 4)
+
+	row, ok := m.SelectedRow()
+	require.True(t, ok)
+	assert.Equal(t, "row-1", row[0].String())
+	assert.Equal(t, 2, m.Cursor())
+}
+
+func TestModel_SetAndTrimCircularRows(t *testing.T) {
+	m := testTable(0)
+	for i := range 4 {
+		m.PrependRowBounded(Row{Text(fmt.Sprintf("row-%d", i))}, 4)
+	}
+
+	require.True(t, m.SetRow(0, Row{Text("updated")}))
+	m.TrimRows(2)
+
+	require.Equal(t, 2, m.Len())
+	assert.Equal(t, "updated", m.Rows()[0][0].String())
+	assert.Equal(t, "row-2", m.Rows()[1][0].String())
+}

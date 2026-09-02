@@ -43,31 +43,34 @@ func (m *Model) logsInit() {
 	)
 }
 
-// logsSetRows from the collected log events, collapsing repeats.
+// logsSetRows rebuilds visible rows from the incrementally collapsed history.
 func (m *Model) logsSetRows() {
-	entries := collapseLogs(m.logs)
+	entries := make([]logEntry, 0, m.logEntries.len())
+	values := make([]string, 0, m.logEntries.len())
 
-	values := make([]string, 0, len(entries))
-	for _, entry := range entries {
+	for i := 0; i < m.logEntries.len(); i++ {
+		entry, _ := m.logEntries.newest(i)
+		entries = append(entries, entry)
 		values = append(values, entry.Message)
 	}
 
 	rows := make([]datatable.Row, 0, len(entries))
-
 	for _, index := range matches(values, m.filter.Value()) {
-		entry := entries[index]
-
-		severity := logSeverity(entry.Type)
-
-		rows = append(rows, datatable.Row{
-			datatable.Styled(entry.Time.Local().Format(logTimeFormat), theme.S.CellDim),
-			datatable.Styled(strings.ToUpper(entry.Type), theme.S.Severity(severity)),
-			repeatCell(entry.Repeats),
-			datatable.Styled(entry.Message, theme.S.Cell),
-		})
+		rows = append(rows, m.logRow(entries[index]))
 	}
 
 	m.logsTable.SetRows(rows)
+}
+
+func (m *Model) logRow(entry logEntry) datatable.Row {
+	severity := logSeverity(entry.Type)
+
+	return datatable.Row{
+		datatable.Styled(entry.Time.Local().Format(logTimeFormat), theme.S.CellDim),
+		datatable.Styled(strings.ToUpper(entry.Type), theme.S.Severity(severity)),
+		repeatCell(entry.Repeats),
+		datatable.Styled(entry.Message, theme.S.Cell),
+	}
 }
 
 // logEntry is a log event and how many times it repeated.
@@ -76,36 +79,6 @@ type logEntry struct {
 
 	// Repeats counts this occurrence and every identical one after it.
 	Repeats int
-}
-
-// collapseLogs folds runs of the same message into one row with a count.
-//
-// A sidecar which cannot be reached logs the same line every retry, so a screen
-// of logs is otherwise forty copies of one sentence and none of the others.
-// The count says how bad it is; one row says what it is.
-func collapseLogs(logs []events.Log) []logEntry {
-	entries := make([]logEntry, 0, len(logs))
-
-	for _, log := range logs {
-		if len(entries) > 0 {
-			previous := &entries[len(entries)-1]
-
-			if previous.Message == log.Message && previous.Type == log.Type {
-				previous.Repeats++
-
-				// The most recent occurrence is the one worth timestamping.
-				if log.Time.After(previous.Time) {
-					previous.Time = log.Time
-				}
-
-				continue
-			}
-		}
-
-		entries = append(entries, logEntry{Log: log, Repeats: 1})
-	}
-
-	return entries
 }
 
 // repeatCell of a collapsed run.

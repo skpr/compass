@@ -35,8 +35,8 @@ func (m *Model) viewMenu() string {
 	}
 
 	return m.renderTabs([]tab{
-		{label: string(PageSearch), count: len(m.traces), showCount: true, active: m.PageSelected == PageSearch},
-		{label: string(PageLogs), count: len(m.logs), showCount: true, active: m.PageSelected == PageLogs},
+		{label: string(PageSearch), count: m.traces.len(), showCount: true, active: m.PageSelected == PageSearch},
+		{label: string(PageLogs), count: m.logs.len(), showCount: true, active: m.PageSelected == PageLogs},
 	}, "")
 }
 
