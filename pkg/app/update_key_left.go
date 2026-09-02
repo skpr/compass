@@ -7,9 +7,9 @@ import (
 func (m *Model) updateKeyLeft() (tea.Model, tea.Cmd) {
 	switch m.PageSelected {
 	case PageLogs:
-		m.PageSelected = PageSearch
+		m.selectPage(PageSearch)
 	case PageDrupal:
-		m.PageSelected = PageFunctions
+		m.selectPage(PageFunctions)
 	}
 
 	m.relayout()

@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/sahilm/fuzzy"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/skpr/compass/pkg/app/theme"
 )
@@ -14,11 +14,11 @@ import (
 // filterInit prepares the filter input.
 func (m *Model) filterInit() {
 	input := textinput.New()
-	input.Prompt = "/"
-	input.Placeholder = "filter"
-	input.PromptStyle = theme.S.Key
-	input.TextStyle = theme.S.Primary
-	input.PlaceholderStyle = theme.S.Faint
+	input.Prompt = "/ "
+	input.Placeholder = "type to search"
+	input.PromptStyle = theme.S.FilterPrompt
+	input.TextStyle = theme.S.FilterText
+	input.PlaceholderStyle = theme.S.FilterPlaceholder
 
 	m.filter = input
 }
@@ -33,6 +33,7 @@ func (m *Model) startFilter() (tea.Model, tea.Cmd) {
 	m.filterFocused = true
 
 	m.currentTable().Blur()
+	m.relayout()
 
 	return m, m.filter.Focus()
 }
@@ -43,11 +44,13 @@ func (m *Model) endFilter() {
 	m.filter.Blur()
 
 	m.currentTable().Focus()
+	m.relayout()
 }
 
 // clearFilter removes the filter entirely.
 func (m *Model) clearFilter() {
 	m.filter.SetValue("")
+	m.storeFilter(m.PageSelected, "")
 	m.endFilter()
 	m.refreshRows()
 }
@@ -57,6 +60,7 @@ func (m *Model) updateFilter(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	m.filter, cmd = m.filter.Update(msg)
+	m.storeFilter(m.PageSelected, m.filter.Value())
 
 	// The rows are rebuilt on every keystroke so the list narrows as you type,
 	// which is the whole point of a filter you can see.
@@ -65,11 +69,9 @@ func (m *Model) updateFilter(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// matches returns the indices of the values which match the filter, in the
-// order they should be shown.
-//
-// Fuzzy rather than substring: a trace is found by typing the parts of a path
-// you remember, not the contiguous run you would have to look up.
+// matches returns the indices of values containing the query, preserving their
+// original order. Matching is case-insensitive and contiguous, so a long URL
+// cannot match by scattering query characters across unrelated path segments.
 func matches(values []string, query string) []int {
 	if strings.TrimSpace(query) == "" {
 		indices := make([]int, len(values))
@@ -80,29 +82,133 @@ func matches(values []string, query string) []int {
 		return indices
 	}
 
-	found := fuzzy.Find(query, values)
-
-	indices := make([]int, 0, len(found))
-	for _, match := range found {
-		indices = append(indices, match.Index)
+	query = strings.ToLower(query)
+	indices := make([]int, 0, len(values))
+	for index, value := range values {
+		if strings.Contains(strings.ToLower(value), query) {
+			indices = append(indices, index)
+		}
 	}
 
 	return indices
 }
 
-// viewFilter renders the input, or nothing when no filter is in play.
+// filterValue returns the query belonging to a page. Search and Logs share a
+// query; the two trace pages keep independent values.
+func (m *Model) filterValue(page Page) string {
+	if sameFilterScope(page, m.PageSelected) {
+		return m.filter.Value()
+	}
+
+	switch page {
+	case PageSearch, PageLogs:
+		return m.listFilterValue
+	case PageFunctions:
+		return m.functionsFilterValue
+	case PageDrupal:
+		return m.drupalFilterValue
+	default:
+		return ""
+	}
+}
+
+func (m *Model) storeFilter(page Page, value string) {
+	switch page {
+	case PageSearch, PageLogs:
+		m.listFilterValue = value
+	case PageFunctions:
+		m.functionsFilterValue = value
+	case PageDrupal:
+		m.drupalFilterValue = value
+	}
+}
+
+func sameFilterScope(left, right Page) bool {
+	if (left == PageSearch || left == PageLogs) && (right == PageSearch || right == PageLogs) {
+		return true
+	}
+
+	return left == right
+}
+
+// selectPage saves the current query and restores the target page's before its
+// rows are refreshed.
+func (m *Model) selectPage(page Page) {
+	m.storeFilter(m.PageSelected, m.filter.Value())
+	value := m.filterValue(page)
+	m.PageSelected = page
+	m.filter.SetValue(value)
+	m.filterFocused = false
+	m.filter.Blur()
+	if m.currentTable() != nil {
+		m.refreshRows()
+	}
+}
+
+const searchWidgetMinWidth = 13
+
+// viewFilter renders the current page's filter as a compact terminal widget.
 func (m *Model) viewFilter() string {
-	if !m.filtering() {
+	if !m.filtering() || m.Width < searchWidgetMinWidth {
 		return ""
 	}
 
-	line := " " + m.filter.View()
-
-	if hidden := m.hiddenByFilter(); hidden > 0 {
-		line += theme.S.Faint.Render(fmt.Sprintf("   %d hidden", hidden))
+	border := theme.S.RuleIdle
+	label := theme.S.Header
+	labelText := "   SEARCH "
+	if m.filterFocused {
+		border = theme.S.RuleActive
+		label = theme.S.Key
+		labelText = " " + theme.MarkerItem + " SEARCH "
 	}
 
-	return m.padLine(line)
+	topRules := max(m.Width-2-ansi.StringWidth(labelText)-1, 0)
+	top := border.Render(theme.CornerTopLeft+theme.RuleLight) +
+		label.Render(labelText) +
+		border.Render(strings.Repeat(theme.RuleLight, topRules)+theme.CornerTopRight)
+
+	status := m.filterStatus()
+	statusWidth := ansi.StringWidth(status)
+	contentWidth := max(m.Width-4, 0)
+	queryWidth := contentWidth - statusWidth - 2
+	if queryWidth < 8 {
+		status = ""
+		statusWidth = 0
+		queryWidth = contentWidth
+	}
+
+	query := ansi.Truncate(m.filter.View(), max(queryWidth, 0), theme.MarkerEllipsis)
+	gap := max(contentWidth-ansi.StringWidth(query)-statusWidth, 0)
+
+	middle := border.Render(theme.RuleVertical) +
+		theme.S.FilterSurface.Render(" ") +
+		query +
+		theme.S.FilterSurface.Render(strings.Repeat(" ", gap)) +
+		theme.S.FilterMeta.Render(status) +
+		theme.S.FilterSurface.Render(" ") +
+		border.Render(theme.RuleVertical)
+
+	bottom := border.Render(
+		theme.CornerBottomLeft +
+			strings.Repeat(theme.RuleLight, max(m.Width-2, 0)) +
+			theme.CornerBottomRight,
+	)
+
+	return strings.Join([]string{top, middle, bottom}, "\n")
+}
+
+func (m *Model) filterStatus() string {
+	table := m.currentTable()
+	if table == nil {
+		return ""
+	}
+
+	status := fmt.Sprintf("%d shown", table.Len())
+	if hidden := m.hiddenByFilter(); hidden > 0 {
+		status += fmt.Sprintf(" %s %d hidden", theme.MarkerSeparator, hidden)
+	}
+
+	return status
 }
 
 // hiddenByFilter is how many rows the filter is holding back.
@@ -112,6 +218,10 @@ func (m *Model) hiddenByFilter() int {
 		return m.traces.len() - m.search.Len()
 	case PageLogs:
 		return m.logs.len() - m.logsTable.Len()
+	case PageFunctions:
+		return len(m.functionSpans) - m.functions.Len()
+	case PageDrupal:
+		return len(m.drupalEvents) - m.drupal.Len()
 	default:
 		return 0
 	}

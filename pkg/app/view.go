@@ -96,16 +96,17 @@ func (m Model) pageView() string {
 	}
 }
 
-// refreshRows rebuilds whichever list the filter applies to.
-//
-// The filter is shared between the two lists rather than being one per page,
-// so only the page on screen needs rebuilding.
+// refreshRows rebuilds whichever list the current filter applies to.
 func (m *Model) refreshRows() {
 	switch m.PageSelected {
 	case PageSearch:
 		m.searchSetRows()
 	case PageLogs:
 		m.logsSetRows()
+	case PageFunctions:
+		m.functionsSetRows()
+	case PageDrupal:
+		m.drupalSetRows()
 	}
 }
 

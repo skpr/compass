@@ -55,7 +55,7 @@ func (m *Model) logsSetRows() {
 	}
 
 	rows := make([]datatable.Row, 0, len(entries))
-	for _, index := range matches(values, m.filter.Value()) {
+	for _, index := range matches(values, m.filterValue(PageLogs)) {
 		rows = append(rows, m.logRow(entries[index]))
 	}
 

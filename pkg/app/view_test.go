@@ -128,12 +128,27 @@ func TestView_IsExactlyTheTerminalAfterOpeningATrace(t *testing.T) {
 }
 
 func TestView_WithFilterOpen(t *testing.T) {
-	m := testModel(120, 30)
-	m.startFilter()
-	m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("rec")})
+	for _, page := range []Page{PageSearch, PageLogs, PageFunctions, PageDrupal} {
+		t.Run(string(page), func(t *testing.T) {
+			m := testModel(120, 30)
+			switch page {
+			case PageLogs:
+				m.updateKeyRight()
+			case PageFunctions:
+				m.updateKeyEnter()
+			case PageDrupal:
+				m.updateKeyEnter()
+				m.updateKeyRight()
+			}
 
-	assert.Equal(t, 30, lipgloss.Height(m.View()))
-	assert.Contains(t, ansi.Strip(m.View()), "/rec")
+			m.startFilter()
+			m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("needle")})
+
+			assert.Equal(t, lipgloss.Height(m.viewFilter()), m.regions.Filter)
+			assert.Equal(t, 30, lipgloss.Height(m.View()))
+			assert.Contains(t, ansi.Strip(m.View()), "/ needle")
+		})
+	}
 }
 
 func TestView_WithHelpOpen(t *testing.T) {
@@ -214,11 +229,15 @@ func TestFilter_NarrowsAndRestores(t *testing.T) {
 	assert.False(t, m.filtering())
 }
 
-func TestFilter_IsNotOfferedOnTheTracePages(t *testing.T) {
+func TestFilter_IsOfferedOnTracePages(t *testing.T) {
 	m := testModel(120, 30)
 	m.updateKeyEnter()
 
-	assert.False(t, m.filterable())
+	assert.True(t, m.filterable())
+
+	m.updateKeyRight()
+	assert.Equal(t, PageDrupal, m.PageSelected)
+	assert.True(t, m.filterable())
 }
 
 // The request id is the thing which ties a trace to whatever else logged during
@@ -817,4 +836,142 @@ func TestFunctionTruncation_IsExplainedInHelp(t *testing.T) {
 	help := ansi.Strip(m.viewHelp())
 	assert.Contains(t, help, "additional function calls were dropped")
 	assert.Contains(t, help, "derived timing uses retained function calls only")
+}
+
+func TestFilter_FunctionsNarrowsRowsAndInspectFollowsSelection(t *testing.T) {
+	m := testModel(120, 34)
+	m.updateKeyEnter()
+	require.Equal(t, 2, m.functions.Len())
+	m.functions.SetCursor(1)
+
+	before, ok := m.selectedSpan()
+	require.True(t, ok)
+	require.Equal(t, `Drupal\Core\Render\Renderer::renderRoot`, before.Name)
+
+	m.startFilter()
+	m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("renderRoot")})
+
+	require.Equal(t, 1, m.functions.Len())
+	assert.Equal(t, 1, m.hiddenByFilter())
+
+	selected, ok := m.selectedSpan()
+	require.True(t, ok)
+	assert.Equal(t, `Drupal\Core\Render\Renderer::renderRoot`, selected.Name)
+	assert.Contains(t, ansi.Strip(m.inspectView()), `Drupal\Core\Render\Renderer::renderRoot`)
+
+	m.clearFilter()
+	assert.Equal(t, 2, m.functions.Len())
+}
+
+func TestFilter_DrupalSearchesFullMetadataAndInspectFollowsSelection(t *testing.T) {
+	m := testModel(120, 34)
+	m.updateKeyEnter()
+	m.updateKeyRight()
+	require.Equal(t, PageDrupal, m.PageSelected)
+	require.Equal(t, 2, m.drupal.Len())
+	m.drupal.SetCursor(1)
+
+	before, ok := m.selectedCacheEvent()
+	require.True(t, ok)
+	require.Equal(t, `Drupal\Core\Render\Renderer::doRender`, before.Caller)
+
+	m.startFilter()
+	m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("node:12")})
+
+	require.Equal(t, 1, m.drupal.Len())
+	assert.Equal(t, 1, m.hiddenByFilter())
+
+	selected, ok := m.selectedCacheEvent()
+	require.True(t, ok)
+	assert.Equal(t, `Drupal\Core\Render\Renderer::doRender`, selected.Caller)
+	panel := ansi.Strip(m.inspectView())
+	assert.Contains(t, panel, "node:12")
+	assert.NotContains(t, panel, "session")
+}
+
+func TestFilter_PageScopesDoNotLeakQueries(t *testing.T) {
+	m := testModel(120, 34)
+
+	m.startFilter()
+	m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("health")})
+	m.endFilter()
+	require.Equal(t, 1, m.search.Len())
+
+	m.updateKeyEnter()
+	assert.Equal(t, PageFunctions, m.PageSelected)
+	assert.Empty(t, m.filter.Value())
+	assert.Equal(t, 2, m.functions.Len())
+
+	m.startFilter()
+	m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("DrupalKernel")})
+	m.endFilter()
+	require.Equal(t, 1, m.functions.Len())
+
+	// Stream arrivals while a trace is open continue using the list query,
+	// rather than whichever function name is being filtered here.
+	m.updateTrace(testTrace("/health/new"))
+	assert.Equal(t, 2, m.search.Len())
+	assert.Equal(t, 1, m.functions.Len())
+
+	m.updateKeyRight()
+	assert.Equal(t, PageDrupal, m.PageSelected)
+	assert.Empty(t, m.filter.Value())
+	assert.Equal(t, 2, m.drupal.Len())
+
+	m.updateKeyLeft()
+	assert.Equal(t, PageFunctions, m.PageSelected)
+	assert.Equal(t, "DrupalKernel", m.filter.Value())
+	assert.Equal(t, 1, m.functions.Len())
+
+	m.updateKeyEsc()
+	assert.Equal(t, PageSearch, m.PageSelected)
+	assert.Equal(t, "health", m.filter.Value())
+	assert.Equal(t, 2, m.search.Len())
+}
+
+func TestFilter_RendersAsSearchWidget(t *testing.T) {
+	m := testModel(80, 24)
+	m.startFilter()
+	m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("health")})
+
+	widget := ansi.Strip(m.viewFilter())
+	lines := strings.Split(widget, "\n")
+	require.Len(t, lines, 3)
+
+	assert.True(t, strings.HasPrefix(lines[0], "╭─ ▸ SEARCH "))
+	assert.True(t, strings.HasSuffix(lines[0], "╮"))
+	assert.True(t, strings.HasPrefix(lines[1], "│ "))
+	assert.True(t, strings.HasSuffix(lines[1], " │"))
+	assert.Contains(t, lines[1], "/ health")
+	assert.Contains(t, lines[1], "1 shown · 2 hidden")
+	assert.Equal(t, strings.Repeat("─", 78), strings.TrimSuffix(strings.TrimPrefix(lines[2], "╰"), "╯"))
+
+	for _, line := range lines {
+		assert.Equal(t, 80, ansi.StringWidth(line))
+	}
+
+	m.endFilter()
+	idle := ansi.Strip(m.viewFilter())
+	assert.Contains(t, widget, theme.MarkerItem, "focus must survive without colour")
+	assert.NotContains(t, idle, theme.MarkerItem)
+	assert.Contains(t, idle, "╭─   SEARCH ")
+}
+
+func TestFilter_WidgetIsExactAtMinimumTerminalWidths(t *testing.T) {
+	for _, width := range []int{60, 61, 62} {
+		m := testModel(width, 24)
+		m.startFilter()
+		m.updateFilter(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("health")})
+
+		lines := strings.Split(m.viewFilter(), "\n")
+		require.Len(t, lines, 3, "width=%d", width)
+		for _, line := range lines {
+			assert.Equal(t, width, ansi.StringWidth(line), "width=%d", width)
+		}
+	}
+
+	m := testModel(60, 24)
+	m.startFilter()
+	m.Width = searchWidgetMinWidth - 1
+	assert.Empty(t, m.viewFilter(), "the widget must not overflow below its intrinsic width")
 }

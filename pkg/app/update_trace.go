@@ -15,7 +15,7 @@ func (m *Model) updateTrace(event events.Trace) (tea.Model, tea.Cmd) {
 	// An unfiltered arrival affects exactly one visible row. The datatable's
 	// bounded front insertion preserves the selected logical row and avoids a
 	// full values/filter/rows rebuild on the common path.
-	if strings.TrimSpace(m.filter.Value()) == "" && m.search != nil {
+	if strings.TrimSpace(m.filterValue(PageSearch)) == "" && m.search != nil {
 		m.visible = nil
 		m.search.PrependRowBounded(m.traceRow(event), m.MaxTraces)
 	} else if m.search != nil {

@@ -67,7 +67,7 @@ func (m *Model) searchSetRows() {
 		values = append(values, t.FilterValue())
 	}
 
-	m.visible = matches(values, m.filter.Value())
+	m.visible = matches(values, m.filterValue(PageSearch))
 
 	rows := make([]datatable.Row, 0, len(m.visible))
 
@@ -86,7 +86,7 @@ func (m *Model) searchSetRows() {
 func (m *Model) selectedTrace() (events.Trace, bool) {
 	cursor := m.search.Cursor()
 
-	if strings.TrimSpace(m.filter.Value()) == "" {
+	if strings.TrimSpace(m.filterValue(PageSearch)) == "" {
 		return m.traces.newest(cursor)
 	}
 

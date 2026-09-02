@@ -12,7 +12,7 @@ func (m *Model) updateKeyEsc() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.PageSelected = PageSearch
+	m.selectPage(PageSearch)
 	m.relayout()
 
 	return m, nil

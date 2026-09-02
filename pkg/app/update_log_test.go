@@ -75,7 +75,7 @@ func TestUpdateLog_FilteringUsesCollapsedRetainedRuns(t *testing.T) {
 	require.Equal(t, []string{"connection refused"}, logMessages(m))
 	assert.Equal(t, theme.MarkerRepeat+"2", m.logsTable.Rows()[0][2].String())
 
-	// Filtered arrivals take the full fuzzy-match path, but remain bounded and
+	// Filtered arrivals take the full filter-match path, but remain bounded and
 	// preserve collapse counts.
 	m.updateLog(testLog(3, "warn", "unrelated warning"))
 	m.updateLog(testLog(4, "error", "connection refused"))

@@ -26,6 +26,7 @@ func (m *Model) viewHelp() string {
 				{"g / G", "top / bottom"},
 				{"pgup / pgdn", "page"},
 				{"← →", "switch tab"},
+				{"/", "filter the current page"},
 				{"enter", "open the selected trace"},
 				{"esc", "close the trace"},
 				{"?", "this help"},

@@ -64,8 +64,11 @@ func (m *Model) timelineTitle() string {
 }
 
 func (m *Model) functionsSetRows() {
+	selectedIndex, preserveSelection := m.selectedFunctionIndex()
+
 	if m.Current == nil {
 		m.functionSpans = nil
+		m.functionVisible = nil
 		m.functions.SetRows(nil)
 
 		return
@@ -103,9 +106,16 @@ func (m *Model) functionsSetRows() {
 	// abbreviated name actually was.
 	m.functionSpans = spans
 
-	rows := make([]datatable.Row, 0, len(spans))
-
+	values := make([]string, 0, len(spans))
 	for _, s := range spans {
+		values = append(values, s.Name)
+	}
+	m.functionVisible = matches(values, m.filterValue(PageFunctions))
+
+	rows := make([]datatable.Row, 0, len(m.functionVisible))
+
+	for _, index := range m.functionVisible {
+		s := spans[index]
 		share := s.SelfShare(executionTime)
 
 		rows = append(rows, datatable.Row{
@@ -122,6 +132,14 @@ func (m *Model) functionsSetRows() {
 	}
 
 	m.functions.SetRows(rows)
+	if preserveSelection {
+		for row, index := range m.functionVisible {
+			if index == selectedIndex {
+				m.functions.SetCursor(row)
+				break
+			}
+		}
+	}
 }
 
 // timelineCell of a bar, as segments rather than a rendered string, so that the
@@ -153,14 +171,22 @@ func (m *Model) functionsView() string {
 }
 
 // selectedSpan under the cursor, and whether there was one.
-func (m *Model) selectedSpan() (segmented.Span, bool) {
+func (m *Model) selectedFunctionIndex() (int, bool) {
 	cursor := m.functions.Cursor()
+	if cursor < 0 || cursor >= len(m.functionVisible) {
+		return 0, false
+	}
 
-	if cursor < 0 || cursor >= len(m.functionSpans) {
+	return m.functionVisible[cursor], true
+}
+
+func (m *Model) selectedSpan() (segmented.Span, bool) {
+	index, ok := m.selectedFunctionIndex()
+	if !ok || index < 0 || index >= len(m.functionSpans) {
 		return segmented.Span{}, false
 	}
 
-	return m.functionSpans[cursor], true
+	return m.functionSpans[index], true
 }
 
 // functionsInspectLines describe the call under the cursor.
