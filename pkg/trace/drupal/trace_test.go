@@ -160,3 +160,67 @@ func TestUnmarshal_DoesNotMutateTrace(t *testing.T) {
 
 	assert.Equal(t, "permanent", full.Drupal.CacheEvents[0].Caller)
 }
+
+func TestIsUncacheable_MatchesFullSummary(t *testing.T) {
+	tests := []struct {
+		name     string
+		full     trace.Trace
+		expected bool
+	}{
+		{name: "nil Drupal data", full: trace.Trace{}},
+		{name: "empty events", full: trace.Trace{Drupal: &trace.Drupal{}}},
+		{
+			name: "permanent",
+			full: trace.Trace{Drupal: &trace.Drupal{CacheEvents: []trace.CacheEvent{
+				{MaxAge: trace.CacheMaxAgePermanent},
+			}}},
+		},
+		{
+			name: "finite",
+			full: trace.Trace{Drupal: &trace.Drupal{CacheEvents: []trace.CacheEvent{
+				{MaxAge: 3600}, {MaxAge: 60},
+			}}},
+		},
+		{
+			name: "zero",
+			full: trace.Trace{Drupal: &trace.Drupal{CacheEvents: []trace.CacheEvent{
+				{MaxAge: 0},
+			}}},
+			expected: true,
+		},
+		{
+			name: "mixed",
+			full: trace.Trace{Drupal: &trace.Drupal{CacheEvents: []trace.CacheEvent{
+				{MaxAge: trace.CacheMaxAgePermanent}, {MaxAge: 3600}, {MaxAge: 0}, {MaxAge: 60},
+			}}},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lightweight := IsUncacheable(tt.full)
+			full := Unmarshal(tt.full).Uncacheable
+
+			assert.Equal(t, tt.expected, lightweight)
+			assert.Equal(t, full, lightweight)
+		})
+	}
+}
+
+func TestIsUncacheable_DoesNotAllocate(t *testing.T) {
+	events := make([]trace.CacheEvent, 250)
+	for i := range events {
+		events[i].MaxAge = 3600
+	}
+	events[len(events)-1].MaxAge = 0
+
+	full := trace.Trace{Drupal: &trace.Drupal{CacheEvents: events}}
+	allocations := testing.AllocsPerRun(1000, func() {
+		if !IsUncacheable(full) {
+			t.Fatal("expected an uncacheable trace")
+		}
+	})
+
+	assert.Zero(t, allocations)
+}

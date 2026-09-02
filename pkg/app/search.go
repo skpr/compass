@@ -217,7 +217,7 @@ const AttentionMarker = theme.MarkerPresent
 // but it is not a reason to open it, and a marker which fires for two different
 // reasons stops meaning either of them.
 func attentionCell(t events.Trace) datatable.Cell {
-	if !drupal.Unmarshal(t.Trace).Uncacheable {
+	if !drupal.IsUncacheable(t.Trace) {
 		return datatable.Text(" ")
 	}
 
