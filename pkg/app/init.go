@@ -11,6 +11,13 @@ func (m *Model) Init() tea.Cmd {
 	if m.MaxTraces <= 0 {
 		m.MaxTraces = DefaultMaxTraces
 	}
+	if m.MaxLogs <= 0 {
+		m.MaxLogs = DefaultMaxLogs
+	}
+
+	m.traces.setLimit(m.MaxTraces)
+	m.logs.setLimit(m.MaxLogs)
+	m.logEntries.setLimit(m.MaxLogs)
 
 	m.searchInit()
 	m.logsInit()

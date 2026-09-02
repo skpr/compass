@@ -203,6 +203,7 @@ extension predating them keeps its PHP tracing and loses only the Drupal page.
 | `--ca-file` | `COMPASS_CA_FILE` | | Certificate authority which signed the sidecar certificate. |
 | `--insecure-skip-verify` | `COMPASS_INSECURE_SKIP_VERIFY` | `false` | Skip verification of the sidecar certificate. |
 | `--max-traces` | `COMPASS_MAX_TRACES` | `500` | Traces to retain, oldest are discarded first. |
+| `--max-logs` | `COMPASS_MAX_LOGS` | `1000` | Log events to retain, oldest are discarded first. |
 | | `COMPASS_COLOR` | | Colour depth, when detection gets it wrong: `truecolor`, `256`, `16` or `none`. |
 
 The CLI reconnects with a backoff if the sidecar restarts, and the footer shows

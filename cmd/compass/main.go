@@ -44,6 +44,7 @@ type Options struct {
 	CAFile             string
 	InsecureSkipVerify bool
 	MaxTraces          int
+	MaxLogs            int
 }
 
 func main() {
@@ -69,7 +70,7 @@ func main() {
 		// Usage is not helpful for a runtime failure.
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p := tea.NewProgram(app.NewModel(o.URI, o.MaxTraces), tea.WithAltScreen())
+			p := tea.NewProgram(app.NewModel(o.URI, o.MaxTraces, o.MaxLogs), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
 			if err != nil {
@@ -116,6 +117,7 @@ func main() {
 	cmd.PersistentFlags().StringVar(&o.CAFile, "ca-file", env.String("COMPASS_CA_FILE", ""), "Path to the certificate authority which signed the sidecar certificate")
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure-skip-verify", env.Bool("COMPASS_INSECURE_SKIP_VERIFY", false), "Skip verification of the sidecar certificate")
 	cmd.PersistentFlags().IntVar(&o.MaxTraces, "max-traces", env.Int("COMPASS_MAX_TRACES", app.DefaultMaxTraces), "Maximum number of traces to retain, oldest are discarded first")
+	cmd.PersistentFlags().IntVar(&o.MaxLogs, "max-logs", env.Int("COMPASS_MAX_LOGS", app.DefaultMaxLogs), "Maximum number of log events to retain, oldest are discarded first")
 
 	// Through lipgloss like everything else. gchalk did its own terminal
 	// sniffing, independent of the renderer the interface uses, so the same

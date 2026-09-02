@@ -20,7 +20,7 @@ import (
 
 // testModel with some traces and logs in it, at a size.
 func testModel(width, height int) *Model {
-	m := NewModel("/proc/1/root/usr/lib/php/modules/compass.so", 500)
+	m := NewModel("/proc/1/root/usr/lib/php/modules/compass.so", 500, 1000)
 	m.Init()
 	m.updateWindowSize(tea.WindowSizeMsg{Width: width, Height: height})
 	m.updateConnection(events.Connection{State: events.ConnectionStateConnected})

@@ -22,13 +22,13 @@ func (m *Model) View() string {
 	lines := make([]string, 0, m.height)
 	lines = append(lines, m.header(), m.rule())
 
-	if len(m.rows) == 0 {
+	if m.rowLen == 0 {
 		lines = append(lines, m.emptyLine())
 	} else {
 		from, to := m.window()
 
 		for i := from; i < to; i++ {
-			lines = append(lines, m.renderRow(m.rows[i], m.focused && i == m.cursor))
+			lines = append(lines, m.renderRow(m.rowAt(i), m.focused && i == m.cursor))
 		}
 	}
 

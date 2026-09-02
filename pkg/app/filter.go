@@ -109,9 +109,9 @@ func (m *Model) viewFilter() string {
 func (m *Model) hiddenByFilter() int {
 	switch m.PageSelected {
 	case PageSearch:
-		return len(m.traces) - m.search.Len()
+		return m.traces.len() - m.search.Len()
 	case PageLogs:
-		return len(m.logs) - m.logsTable.Len()
+		return m.logs.len() - m.logsTable.Len()
 	default:
 		return 0
 	}

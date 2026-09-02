@@ -25,7 +25,13 @@ const MinWidth = 24
 // Model of a table.
 type Model struct {
 	columns []Column
-	rows    []Row
+
+	// rows is circular storage. rowStart is logical row zero and rowLen is the
+	// number of populated slots, allowing bounded front insertion without
+	// shifting every retained row.
+	rows     []Row
+	rowStart int
+	rowLen   int
 
 	// cursor is the row the reader is on, and offset is the first row on
 	// screen. They are only ever changed together, through clamp, which is why
@@ -118,17 +124,94 @@ func (m *Model) Columns() []Column {
 // appended to while it is read does not jump under the reader.
 func (m *Model) SetRows(rows []Row) {
 	m.rows = rows
+	m.rowStart = 0
+	m.rowLen = len(rows)
 	m.clamp()
 }
 
-// Rows of the table.
+// PrependRowBounded adds a logical first row in O(1), retaining at most limit
+// rows. The top cursor follows the live edge; a cursor below it and its
+// viewport move with the selected logical row while that row remains retained.
+func (m *Model) PrependRowBounded(row Row, limit int) {
+	if limit <= 0 {
+		m.SetRows(nil)
+		return
+	}
+
+	m.ensureRowCapacity(limit)
+
+	hadRows := m.rowLen > 0
+	m.rowStart = (m.rowStart - 1 + len(m.rows)) % len(m.rows)
+	m.rows[m.rowStart] = row
+	if m.rowLen < limit {
+		m.rowLen++
+	}
+
+	if hadRows && m.cursor > 0 {
+		m.cursor++
+		m.offset++
+	}
+	m.clamp()
+}
+
+// SetRow replaces one logical row without rebuilding the table.
+func (m *Model) SetRow(index int, row Row) bool {
+	if index < 0 || index >= m.rowLen {
+		return false
+	}
+
+	m.rows[m.rowIndex(index)] = row
+	return true
+}
+
+// TrimRows discards logical rows from the end.
+func (m *Model) TrimRows(limit int) {
+	limit = max(limit, 0)
+	for m.rowLen > limit {
+		m.rowLen--
+		index := m.rowIndex(m.rowLen)
+		m.rows[index] = nil
+	}
+	m.clamp()
+}
+
+func (m *Model) ensureRowCapacity(limit int) {
+	if len(m.rows) == limit {
+		return
+	}
+
+	keep := min(m.rowLen, limit)
+	rows := make([]Row, limit)
+	for i := range keep {
+		rows[i] = m.rowAt(i)
+	}
+
+	m.rows = rows
+	m.rowStart = 0
+	m.rowLen = keep
+}
+
+func (m *Model) rowIndex(index int) int {
+	return (m.rowStart + index) % len(m.rows)
+}
+
+func (m *Model) rowAt(index int) Row {
+	return m.rows[m.rowIndex(index)]
+}
+
+// Rows in display order.
 func (m *Model) Rows() []Row {
-	return m.rows
+	rows := make([]Row, m.rowLen)
+	for i := range rows {
+		rows[i] = m.rowAt(i)
+	}
+
+	return rows
 }
 
 // Len is how many rows the table holds.
 func (m *Model) Len() int {
-	return len(m.rows)
+	return m.rowLen
 }
 
 // Cursor position.
@@ -149,11 +232,11 @@ func (m *Model) Offset() int {
 
 // SelectedRow, and whether there was one.
 func (m *Model) SelectedRow() (Row, bool) {
-	if m.cursor < 0 || m.cursor >= len(m.rows) {
+	if m.cursor < 0 || m.cursor >= m.rowLen {
 		return nil, false
 	}
 
-	return m.rows[m.cursor], true
+	return m.rowAt(m.cursor), true
 }
 
 // MoveUp the cursor.
@@ -176,7 +259,7 @@ func (m *Model) GotoTop() {
 
 // GotoBottom of the rows.
 func (m *Model) GotoBottom() {
-	m.cursor = len(m.rows) - 1
+	m.cursor = m.rowLen - 1
 	m.clamp()
 }
 
@@ -218,8 +301,12 @@ func (m *Model) Focused() bool {
 // shown rather than on escape sequences.
 func (m *Model) VisibleRows() []Row {
 	from, to := m.window()
+	rows := make([]Row, 0, to-from)
+	for i := from; i < to; i++ {
+		rows = append(rows, m.rowAt(i))
+	}
 
-	return m.rows[from:to]
+	return rows
 }
 
 // Update the table.
@@ -261,8 +348,8 @@ func (m *Model) visibleHeight() int {
 
 // window of rows currently on screen, as a half open range.
 func (m *Model) window() (int, int) {
-	from := min(m.offset, len(m.rows))
-	to := min(from+m.visibleHeight(), len(m.rows))
+	from := min(m.offset, m.rowLen)
+	to := min(from+m.visibleHeight(), m.rowLen)
 
 	return from, to
 }
@@ -272,7 +359,7 @@ func (m *Model) window() (int, int) {
 // Every move goes through here. That is the whole reason the cursor and the
 // scroll position cannot disagree: there is one place where either changes.
 func (m *Model) clamp() {
-	if len(m.rows) == 0 {
+	if m.rowLen == 0 {
 		m.cursor, m.offset = 0, 0
 
 		return
@@ -280,14 +367,14 @@ func (m *Model) clamp() {
 
 	visible := m.visibleHeight()
 
-	m.cursor = min(max(m.cursor, 0), len(m.rows)-1)
+	m.cursor = min(max(m.cursor, 0), m.rowLen-1)
 
 	// The window follows the cursor when it walks off either edge...
 	m.offset = min(m.offset, m.cursor)
 	m.offset = max(m.offset, m.cursor-visible+1)
 
 	// ...and never scrolls past the end into blank space.
-	m.offset = min(m.offset, max(len(m.rows)-visible, 0))
+	m.offset = min(m.offset, max(m.rowLen-visible, 0))
 	m.offset = max(m.offset, 0)
 }
 
