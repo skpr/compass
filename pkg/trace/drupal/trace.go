@@ -97,6 +97,23 @@ func Unmarshal(fullTrace trace.Trace) Summary {
 	return summary
 }
 
+// IsUncacheable reports whether any collected cacheability event set max age
+// to zero. Search rows need only this status, so they avoid constructing and
+// sorting the full Drupal summary used by the opened trace.
+func IsUncacheable(fullTrace trace.Trace) bool {
+	if fullTrace.Drupal == nil {
+		return false
+	}
+
+	for _, event := range fullTrace.Drupal.CacheEvents {
+		if event.MaxAge == 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // mergeMaxAge combines two max ages the way Drupal does, by taking the lowest
 // of the two. Permanent is the absence of a limit rather than a low value, so
 // anything else wins against it.
