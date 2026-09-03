@@ -17,6 +17,7 @@ type Broadcaster struct {
 	addSub    chan chan trace.Trace
 	removeSub chan chan trace.Trace
 	broadcast chan trace.Trace
+	changes   chan struct{}
 }
 
 // NewBroadcaster creates and starts a new broadcaster.
@@ -26,6 +27,7 @@ func NewBroadcaster() *Broadcaster {
 		addSub:    make(chan chan trace.Trace),
 		removeSub: make(chan chan trace.Trace),
 		broadcast: make(chan trace.Trace),
+		changes:   make(chan struct{}, 1),
 	}
 
 	go b.run()
@@ -54,14 +56,18 @@ func (b *Broadcaster) run() {
 			b.subs[sub] = struct{}{}
 			b.count.Store(int64(len(b.subs)))
 			b.mu.Unlock()
+			b.notifySubscriptionChange()
 
 		case sub := <-b.removeSub:
 			b.mu.Lock()
 			if _, ok := b.subs[sub]; ok {
 				delete(b.subs, sub)
 				close(sub)
+				b.count.Store(int64(len(b.subs)))
+				b.mu.Unlock()
+				b.notifySubscriptionChange()
+				continue
 			}
-			b.count.Store(int64(len(b.subs)))
 			b.mu.Unlock()
 		}
 	}
@@ -83,6 +89,19 @@ func (b *Broadcaster) Unsubscribe(ch chan trace.Trace) {
 // Subscribers returns the number of active subscribers.
 func (b *Broadcaster) Subscribers() int {
 	return int(b.count.Load())
+}
+
+// SubscriptionChanges is notified after the subscriber count changes. Signals
+// are coalesced because consumers read the current atomic count after waking.
+func (b *Broadcaster) SubscriptionChanges() <-chan struct{} {
+	return b.changes
+}
+
+func (b *Broadcaster) notifySubscriptionChange() {
+	select {
+	case b.changes <- struct{}{}:
+	default:
+	}
 }
 
 // Initialize the plugin.
