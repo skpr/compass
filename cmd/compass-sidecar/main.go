@@ -105,6 +105,7 @@ func main() {
 			logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 				Level: lvl,
 			}))
+			slog.SetDefault(logger)
 
 			runtimes, err := discoverRuntimes(cmd.Context(), logger, config)
 			if err != nil {

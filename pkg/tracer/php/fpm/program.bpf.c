@@ -76,6 +76,24 @@ struct {
   __uint(max_entries, 1024 * 4096);
 } drupal_cache_events SEC(".maps");
 
+#define RINGBUF_STREAM_EVENTS 0
+#define RINGBUF_STREAM_DRUPAL_CACHE 1
+
+// Per-CPU counters keep reserve-failure accounting off the contended hot path.
+// User space sums CPUs and exports only deltas from this BPF object's lifetime.
+struct {
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(max_entries, 2);
+  __type(key, __u32);
+  __type(value, __u64);
+} ringbuf_reserve_failures SEC(".maps");
+
+static __always_inline void count_ringbuf_reserve_failure(__u32 stream) {
+  __u64 *failures = bpf_map_lookup_elem(&ringbuf_reserve_failures, &stream);
+  if (failures)
+    (*failures)++;
+}
+
 // Byte offsets of probe arguments within struct pt_regs. These are populated
 // from Go (via ebpf.Variable / CollectionSpec.Variables) before the program is
 // loaded into the kernel, based on the USDT argument descriptors parsed from
@@ -122,8 +140,10 @@ int uprobe_compass_canary(struct pt_regs *ctx) {
 SEC("uprobe/compass_fpm_request_init")
 int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
   struct event *event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
-  if (!event)
+  if (!event) {
+    count_ringbuf_reserve_failure(RINGBUF_STREAM_EVENTS);
     return 0;
+  }
 
   event->type = EVENT_TYPE_REQUEST_INIT;
   bpf_core_read_user_str(&event->request_id, STRSZ,
@@ -142,8 +162,10 @@ int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
 SEC("uprobe/compass_fpm_function")
 int uprobe_compass_fpm_function(struct pt_regs *ctx) {
   struct event *event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
-  if (!event)
+  if (!event) {
+    count_ringbuf_reserve_failure(RINGBUF_STREAM_EVENTS);
     return 0;
+  }
 
   event->type = EVENT_TYPE_FUNCTION;
   bpf_core_read_user_str(&event->request_id, STRSZ,
@@ -161,8 +183,10 @@ int uprobe_compass_fpm_function(struct pt_regs *ctx) {
 SEC("uprobe/compass_fpm_request_shutdown")
 int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
   struct event *event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
-  if (!event)
+  if (!event) {
+    count_ringbuf_reserve_failure(RINGBUF_STREAM_EVENTS);
     return 0;
+  }
 
   event->type = EVENT_TYPE_REQUEST_SHUTDOWN;
   bpf_core_read_user_str(&event->request_id, STRSZ,
@@ -185,8 +209,10 @@ SEC("uprobe/compass_drupal_cacheablemetadata_createfromrenderarray")
 int uprobe_compass_drupal_cache_render_array(struct pt_regs *ctx) {
   struct drupal_cache_event *event =
       bpf_ringbuf_reserve(&drupal_cache_events, sizeof(*event), 0);
-  if (!event)
+  if (!event) {
+    count_ringbuf_reserve_failure(RINGBUF_STREAM_DRUPAL_CACHE);
     return 0;
+  }
 
   // A ring buffer record is handed over uninitialised, and a failed string read
   // does not guarantee it writes a terminator, so every string field is
@@ -228,8 +254,10 @@ SEC("uprobe/compass_drupal_cacheablemetadata_createfromobject")
 int uprobe_compass_drupal_cache_object(struct pt_regs *ctx) {
   struct drupal_cache_event *event =
       bpf_ringbuf_reserve(&drupal_cache_events, sizeof(*event), 0);
-  if (!event)
+  if (!event) {
+    count_ringbuf_reserve_failure(RINGBUF_STREAM_DRUPAL_CACHE);
     return 0;
+  }
 
   // A ring buffer record is handed over uninitialised, and a failed string read
   // does not guarantee it writes a terminator, so every string field is
