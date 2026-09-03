@@ -115,11 +115,6 @@ func main() {
 
 			eg, ctx := errgroup.WithContext(cmd.Context())
 
-			var (
-				collectorCtx    context.Context
-				collectorCancel context.CancelFunc
-			)
-
 			// Loop for http server.
 			eg.Go(func() error {
 				mux := http.NewServeMux()
@@ -224,72 +219,12 @@ func main() {
 				return nil
 			})
 
-			// Loop for starting the collector.
-			eg.Go(func() error {
-				for {
-					select {
-					case <-ctx.Done():
-						logger.Info("Collector loop exiting due to context cancellation")
-						return nil
-					default:
-					}
-
-					// Avoid spinning.
-					time.Sleep(time.Second)
-
-					if b.Subscribers() == 0 {
-						continue
-					}
-
-					logger.Info("We have subscribers, starting collector")
-
-					// Track when our collector is running for debugging.
-					metricCollectorRunning.Set(1)
-
-					collectorCtx, collectorCancel = context.WithCancel(ctx)
-
-					err := tracer.Run(collectorCtx, b, runtimes, tracer.Options{MaxFunctionCalls: config.MaxFunctionCalls})
-					if err != nil && !errors.Is(err, context.Canceled) {
-						logger.Error("Failed to run collector", "error", err)
-					}
-
-					metricCollectorRunning.Set(0)
-
-					logger.Info("Collector has shutdown")
-				}
+			supervisor := newCollectorSupervisor(logger, b, func(collectorCtx context.Context) error {
+				return tracer.Run(collectorCtx, b, runtimes, tracer.Options{MaxFunctionCalls: config.MaxFunctionCalls})
 			})
 
-			// Loop for shutting down the collector.
 			eg.Go(func() error {
-				for {
-					select {
-					case <-ctx.Done():
-						return nil // Sidecar is shutting down
-					default:
-						// Sleep to avoid spinning
-						time.Sleep(time.Second)
-
-						if collectorCancel == nil || collectorCtx == nil {
-							continue
-						}
-
-						select {
-						case <-collectorCtx.Done():
-							// Already cancelled
-							continue
-						default:
-							if b.Subscribers() > 0 {
-								continue
-							}
-
-							logger.Info("No more subscribers, triggering collector shutdown")
-
-							collectorCancel()
-							collectorCancel = nil
-							collectorCtx = nil
-						}
-					}
-				}
+				return supervisor.Run(ctx)
 			})
 
 			if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
