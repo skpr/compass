@@ -145,3 +145,53 @@ func TestBPFPrograms_CountEveryReserveFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestBurstPressure_CompactFunctionRecordsReduceReserveFailures(t *testing.T) {
+	const (
+		ringSize              = 256 * 4096
+		burst                 = 4000
+		legacyPayloadSize     = 2328
+		compactPayloadSize    = 232
+		ringbufRecordOverhead = 8
+	)
+	capacity := func(payload int) int {
+		recordSize := (payload + ringbufRecordOverhead + 7) &^ 7
+		return ringSize / recordSize
+	}
+	failures := func(payload int) uint64 {
+		available := capacity(payload)
+		if available >= burst {
+			return 0
+		}
+		return uint64(burst - available)
+	}
+
+	legacyCounters := newTestCounters()
+	legacyObserver, err := newObserver(
+		&fakeCounterMap{values: map[uint32][]uint64{keyEvents: {failures(legacyPayloadSize)}}},
+		ingest.RuntimeNodeHTTP,
+		legacyCounters,
+		func(ingest.Runtime, ringreader.Stream, uint64) {},
+		ringreader.StreamEvents,
+	)
+	require.NoError(t, err)
+	require.NoError(t, legacyObserver.Observe())
+
+	compactCounters := newTestCounters()
+	compactObserver, err := newObserver(
+		&fakeCounterMap{values: map[uint32][]uint64{keyEvents: {failures(compactPayloadSize)}}},
+		ingest.RuntimeNodeHTTP,
+		compactCounters,
+		func(ingest.Runtime, ringreader.Stream, uint64) {},
+		ringreader.StreamEvents,
+	)
+	require.NoError(t, err)
+	require.NoError(t, compactObserver.Observe())
+
+	legacyFailures := counterValue(legacyCounters, ingest.RuntimeNodeHTTP, ringreader.StreamEvents)
+	compactFailures := counterValue(compactCounters, ingest.RuntimeNodeHTTP, ringreader.StreamEvents)
+	assert.Greater(t, legacyFailures, float64(0))
+	assert.Zero(t, compactFailures)
+	assert.GreaterOrEqual(t, capacity(compactPayloadSize), 3500)
+	assert.Greater(t, capacity(compactPayloadSize), capacity(legacyPayloadSize)*8)
+}

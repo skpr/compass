@@ -249,6 +249,27 @@ The sidecar only fails to start when neither is found.
 runtime and, where applicable, stream or reason labels so losses are visible without
 unbounded metric cardinality.
 
+## Event transport ABI
+
+Lifecycle and function events use type-specific ring-buffer records. Payload sizes
+come from the generated C layouts and are guarded by tests:
+
+| Runtime | Previous fixed payload | Request init | Function | Shutdown |
+| --- | ---: | ---: | ---: | ---: |
+| Node HTTP / PHP FPM | 2,328 B | 2,216 B | 232 B | 112 B |
+| PHP CLI | 248 B | 120 B | 136 B | 24 B |
+
+The hot HTTP/FPM function payload is 10x smaller. Including the kernel ring-buffer's
+8-byte record header and alignment, its record is 240 bytes, so a 1 MiB events
+ring holds 4,369 records instead of 448 legacy fixed records.
+
+A generated-layout decode benchmark on Linux/arm64 measured:
+
+| Function decode | ns/op | B/op | allocs/op |
+| --- | ---: | ---: | ---: |
+| Legacy fixed 2,328-byte payload | 10,282 | 5,424 | 3 |
+| Compact 232-byte payload | 1,053 | 288 | 2 |
+
 ## Development
 
 Tooling is managed with [mise](https://mise.jdx.dev/):

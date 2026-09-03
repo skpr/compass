@@ -16,18 +16,32 @@ enum event_type : __u8 {
   EVENT_TYPE_REQUEST_SHUTDOWN = 2,
 };
 
-struct event {
+struct request_init_event {
   __u8 type;
   __u8 request_id[STRSZ];
   __u8 method[STRSZ];
-  __u8 function_name[STRSZ];
   __u8 uri[URI_MAX_LEN];
+  __u64 timestamp;
+};
+
+struct function_event {
+  __u8 type;
+  __u8 request_id[STRSZ];
+  __u8 function_name[STRSZ];
   __u64 timestamp;
   __u64 elapsed;
   __u64 memory;
 };
 
-const struct event *unused_event __attribute__((unused));
+struct request_shutdown_event {
+  __u8 type;
+  __u8 request_id[STRSZ];
+  __u64 timestamp;
+};
+
+const struct request_init_event *unused_request_init_event __attribute__((unused));
+const struct function_event *unused_function_event __attribute__((unused));
+const struct request_shutdown_event *unused_request_shutdown_event __attribute__((unused));
 
 struct {
   __uint(type, BPF_MAP_TYPE_RINGBUF);
@@ -77,7 +91,8 @@ int uprobe_compass_canary(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_http_request_init")
 int uprobe_compass_http_request_init(struct pt_regs *ctx) {
-  struct event *event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
+  struct request_init_event *event =
+      bpf_ringbuf_reserve(&events, sizeof(*event), 0);
   if (!event) {
     count_ringbuf_reserve_failure(RINGBUF_STREAM_EVENTS);
     return 0;
@@ -91,7 +106,6 @@ int uprobe_compass_http_request_init(struct pt_regs *ctx) {
   bpf_core_read_user_str(&event->method, STRSZ,
                          (void *)read_arg(ctx, http_request_init_arg2_offset));
   event->timestamp = bpf_ktime_get_ns();
-  event->elapsed = 0;
 
   bpf_ringbuf_submit(event, 0);
   return 0;
@@ -99,7 +113,8 @@ int uprobe_compass_http_request_init(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_http_function")
 int uprobe_compass_http_function(struct pt_regs *ctx) {
-  struct event *event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
+  struct function_event *event =
+      bpf_ringbuf_reserve(&events, sizeof(*event), 0);
   if (!event) {
     count_ringbuf_reserve_failure(RINGBUF_STREAM_EVENTS);
     return 0;
@@ -120,7 +135,8 @@ int uprobe_compass_http_function(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_http_request_shutdown")
 int uprobe_compass_http_request_shutdown(struct pt_regs *ctx) {
-  struct event *event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
+  struct request_shutdown_event *event =
+      bpf_ringbuf_reserve(&events, sizeof(*event), 0);
   if (!event) {
     count_ringbuf_reserve_failure(RINGBUF_STREAM_EVENTS);
     return 0;
@@ -130,7 +146,6 @@ int uprobe_compass_http_request_shutdown(struct pt_regs *ctx) {
   bpf_core_read_user_str(&event->request_id, STRSZ,
                          (void *)read_arg(ctx, http_request_shutdown_arg0_offset));
   event->timestamp = bpf_ktime_get_ns();
-  event->elapsed = 0;
 
   bpf_ringbuf_submit(event, 0);
   return 0;

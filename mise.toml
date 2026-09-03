@@ -29,9 +29,9 @@ depends = ["generate"]
 [tasks.generate]
 description = "Executes bpf2go on multiple given directories"
 depends = [
-  "bpf2go pkg/tracer/php/cli cli event",
-  "bpf2go pkg/tracer/php/fpm fpm event,drupal_cache_event",
-  "bpf2go pkg/tracer/node/http http event",
+  "bpf2go pkg/tracer/php/cli cli request_init_event,function_event,request_shutdown_event",
+  "bpf2go pkg/tracer/php/fpm fpm request_init_event,function_event,request_shutdown_event,drupal_cache_event",
+  "bpf2go pkg/tracer/node/http http request_init_event,function_event,request_shutdown_event",
 ]
 
 [tasks.bpf2go]

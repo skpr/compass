@@ -83,7 +83,76 @@ func TestProcessEvent_FatalErrors(t *testing.T) {
 func cliRawEvent(t *testing.T, event bpfEvent) []byte {
 	t.Helper()
 
+	switch event.Type {
+	case EventRequestInit:
+		return cliEncodeEvent(t, bpfRequestInitEvent{
+			Type: event.Type, Command: event.Command, Pid: event.Pid, Timestamp: event.Timestamp,
+		})
+	case EventFunction:
+		return cliEncodeEvent(t, bpfFunctionEvent{
+			Type: event.Type, FunctionName: event.FunctionName, Pid: event.Pid,
+			Timestamp: event.Timestamp, Elapsed: event.Elapsed, Memory: event.Memory,
+		})
+	case EventRequestShutdown:
+		return cliEncodeEvent(t, bpfRequestShutdownEvent{
+			Type: event.Type, Pid: event.Pid, Timestamp: event.Timestamp,
+		})
+	default:
+		return []byte{event.Type}
+	}
+}
+
+func cliEncodeEvent(t *testing.T, event any) []byte {
+	t.Helper()
 	var buf bytes.Buffer
 	require.NoError(t, binary.Write(&buf, binary.LittleEndian, event))
 	return buf.Bytes()
+}
+
+func TestCompactEventLayouts(t *testing.T) {
+	assert.Equal(t, 120, binary.Size(bpfRequestInitEvent{}))
+	assert.Equal(t, 136, binary.Size(bpfFunctionEvent{}))
+	assert.Equal(t, 24, binary.Size(bpfRequestShutdownEvent{}))
+}
+
+func TestProcessEvent_RejectsMalformedRecords(t *testing.T) {
+	manager, _ := newTestHandler(t)
+	skips := ingest.NewSkips(ingest.RuntimePHPCLI)
+	valid := cliEncodeEvent(t, bpfFunctionEvent{Type: EventFunction})
+
+	tests := map[string][]byte{
+		"empty":     {},
+		"truncated": valid[:len(valid)-1],
+		"oversized": append(append([]byte{}, valid...), 0),
+		"unknown":   {255},
+	}
+	for name, raw := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := processEvent(t.Context(), raw, manager, skips)
+			assert.ErrorContains(t, err, "failed to read event")
+		})
+	}
+}
+
+func TestCompactEvents_RoundTrip(t *testing.T) {
+	const pid = uint64(1234)
+
+	cliAssertRoundTrip(t, bpfRequestInitEvent{
+		Type: EventRequestInit, Command: makeCommand("php script.php --full"), Pid: pid, Timestamp: 101,
+	})
+	cliAssertRoundTrip(t, bpfFunctionEvent{
+		Type: EventFunction, FunctionName: makeFunctionName("App\\Command::run"), Pid: pid,
+		Timestamp: 202, Elapsed: 303, Memory: 404,
+	})
+	cliAssertRoundTrip(t, bpfRequestShutdownEvent{
+		Type: EventRequestShutdown, Pid: pid, Timestamp: 505,
+	})
+}
+
+func cliAssertRoundTrip[T comparable](t *testing.T, expected T) {
+	t.Helper()
+	raw := cliEncodeEvent(t, expected)
+	actual, err := ingest.DecodeExact[T](raw)
+	require.NoError(t, err)
+	assert.Equal(t, expected, actual)
 }

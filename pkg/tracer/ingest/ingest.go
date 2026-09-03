@@ -91,16 +91,26 @@ func (s *Skips) Total() uint64 {
 	return s.counts[0].Load() + s.counts[1].Load() + s.counts[2].Load()
 }
 
-// DecodeAndHandle decodes one ring-buffer sample and passes it to a handler.
-// Known incomplete-event outcomes are counted and treated as successful reads;
-// malformed samples and all other handler errors remain fatal.
-func DecodeAndHandle[T any](ctx context.Context, rawSample []byte, handle func(context.Context, T) error, skips *Skips) error {
+// DecodeExact decodes one fixed-layout value after requiring its exact generated size.
+func DecodeExact[T any](rawSample []byte) (T, error) {
 	var event T
-
-	if err := binary.Read(bytes.NewReader(rawSample), binary.LittleEndian, &event); err != nil {
-		return fmt.Errorf("failed to read event: %w", err)
+	expected := binary.Size(event)
+	if expected < 0 {
+		return event, fmt.Errorf("unsupported event layout %T", event)
 	}
+	if len(rawSample) != expected {
+		return event, fmt.Errorf("invalid event size: got %d bytes, want %d", len(rawSample), expected)
+	}
+	if err := binary.Read(bytes.NewReader(rawSample), binary.LittleEndian, &event); err != nil {
+		return event, err
+	}
+	return event, nil
+}
 
+// Handle passes one decoded event to its handler. Known incomplete-event
+// outcomes are counted and treated as successful reads; all other errors remain
+// fatal.
+func Handle[T any](ctx context.Context, event T, handle func(context.Context, T) error, skips *Skips) error {
 	if err := handle(ctx, event); err != nil {
 		if skips.Record(err) {
 			return nil
@@ -108,8 +118,18 @@ func DecodeAndHandle[T any](ctx context.Context, rawSample []byte, handle func(c
 
 		return fmt.Errorf("failed to handle event: %w", err)
 	}
-
 	return nil
+}
+
+// DecodeAndHandle decodes one ring-buffer sample and passes it to a handler.
+// Known incomplete-event outcomes are counted and treated as successful reads;
+// malformed samples and all other handler errors remain fatal.
+func DecodeAndHandle[T any](ctx context.Context, rawSample []byte, handle func(context.Context, T) error, skips *Skips) error {
+	event, err := DecodeExact[T](rawSample)
+	if err != nil {
+		return fmt.Errorf("failed to read event: %w", err)
+	}
+	return Handle(ctx, event, handle, skips)
 }
 
 func classify(err error) (Reason, int, bool) {

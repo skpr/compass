@@ -122,19 +122,60 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestInit(requestID, uri, method, event); err != nil {
+		if err := c.handleRequestInit(requestID, uri, method, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
 	case EventFunction:
-		if err := c.handleFunction(requestID, event); err != nil {
+		if err := c.handleFunction(requestID, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(ctx, requestID, event); err != nil {
+		if err := c.handleRequestShutdown(ctx, requestID, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
 
+	return nil
+}
+
+// HandleRequestInit processes one compact FPM request-init record.
+func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent) error {
+	requestID := unix.ByteSliceToString(event.RequestId[:])
+	if requestID == "" {
+		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
+	}
+	if err := c.handleRequestInit(
+		requestID,
+		unix.ByteSliceToString(event.Uri[:]),
+		unix.ByteSliceToString(event.Method[:]),
+		event.Timestamp,
+	); err != nil {
+		return fmt.Errorf("failed to process request init: %w", err)
+	}
+	return nil
+}
+
+// HandleFunction processes one compact FPM function record.
+func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) error {
+	requestID := unix.ByteSliceToString(event.RequestId[:])
+	if requestID == "" {
+		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
+	}
+	if err := c.handleFunction(requestID, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+		return fmt.Errorf("failed to process function: %w", err)
+	}
+	return nil
+}
+
+// HandleRequestShutdown processes one compact FPM request-shutdown record.
+func (c *Handler) HandleRequestShutdown(ctx context.Context, event bpfRequestShutdownEvent) error {
+	requestID := unix.ByteSliceToString(event.RequestId[:])
+	if requestID == "" {
+		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
+	}
+	if err := c.handleRequestShutdown(ctx, requestID, event.Timestamp); err != nil {
+		return fmt.Errorf("failed to process request shutdown: %w", err)
+	}
 	return nil
 }
 
@@ -177,7 +218,7 @@ func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duratio
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEvent) error {
+func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uint64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -191,7 +232,7 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEven
 					URI:    uri,
 					Method: method,
 				},
-				StartTime: c.options.Clock.Time(event.Timestamp),
+				StartTime: c.options.Clock.Time(timestamp),
 			},
 		},
 		cacheIndex: make(map[string]int),
@@ -203,7 +244,7 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, event bpfEven
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleFunction(requestID string, event bpfEvent) error {
+func (c *Handler) handleFunction(requestID string, functionName []byte, timestamp, elapsed, memory uint64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -214,13 +255,13 @@ func (c *Handler) handleFunction(requestID string, event bpfEvent) error {
 
 	c.functionCalls.Add(
 		&s.trace,
-		event.FunctionName[:],
+		functionName,
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
 		// has been collected.
-		c.offset(s.trace.Metadata, event.Timestamp-event.Elapsed),
-		time.Duration(event.Elapsed),
-		int64(event.Memory),
+		c.offset(s.trace.Metadata, timestamp-elapsed),
+		time.Duration(elapsed),
+		int64(memory),
 	)
 
 	c.touch(requestID, s)
@@ -294,8 +335,8 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, event bpfEvent) error {
-	t, err := c.complete(requestID, event)
+func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, timestamp uint64) error {
+	t, err := c.complete(requestID, timestamp)
 	if err != nil {
 		return err
 	}
@@ -311,7 +352,7 @@ func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, e
 
 // complete a request, removing it from storage so that the caller is left
 // holding the only reference to its trace.
-func (c *Handler) complete(requestID string, event bpfEvent) (trace.Trace, error) {
+func (c *Handler) complete(requestID string, timestamp uint64) (trace.Trace, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -320,7 +361,7 @@ func (c *Handler) complete(requestID string, event bpfEvent) (trace.Trace, error
 		return trace.Trace{}, err
 	}
 
-	s.trace.Metadata.EndTime = c.options.Clock.Time(event.Timestamp)
+	s.trace.Metadata.EndTime = c.options.Clock.Time(timestamp)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)

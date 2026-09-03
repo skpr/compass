@@ -77,19 +77,55 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 
 	switch event.Type {
 	case EventRequestInit:
-		if err := c.handleRequestInit(pid, event); err != nil {
+		if err := c.handleRequestInit(pid, event.Command[:], event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
 	case EventFunction:
-		if err := c.handleFunction(pid, event); err != nil {
+		if err := c.handleFunction(pid, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(ctx, pid, event); err != nil {
+		if err := c.handleRequestShutdown(ctx, pid, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
 
+	return nil
+}
+
+// HandleRequestInit processes one compact CLI request-init record.
+func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent) error {
+	pid := int64(event.Pid)
+	if pid == 0 {
+		return fmt.Errorf("%w: empty pid", ingest.ErrInvalidIdentifier)
+	}
+	if err := c.handleRequestInit(pid, event.Command[:], event.Timestamp); err != nil {
+		return fmt.Errorf("failed to process request init: %w", err)
+	}
+	return nil
+}
+
+// HandleFunction processes one compact CLI function record.
+func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) error {
+	pid := int64(event.Pid)
+	if pid == 0 {
+		return fmt.Errorf("%w: empty pid", ingest.ErrInvalidIdentifier)
+	}
+	if err := c.handleFunction(pid, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+		return fmt.Errorf("failed to process function: %w", err)
+	}
+	return nil
+}
+
+// HandleRequestShutdown processes one compact CLI request-shutdown record.
+func (c *Handler) HandleRequestShutdown(ctx context.Context, event bpfRequestShutdownEvent) error {
+	pid := int64(event.Pid)
+	if pid == 0 {
+		return fmt.Errorf("%w: empty pid", ingest.ErrInvalidIdentifier)
+	}
+	if err := c.handleRequestShutdown(ctx, pid, event.Timestamp); err != nil {
+		return fmt.Errorf("failed to process request shutdown: %w", err)
+	}
 	return nil
 }
 
@@ -103,16 +139,16 @@ func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duratio
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
+func (c *Handler) handleRequestInit(pid int64, command []byte, timestamp uint64) error {
 	t := trace.Trace{
 		Metadata: trace.Metadata{
 			Source:  trace.SourceCLI,
 			Runtime: trace.RuntimePHP,
 			ID:      c.getID(pid),
 			CLI: trace.MetadataCLI{
-				Command: unix.ByteSliceToString(event.Command[:]),
+				Command: unix.ByteSliceToString(command),
 			},
-			StartTime: c.options.Clock.Time(event.Timestamp),
+			StartTime: c.options.Clock.Time(timestamp),
 		},
 	}
 
@@ -122,7 +158,7 @@ func (c *Handler) handleRequestInit(pid int64, event bpfEvent) error {
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
+func (c *Handler) handleFunction(pid int64, functionName []byte, timestamp, elapsed, memory uint64) error {
 	x, found := c.storage.Get(c.getID(pid))
 	if !found {
 		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, c.getID(pid))
@@ -132,13 +168,13 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 
 	c.functionCalls.Add(
 		&t,
-		event.FunctionName[:],
+		functionName,
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
 		// has been collected.
-		c.offset(t.Metadata, event.Timestamp-event.Elapsed),
-		time.Duration(event.Elapsed),
-		int64(event.Memory),
+		c.offset(t.Metadata, timestamp-elapsed),
+		time.Duration(elapsed),
+		int64(memory),
 	)
 
 	c.storage.Set(c.getID(pid), t, cache.DefaultExpiration)
@@ -147,7 +183,7 @@ func (c *Handler) handleFunction(pid int64, event bpfEvent) error {
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(ctx context.Context, pid int64, event bpfEvent) error {
+func (c *Handler) handleRequestShutdown(ctx context.Context, pid int64, timestamp uint64) error {
 	x, found := c.storage.Get(c.getID(pid))
 	if !found {
 		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, c.getID(pid))
@@ -155,7 +191,7 @@ func (c *Handler) handleRequestShutdown(ctx context.Context, pid int64, event bp
 
 	t := x.(trace.Trace)
 
-	t.Metadata.EndTime = c.options.Clock.Time(event.Timestamp)
+	t.Metadata.EndTime = c.options.Clock.Time(timestamp)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(c.getID(pid))

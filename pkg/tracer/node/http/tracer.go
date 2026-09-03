@@ -275,5 +275,26 @@ func Run(ctx context.Context, plugin sink.Interface, addonPath string, maxFuncti
 }
 
 func processEvent(ctx context.Context, rawSample []byte, manager *Handler, skips *ingest.Skips) error {
-	return ingest.DecodeAndHandle(ctx, rawSample, manager.Handle, skips)
+	if len(rawSample) == 0 {
+		return fmt.Errorf("failed to read event: missing event type")
+	}
+
+	switch rawSample[0] {
+	case EventRequestInit:
+		return decodeAndHandleEvent(ctx, rawSample, manager.HandleRequestInit, skips)
+	case EventFunction:
+		return decodeAndHandleEvent(ctx, rawSample, manager.HandleFunction, skips)
+	case EventRequestShutdown:
+		return decodeAndHandleEvent(ctx, rawSample, manager.HandleRequestShutdown, skips)
+	default:
+		return fmt.Errorf("failed to read event: unknown event type: %d", rawSample[0])
+	}
+}
+
+func decodeAndHandleEvent[T any](ctx context.Context, rawSample []byte, handle func(context.Context, T) error, skips *ingest.Skips) error {
+	event, err := ingest.DecodeExact[T](rawSample)
+	if err != nil {
+		return fmt.Errorf("failed to read event: %w", err)
+	}
+	return ingest.Handle(ctx, event, handle, skips)
 }
