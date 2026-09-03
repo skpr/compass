@@ -12,9 +12,11 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/skpr/yolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/pkg/php/extension/usdt"
 	"github.com/skpr/compass/pkg/tracer/ingest"
+	"github.com/skpr/compass/pkg/tracer/ringloss"
 	"github.com/skpr/compass/pkg/tracer/ringreader"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
@@ -169,6 +171,21 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFu
 	}
 	defer objs.Close()
 
+	reserveFailures, err := ringloss.NewObserver(
+		objs.RingbufReserveFailures,
+		ingest.RuntimePHPCLI,
+		ringreader.StreamEvents,
+	)
+	if err != nil {
+		return logger.WrapError(fmt.Errorf("failed to observe ring-buffer reserve failures: %w", err))
+	}
+	defer func() {
+		if err := reserveFailures.Observe(); err != nil {
+			logger.AddError(err)
+		}
+		logger.SetAttr("ringbuf_reserve_failures", reserveFailures.Total(ringreader.StreamEvents))
+	}()
+
 	ex, err := link.OpenExecutable(extentionPath)
 	if err != nil {
 		return logger.WrapError(fmt.Errorf("failed to open executable: %w", err))
@@ -222,14 +239,22 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFu
 	}
 	skips := ingest.NewSkips(ingest.RuntimePHPCLI)
 
-	err = ringreader.Run(ctx, ringreader.Source{
-		Reader:  reader,
-		Runtime: ingest.RuntimePHPCLI,
-		Stream:  ringreader.StreamEvents,
-		Handle: func(readCtx context.Context, rawSample []byte) error {
-			return processEvent(readCtx, rawSample, manager, skips)
-		},
+	group, runCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return reserveFailures.Run(runCtx)
 	})
+	group.Go(func() error {
+		return ringreader.Run(runCtx, ringreader.Source{
+			Reader:  reader,
+			Runtime: ingest.RuntimePHPCLI,
+			Stream:  ringreader.StreamEvents,
+			Handle: func(readCtx context.Context, rawSample []byte) error {
+				return processEvent(readCtx, rawSample, manager, skips)
+			},
+		})
+	})
+
+	err = group.Wait()
 
 	logger.SetAttr("events_skipped", skips.Total())
 	logger.SetAttr("events_skipped_request_not_tracked", skips.Count(ingest.ReasonRequestNotTracked))

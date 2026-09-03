@@ -13,9 +13,11 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/skpr/yolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/pkg/php/extension/usdt"
 	"github.com/skpr/compass/pkg/tracer/ingest"
+	"github.com/skpr/compass/pkg/tracer/ringloss"
 	"github.com/skpr/compass/pkg/tracer/ringreader"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
@@ -246,6 +248,23 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFu
 	}
 	defer objs.Close()
 
+	reserveFailures, err := ringloss.NewObserver(
+		objs.RingbufReserveFailures,
+		ingest.RuntimePHPFPM,
+		ringreader.StreamEvents,
+		ringreader.StreamDrupalCache,
+	)
+	if err != nil {
+		return logger.WrapError(fmt.Errorf("failed to observe ring-buffer reserve failures: %w", err))
+	}
+	defer func() {
+		if err := reserveFailures.Observe(); err != nil {
+			logger.AddError(err)
+		}
+		logger.SetAttr("ringbuf_reserve_failures", reserveFailures.Total(ringreader.StreamEvents))
+		logger.SetAttr("drupal_cache_ringbuf_reserve_failures", reserveFailures.Total(ringreader.StreamDrupalCache))
+	}()
+
 	ex, err := link.OpenExecutable(extensionPath)
 	if err != nil {
 		return logger.WrapError(fmt.Errorf("failed to open executable: %w", err))
@@ -323,27 +342,35 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFu
 	eventsSkipped := ingest.NewSkips(ingest.RuntimePHPFPM)
 	drupalCacheEventsSkipped := ingest.NewSkips(ingest.RuntimePHPFPM)
 
-	err = ringreader.Run(ctx,
-		ringreader.Source{
-			Reader:  reader,
-			Runtime: ingest.RuntimePHPFPM,
-			Stream:  ringreader.StreamEvents,
-			Handle: func(readCtx context.Context, rawSample []byte) error {
-				return processEvent(readCtx, rawSample, manager, eventsSkipped)
+	group, runCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return reserveFailures.Run(runCtx)
+	})
+	group.Go(func() error {
+		return ringreader.Run(runCtx,
+			ringreader.Source{
+				Reader:  reader,
+				Runtime: ingest.RuntimePHPFPM,
+				Stream:  ringreader.StreamEvents,
+				Handle: func(readCtx context.Context, rawSample []byte) error {
+					return processEvent(readCtx, rawSample, manager, eventsSkipped)
+				},
 			},
-		},
-		ringreader.Source{
-			Reader:  drupalReader,
-			Runtime: ingest.RuntimePHPFPM,
-			Stream:  ringreader.StreamDrupalCache,
-			Handle: func(readCtx context.Context, rawSample []byte) error {
-				if err := processDrupalCacheEvent(readCtx, rawSample, manager, drupalCacheEventsSkipped); err != nil {
-					return fmt.Errorf("failed to process drupal cache event: %w", err)
-				}
-				return nil
+			ringreader.Source{
+				Reader:  drupalReader,
+				Runtime: ingest.RuntimePHPFPM,
+				Stream:  ringreader.StreamDrupalCache,
+				Handle: func(readCtx context.Context, rawSample []byte) error {
+					if err := processDrupalCacheEvent(readCtx, rawSample, manager, drupalCacheEventsSkipped); err != nil {
+						return fmt.Errorf("failed to process drupal cache event: %w", err)
+					}
+					return nil
+				},
 			},
-		},
-	)
+		)
+	})
+
+	err = group.Wait()
 
 	logger.SetAttr("events_skipped", eventsSkipped.Total())
 	logger.SetAttr("events_skipped_request_not_tracked", eventsSkipped.Count(ingest.ReasonRequestNotTracked))

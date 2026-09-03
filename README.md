@@ -243,9 +243,10 @@ The sidecar only fails to start when neither is found.
 `compass_sidecar_runtime_discovered`, `compass_sidecar_subscriptions`,
 `compass_sidecar_collector_running`, `compass_sidecar_traces_dropped_total`,
 `compass_sidecar_function_events_dropped_total`,
-`compass_sidecar_ringbuf_read_errors_total` and
+`compass_sidecar_ringbuf_read_errors_total`,
+`compass_sidecar_ringbuf_reserve_failures_total` and
 `compass_sidecar_tracer_events_skipped_total`. The tracer counters use fixed
-runtime and, where applicable, reason labels so losses are visible without
+runtime and, where applicable, stream or reason labels so losses are visible without
 unbounded metric cardinality.
 
 ## Development
