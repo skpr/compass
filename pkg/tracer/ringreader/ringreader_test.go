@@ -165,3 +165,33 @@ func TestRun_FPMReadErrorClosesSiblingReader(t *testing.T) {
 		t.Fatal("FPM sibling reader was not closed")
 	}
 }
+
+func TestRun_ValidationFailureClosesReaders(t *testing.T) {
+	valid := &fakeReader{
+		readFn: func() (ringbuf.Record, error) {
+			return ringbuf.Record{}, ringbuf.ErrClosed
+		},
+	}
+	// A nil Handle fails validation, so Run rejects the sources before taking
+	// ownership. The readers handed in must still be closed rather than leaked.
+	invalid := &fakeReader{
+		readFn: func() (ringbuf.Record, error) {
+			return ringbuf.Record{}, ringbuf.ErrClosed
+		},
+	}
+
+	err := Run(t.Context(),
+		Source{
+			Reader: valid, Runtime: ingest.RuntimePHPFPM, Stream: StreamEvents,
+			Handle: func(context.Context, []byte) error { return nil },
+		},
+		Source{
+			Reader: invalid, Runtime: ingest.RuntimePHPFPM, Stream: StreamDrupalCache,
+			Handle: nil,
+		},
+	)
+
+	require.Error(t, err)
+	assert.Equal(t, int32(1), valid.closes.Load(), "the valid reader must be closed on validation failure")
+	assert.Equal(t, int32(1), invalid.closes.Load(), "the invalid reader must be closed on validation failure")
+}

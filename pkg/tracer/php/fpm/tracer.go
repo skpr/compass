@@ -336,6 +336,9 @@ func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFu
 
 	drupalReader, err := ringbuf.NewReader(objs.DrupalCacheEvents)
 	if err != nil {
+		// The events reader is open but ringreader.Run, which would take
+		// ownership of both, is never reached on this path.
+		reader.Close()
 		return logger.WrapError(fmt.Errorf("failed to start drupal cache event reader: %w", err))
 	}
 

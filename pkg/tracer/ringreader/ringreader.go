@@ -52,6 +52,9 @@ func Run(ctx context.Context, sources ...Source) error {
 
 	for _, source := range sources {
 		if err := validate(source); err != nil {
+			// Run takes ownership of the readers on the success path, so close
+			// whatever was handed in rather than leaking it when rejecting.
+			closeAll(sources)
 			return err
 		}
 	}
@@ -66,13 +69,22 @@ func Run(ctx context.Context, sources ...Source) error {
 
 	group.Go(func() error {
 		<-groupCtx.Done()
-		for _, source := range sources {
-			_ = source.Reader.Close()
-		}
+		closeAll(sources)
 		return nil
 	})
 
 	return group.Wait()
+}
+
+// closeAll closes every reader which was provided, ignoring nil readers and
+// close errors. A reader may be closed twice across the lifetime of Run: once
+// here on shutdown is the norm, and calling Close again is harmless.
+func closeAll(sources []Source) {
+	for _, source := range sources {
+		if source.Reader != nil {
+			_ = source.Reader.Close()
+		}
+	}
 }
 
 func read(ctx context.Context, source Source) error {
