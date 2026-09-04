@@ -90,7 +90,7 @@ func updateMaximum(maximum *atomic.Int64, value int64) {
 }
 
 func TestCollectorSupervisor_RapidSubscriberLifecycle(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	started := make(chan struct{}, 128)
 	stopped := make(chan struct{}, 128)
@@ -126,7 +126,7 @@ func TestCollectorSupervisor_RapidSubscriberLifecycle(t *testing.T) {
 }
 
 func TestCollectorSupervisor_OnlyStopsForLastSubscriber(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 	started := make(chan struct{}, 2)
 	stopped := make(chan struct{}, 2)
 

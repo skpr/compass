@@ -18,26 +18,45 @@ type Broadcaster struct {
 	removeSub chan chan trace.Trace
 	broadcast chan trace.Trace
 	changes   chan struct{}
+	// done is closed when run has returned, so the public methods stop blocking
+	// on a loop which is no longer reading.
+	done chan struct{}
 }
 
-// NewBroadcaster creates and starts a new broadcaster.
-func NewBroadcaster() *Broadcaster {
+// NewBroadcaster creates and starts a new broadcaster. It runs until ctx is
+// cancelled, at which point it closes every subscriber channel so blocked
+// consumers unblock and return.
+func NewBroadcaster(ctx context.Context) *Broadcaster {
 	b := &Broadcaster{
 		subs:      make(map[chan trace.Trace]struct{}),
 		addSub:    make(chan chan trace.Trace),
 		removeSub: make(chan chan trace.Trace),
 		broadcast: make(chan trace.Trace),
 		changes:   make(chan struct{}, 1),
+		done:      make(chan struct{}),
 	}
 
-	go b.run()
+	go b.run(ctx)
 
 	return b
 }
 
-func (b *Broadcaster) run() {
+func (b *Broadcaster) run(ctx context.Context) {
+	defer close(b.done)
+
 	for {
 		select {
+		case <-ctx.Done():
+			b.mu.Lock()
+			for ch := range b.subs {
+				delete(b.subs, ch)
+				close(ch)
+			}
+			b.count.Store(0)
+			b.mu.Unlock()
+
+			return
+
 		case msg := <-b.broadcast:
 			b.mu.Lock()
 			for ch := range b.subs {
@@ -73,17 +92,28 @@ func (b *Broadcaster) run() {
 	}
 }
 
-// Subscribe registers a new consumer and returns its channel.
+// Subscribe registers a new consumer and returns its channel. If the
+// broadcaster is already shutting down, it returns a closed channel so the
+// caller sees the stream end immediately rather than blocking.
 func (b *Broadcaster) Subscribe() chan trace.Trace {
 	ch := make(chan trace.Trace, 10)
-	b.addSub <- ch
 
-	return ch
+	select {
+	case b.addSub <- ch:
+		return ch
+	case <-b.done:
+		close(ch)
+		return ch
+	}
 }
 
-// Unsubscribe removes a consumer.
+// Unsubscribe removes a consumer. It is a no-op once the broadcaster has shut
+// down, since every subscriber channel was closed then.
 func (b *Broadcaster) Unsubscribe(ch chan trace.Trace) {
-	b.removeSub <- ch
+	select {
+	case b.removeSub <- ch:
+	case <-b.done:
+	}
 }
 
 // Subscribers returns the number of active subscribers.
@@ -116,5 +146,7 @@ func (b *Broadcaster) ProcessTrace(ctx context.Context, t trace.Trace) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-b.done:
+		return context.Canceled
 	}
 }

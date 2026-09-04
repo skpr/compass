@@ -161,9 +161,9 @@ func main() {
 				return err
 			}
 
-			b := NewBroadcaster()
-
 			eg, ctx := errgroup.WithContext(cmd.Context())
+
+			b := NewBroadcaster(ctx)
 
 			// Loop for http server.
 			eg.Go(func() error {
