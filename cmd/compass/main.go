@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"regexp"
 	"strings"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -59,6 +61,11 @@ func main() {
 		os.Getenv("TERM"),
 		termenv.NewOutput(os.Stdout).EnvColorProfile(),
 	))
+
+	// Cancel the root context on an interrupt or termination signal, so the
+	// collector goroutine is torn down deterministically on shutdown.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	o := Options{}
 
@@ -141,7 +148,7 @@ func main() {
 
 	// Cobra prints the error, so exit quietly rather than panicking with a
 	// stack trace over the top of it.
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
 }
