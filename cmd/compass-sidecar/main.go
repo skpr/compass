@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,17 @@ var cmdExample = `
 
 // HeaderToken is the header this sidecar authenticates requests with.
 const HeaderToken = "X-Skpr-Token"
+
+// authorized reports whether a request may proceed. An empty configured token
+// disables authentication; otherwise the presented token must match in
+// constant time so a rejection does not leak how many leading bytes were right.
+func authorized(want, got string) bool {
+	if want == "" {
+		return true
+	}
+
+	return subtle.ConstantTimeCompare([]byte(want), []byte(got)) == 1
+}
 
 var (
 	serverReadHeaderTimeout = 10 * time.Second
@@ -141,7 +153,7 @@ func main() {
 				})
 
 				mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
-					if config.Token != "" && config.Token != r.Header.Get(HeaderToken) {
+					if !authorized(config.Token, r.Header.Get(HeaderToken)) {
 						w.WriteHeader(http.StatusUnauthorized)
 						fmt.Fprintln(w, "Access Denied")
 						return
