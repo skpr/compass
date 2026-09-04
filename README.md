@@ -9,7 +9,17 @@ and Node.js applications, without a profiler in the request path. Instrumentatio
 is emitted as [USDT](https://docs.kernel.org/trace/uprobetracer.html) probes,
 collected out of process with eBPF, and streamed to a terminal UI.
 
-![Compass CLI](docs/cli.png)
+**Trace List**
+
+![Trace List](docs/list.png)
+
+**Trace**
+
+![Trace](docs/trace.png)
+
+**Drupal Cacheable Metadata**
+
+![Drupal Cacheable Metadata](docs/drupal-cache.png)
 
 ## How it works
 
