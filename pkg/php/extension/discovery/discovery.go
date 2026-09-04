@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -65,27 +65,64 @@ func GetPathFromProcess(ctx context.Context, processName, extensionPath string, 
 	}
 }
 
-// Helper function to find the parent process
+// processInfo is the subset of *process.Process that findMasterProcess needs,
+// so master identification can be tested with a mock process list.
+type processInfo interface {
+	pid() int32
+	name() (string, error)
+	ppid() (int32, error)
+}
+
+type gopsutilProcess struct {
+	p *process.Process
+}
+
+func (g gopsutilProcess) pid() int32            { return g.p.Pid }
+func (g gopsutilProcess) name() (string, error) { return g.p.Name() }
+func (g gopsutilProcess) ppid() (int32, error)  { return g.p.Ppid() }
+
 func findParentProcess(name string) (int32, bool, error) {
 	processes, err := process.Processes()
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to get process list: %w", err)
 	}
 
+	infos := make([]processInfo, 0, len(processes))
 	for _, p := range processes {
-		n, err := p.Name()
+		infos = append(infos, gopsutilProcess{p: p})
+	}
+
+	return findMasterProcess(name, infos)
+}
+
+// findMasterProcess returns the php-fpm process that has no php-fpm parent:
+// workers carry the master's PID as their PPID, the master does not. This
+// avoids matching "master process" in a command line, which any php-fpm
+// invocation containing those words would satisfy.
+func findMasterProcess(name string, processes []processInfo) (int32, bool, error) {
+	names := make(map[int32]string, len(processes))
+	for _, p := range processes {
+		n, err := p.name()
 		if err != nil {
-			// The process may have exited while we were looking at it.
+			continue
+		}
+		names[p.pid()] = n
+	}
+
+	for _, p := range processes {
+		if names[p.pid()] != name {
 			continue
 		}
 
-		if n != name {
+		ppid, err := p.ppid()
+		if err != nil {
+			slog.Warn("failed to read parent PID during discovery, skipping process",
+				"process", name, "pid", p.pid(), "error", err)
 			continue
 		}
 
-		cmdline, _ := p.Cmdline()
-		if strings.Contains(cmdline, "master process") {
-			return p.Pid, true, nil
+		if names[ppid] != name {
+			return p.pid(), true, nil
 		}
 	}
 

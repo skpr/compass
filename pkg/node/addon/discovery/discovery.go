@@ -82,6 +82,8 @@ func findParentProcess(name string) (int32, bool, error) {
 			continue
 		}
 
+		// Node has no master/worker split, so the first match is the
+		// process to attach to; no PPID disambiguation is needed here.
 		return p.Pid, true, nil
 	}
 
