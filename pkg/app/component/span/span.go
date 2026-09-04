@@ -1,11 +1,7 @@
 // Package span renders a function call as a bar on a request's timeline.
 //
-// A bar carries three independent facts, in three independent channels: where
-// in the request the call happened (position), how long it ran for (length),
-// and how much of the request it was itself responsible for (colour). Keeping
-// them separate is the point — the previous version coloured by length, which
-// meant every frame that merely wrapped the request rendered at maximum
-// severity while the function actually burning the time rendered cool.
+// A bar carries two elapsed-time facts: where in the request the call happened
+// (position), and how long it ran for (length and colour).
 package span
 
 import (
@@ -43,11 +39,6 @@ type Span struct {
 	Start time.Duration
 	// Duration the call ran for.
 	Duration time.Duration
-	// Share of the request the call is itself responsible for, from zero to
-	// one. This drives the colour, and it is deliberately not derived from
-	// Duration: a call which delegates all of its time to a child is long but
-	// not hot.
-	Share float64
 }
 
 // Bar is a span's parts, kept apart rather than rendered into one string.
@@ -63,7 +54,7 @@ type Bar struct {
 	Fill string
 	// Trail is the track after the span ends.
 	Trail string
-	// Share the fill should be coloured by.
+	// Share of the request occupied by the fill's elapsed duration.
 	Share float64
 }
 
@@ -93,7 +84,7 @@ func (c *Component) Bar(s Span) Bar {
 		Lead:  run(theme.RuleLight, from),
 		Fill:  run(theme.BarFull, to-from),
 		Trail: run(theme.RuleLight, c.Blocks-to),
-		Share: s.Share,
+		Share: FractionDuration(s.Duration, c.Duration),
 	}
 }
 
@@ -127,7 +118,7 @@ func (c *Component) Render(s Span) string {
 	bar := c.Bar(s)
 
 	var (
-		fill  = theme.S.Ramp(s.Share)
+		fill  = theme.S.Ramp(bar.Share)
 		track = theme.S.Track
 	)
 

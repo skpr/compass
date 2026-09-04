@@ -183,13 +183,8 @@ func idCell(t events.Trace) datatable.Cell {
 	return datatable.Styled(shortID(t.Metadata.ID), theme.S.CellDim)
 }
 
-// Markers for partial function-call data.
-const (
-	// TruncatedMarker after a call count means additional calls were dropped.
-	TruncatedMarker = "+"
-	// PartialTimingMarker means derived timing uses retained calls only.
-	PartialTimingMarker = "*"
-)
+// TruncatedMarker after a call count means additional calls were dropped.
+const TruncatedMarker = "+"
 
 // functionCallCount reports retained calls and marks partial traces.
 func functionCallCount(t events.Trace) string {

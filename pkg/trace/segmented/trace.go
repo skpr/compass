@@ -19,18 +19,15 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 	// segment length of zero, and the bucketing below divides by it.
 	segmentLength := max(fullTrace.Metadata.ExecutionTime()/time.Duration(segments), 1)
 
-	selfTimes := SelfTime(fullTrace.FunctionCalls)
-
 	spans := make(map[string]Span)
 
-	for i, call := range fullTrace.FunctionCalls {
+	for _, call := range fullTrace.FunctionCalls {
 		span := Span{
 			Name:               call.Name,
 			Offset:             call.Offset,
 			Length:             call.Elapsed,
 			TotalFunctionCalls: 1,
 			MaxMemory:          call.Memory,
-			SelfTime:           selfTimes[i],
 		}
 
 		var (
@@ -54,11 +51,6 @@ func Unmarshal(fullTrace trace.Trace, segments int64) Trace {
 			if span.MaxMemory < val.MaxMemory {
 				span.MaxMemory = val.MaxMemory
 			}
-
-			// Self time is the one field which accumulates rather than being
-			// taken from one of the merged calls: two calls of the same
-			// function each did their own work.
-			span.SelfTime += val.SelfTime
 
 			spans[key] = span
 			continue

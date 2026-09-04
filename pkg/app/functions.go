@@ -14,7 +14,7 @@ import (
 
 // Widths of the functions columns.
 const (
-	functionsWidthSelf     = 6
+	functionsWidthShare    = 6
 	functionsWidthMemory   = 10
 	functionsWidthTimeline = 44
 	functionsWidthElapsed  = 8
@@ -41,14 +41,9 @@ func (m *Model) functionsInit() {
 }
 
 func (m *Model) functionsSetColumns() {
-	selfTitle := "self"
-	if m.Current != nil && m.Current.FunctionCallsDropped > 0 {
-		selfTitle += PartialTimingMarker
-	}
-
 	m.functions.SetColumns([]datatable.Column{
 		{Title: "function", Flex: 1, MinWidth: functionsMinName},
-		{Title: selfTitle, Width: functionsWidthSelf, Align: datatable.AlignRight},
+		{Title: "share", Width: functionsWidthShare, Align: datatable.AlignRight},
 		{Title: "mem (inc)", Width: functionsWidthMemory, Align: datatable.AlignRight, Priority: functionsPriorityMemory},
 		{Title: m.timelineTitle(), Width: functionsWidthTimeline, Priority: functionsPriorityTimeline},
 		{Title: "elapsed", Width: functionsWidthElapsed, Align: datatable.AlignRight, Priority: functionsPriorityElapsed},
@@ -116,7 +111,7 @@ func (m *Model) functionsSetRows() {
 
 	for _, index := range m.functionVisible {
 		s := spans[index]
-		share := s.SelfShare(executionTime)
+		share := s.DurationShare(executionTime)
 
 		rows = append(rows, datatable.Row{
 			functionNameCell(s),
@@ -125,7 +120,6 @@ func (m *Model) functionsSetRows() {
 			timelineCell(timeline.Bar(span.Span{
 				Start:    s.Offset,
 				Duration: s.Length,
-				Share:    share,
 			})),
 			datatable.Styled(format.Duration(s.Length), theme.S.CellDim),
 		})
@@ -204,10 +198,10 @@ func (m *Model) functionsInspectLines() []string {
 
 	executionTime := m.Current.Metadata.ExecutionTime()
 
-	self := fmt.Sprintf("%s of %s  %s",
-		format.Duration(span.SelfTime),
+	duration := fmt.Sprintf("%s of %s  %s",
+		format.Duration(span.Length),
 		format.Duration(executionTime),
-		format.Percent(span.SelfShare(executionTime)),
+		format.Percent(span.DurationShare(executionTime)),
 	)
 
 	window := fmt.Sprintf("%s in, ran for %s  %s",
@@ -216,18 +210,9 @@ func (m *Model) functionsInspectLines() []string {
 		format.Count(span.TotalFunctionCalls, "call", "calls"),
 	)
 
-	lines := []string{
+	return []string{
 		m.inspectValue("function", span.Name),
-		m.inspectValue("self", self),
+		m.inspectValue("share", duration),
 		m.inspectValue("window", window),
 	}
-
-	if m.Current.FunctionCallsDropped > 0 {
-		lines = append(lines, m.inspectValue("data", fmt.Sprintf(
-			"partial · %d calls dropped · self time uses retained calls only",
-			m.Current.FunctionCallsDropped,
-		)))
-	}
-
-	return lines
 }

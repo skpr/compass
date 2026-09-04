@@ -90,20 +90,20 @@ func TestComponent_Render_PositionIsVisible(t *testing.T) {
 	assert.NotEqual(t, early, late)
 }
 
-// Colour comes from the share, not the length. This is the inversion the
-// rewrite exists to fix: a frame which wraps the whole request but does none
-// of the work must not render hotter than the function doing the work.
-func TestComponent_Render_ColourFollowsShareNotLength(t *testing.T) {
+// Colour follows elapsed duration as a share of the whole request, just like
+// the percentage and gutter weight on the Functions page.
+func TestComponent_Render_ColourFollowsDuration(t *testing.T) {
 	c := New(100*time.Millisecond, 40)
 
-	wrapper := c.Render(Span{Start: 0, Duration: 100 * time.Millisecond, Share: 0.01})
-	hotspot := c.Render(Span{Start: 40 * time.Millisecond, Duration: 20 * time.Millisecond, Share: 0.9})
+	short := c.Render(Span{Start: 0, Duration: 10 * time.Millisecond})
+	long := c.Render(Span{Start: 0, Duration: 90 * time.Millisecond})
 
-	assert.NotEqual(t, colourOf(t, wrapper), colourOf(t, hotspot))
+	assert.NotEqual(t, colourOf(t, short), colourOf(t, long))
 
-	// Two spans of very different lengths but the same share agree on colour.
-	short := c.Render(Span{Start: 0, Duration: 5 * time.Millisecond, Share: 0.9})
-	assert.Equal(t, colourOf(t, hotspot), colourOf(t, short))
+	// Position is a separate fact: equal durations at opposite ends of the
+	// request use the same colour.
+	late := c.Render(Span{Start: 80 * time.Millisecond, Duration: 10 * time.Millisecond})
+	assert.Equal(t, colourOf(t, short), colourOf(t, late))
 }
 
 func TestComponent_Axis_IsExactlyBlocksWide(t *testing.T) {

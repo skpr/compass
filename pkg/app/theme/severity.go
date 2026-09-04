@@ -55,7 +55,7 @@ func ForDurationMs(ms int64) Severity {
 	}
 }
 
-// Self share thresholds, at the top of each level.
+// Request share thresholds, at the top of each level.
 const (
 	ShareNone   = 0.05
 	ShareTrace  = 0.10
@@ -65,12 +65,8 @@ const (
 	ShareHigh   = 0.60
 )
 
-// ForShare is the severity of the fraction of a request a function is itself
-// responsible for.
-//
-// The scale is much steeper than a wall clock one because self time is
-// concentrated: in a healthy request almost every frame is near zero, so a
-// function holding a quarter of the total is already the answer.
+// ForShare is the severity of the fraction of a request occupied by a
+// function call's elapsed duration.
 func ForShare(share float64) Severity {
 	switch {
 	case share < ShareNone:
