@@ -179,7 +179,10 @@ func main() {
 					subscriber := b.Subscribe()
 					defer b.Unsubscribe(subscriber)
 
-					w.Header().Set("Content-Type", "text/event-stream")
+					// The stream is newline-delimited JSON: one trace object per
+					// line, as json.NewEncoder writes below. It is not SSE, so it
+					// is labelled as NDJSON rather than text/event-stream.
+					w.Header().Set("Content-Type", "application/x-ndjson")
 					w.Header().Set("Cache-Control", "no-cache")
 					w.Header().Set("Connection", "keep-alive")
 					w.WriteHeader(http.StatusOK)

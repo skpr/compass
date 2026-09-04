@@ -199,7 +199,7 @@ extension predating them keeps its PHP tracing and loses only the Drupal page.
 
 | Flag | Environment variable | Default | Description |
 | --- | --- | --- | --- |
-| `--uri` | `COMPASS_URI` | `http://localhost:28624/v1/traces` | Trace stream to connect to. `extension:///path/to/compass.so` traces a probe file directly. |
+| `--uri` | `COMPASS_URI` | `http://localhost:28624/v1/traces` | Trace stream to connect to, served as newline-delimited JSON (`application/x-ndjson`). `extension:///path/to/compass.so` traces a probe file directly. |
 | `--token` | `COMPASS_TOKEN` | | Sent to the sidecar as the `X-Skpr-Token` header. |
 | `--ca-file` | `COMPASS_CA_FILE` | | Certificate authority which signed the sidecar certificate. |
 | `--insecure-skip-verify` | `COMPASS_INSECURE_SKIP_VERIFY` | `false` | Skip verification of the sidecar certificate. |
