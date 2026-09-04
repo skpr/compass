@@ -78,23 +78,21 @@ happened and *for how long*, which puts a call visibly inside the one which
 made it. The bar sits on a rail rather than on empty space, so its position is
 readable even where the colour is not.
 
-Colour and weight come from **self** time — how long a function took minus how
-long the functions it called took. That distinction is what makes the page
-useful: a framework's kernel and dispatch frames wrap the whole request, so
-colouring by elapsed time paints them all at maximum severity while the function
-actually burning the time stays cool. Ordering is chronological and severity is
-self time, so the hotspot is still the heaviest mark on the page wherever in the
-sequence it falls.
+Colour and weight come from elapsed call duration as a share of the whole
+request. A call which runs for 400ms during a 1s request reads as 40%; the same
+share drives the percentage, the colour, and the gutter weight. Ordering stays
+chronological, so nested callers and callees remain visible in the sequence in
+which they ran.
 
-Self time is an upper bound rather than a measurement. The extension only fires
-a probe for calls above `compass.function_threshold`, so a child cheaper than
-the threshold is missing from the tree and its time is counted against its
-parent. Lower the threshold if a frame looks suspiciously hot.
+The extension only fires a probe for calls above
+`compass.function_threshold`, so the page is not an exhaustive call tree. Lower
+the threshold when shorter calls are relevant.
 
 The sidecar retains at most `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` calls per trace.
-When a request exceeds that bound, Search adds `+` to its retained call count,
-the open trace reports the exact number dropped, and **self*** marks timing
-derived from retained calls only. Peak memory still includes later dropped calls.
+When a request exceeds that bound, Search adds `+` to its retained call count
+and the open trace reports the exact number dropped. The elapsed duration of
+each retained call remains a direct measurement. Peak memory still includes
+later dropped calls.
 
 **Drupal Cacheable Metadata** is what the Drupal specific probes reported. The
 tab only appears when the trace has any: a Node trace, a PHP CLI run and any PHP
@@ -111,8 +109,8 @@ through the detail, rather than something you do and then look elsewhere for.
 
 On **Functions** that is the whole name, which the table shortens to namespace
 initials and then truncates, along with the numbers behind the two columns which
-are a percentage and a picture: what the self share is in milliseconds, and
-where in the request the call sat. On **Drupal Cacheable Metadata** it is the
+are a percentage and a picture: the call's elapsed duration as a share of the
+request, and where in the request the call sat. On **Drupal Cacheable Metadata** it is the
 cache tags and contexts, which the table only counts, and the object's full
 class name — the namespace being exactly what says which module it came from.
 

@@ -186,3 +186,29 @@ func TestSpan_GetName_MultipleCalls(t *testing.T) {
 
 	assert.Equal(t, "myFunc (3)", s.GetName())
 }
+
+func TestSpan_DurationShare(t *testing.T) {
+	span := Span{Length: 250 * time.Nanosecond}
+
+	assert.InDelta(t, 0.25, span.DurationShare(1000*time.Nanosecond), 0.001)
+	assert.Zero(t, span.DurationShare(0))
+	assert.Zero(t, span.DurationShare(-time.Nanosecond))
+}
+
+// A request too short to have one nanosecond per segment must not divide by
+// zero when calls are bucketed.
+func TestUnmarshal_VeryShortTrace(t *testing.T) {
+	assert.NotPanics(t, func() {
+		Unmarshal(newTestTrace(0, 5, []trace.FunctionCall{
+			{Name: "a", Offset: 0, Elapsed: 5},
+		}), 50)
+	})
+}
+
+func TestUnmarshal_ZeroDurationTrace(t *testing.T) {
+	assert.NotPanics(t, func() {
+		Unmarshal(newTestTrace(100, 100, []trace.FunctionCall{
+			{Name: "a", Offset: 100, Elapsed: 0},
+		}), 50)
+	})
+}

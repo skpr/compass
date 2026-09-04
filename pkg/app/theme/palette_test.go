@@ -185,8 +185,8 @@ func TestSelectedBandIsVisibleAndCarriesItsRow(t *testing.T) {
 	}
 }
 
-// The ramp colours text as well as bars — a duration and a self share are both
-// rendered in it — so every stop has to be readable, not just the hot end.
+// The ramp colours text as well as bars — elapsed duration share is rendered
+// in both — so every stop has to be readable, not just the hot end.
 func TestWholeRampIsLegible(t *testing.T) {
 	black := mustColour(t, ground)
 

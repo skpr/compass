@@ -316,9 +316,8 @@ func TestFunctions_OrderedByExecution(t *testing.T) {
 			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
 		FunctionCalls: []trace.FunctionCall{
-			// Deliberately out of order, and with the hottest last, so that
-			// neither insertion order nor self time could produce this result
-			// by accident.
+			// Deliberately out of order, with the longest call in the middle,
+			// so insertion order and duration ranking both differ from this.
 			{Name: "third", Offset: 600_000_000, Elapsed: 100_000_000},
 			{Name: "first", Offset: 100_000_000, Elapsed: 50_000_000},
 			{Name: "second", Offset: 300_000_000, Elapsed: 500_000_000},
@@ -350,9 +349,9 @@ func TestFunctions_CallerBeforeCallee(t *testing.T) {
 	assert.Equal(t, []string{"parent", "child"}, functionNames(m))
 }
 
-// Ordering by time is not the same as ranking by it: the hotspot still has to
-// be findable, which is what the self column is for.
-func TestFunctions_HotspotIsFindableOutOfOrder(t *testing.T) {
+// Ordering by time is not the same as ranking by it: the share column keeps the
+// elapsed cost visible without taking the call sequence apart.
+func TestFunctions_DurationShareFollowsElapsedTime(t *testing.T) {
 	m := testModel(120, 40)
 
 	m.Current = &events.Trace{Trace: trace.Trace{
@@ -360,37 +359,31 @@ func TestFunctions_HotspotIsFindableOutOfOrder(t *testing.T) {
 			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
 		FunctionCalls: []trace.FunctionCall{
-			// A frame which wraps the whole request but does none of the work,
-			// and the function actually burning the time underneath it.
 			{Name: "wrapper", Offset: 0, Elapsed: 1_000_000_000},
-			{Name: "hotspot", Offset: 100_000_000, Elapsed: 800_000_000},
+			{Name: "child", Offset: 100_000_000, Elapsed: 200_000_000},
 		},
 	}}
 
 	m.functionsSetRows()
 
-	require.Equal(t, []string{"wrapper", "hotspot"}, functionNames(m))
+	require.Equal(t, []string{"wrapper", "child"}, functionNames(m))
 
 	rows := m.functions.Rows()
+	assert.Equal(t, "100.0%", rows[0][shareColumn].String())
+	assert.Equal(t, "20.0%", rows[1][shareColumn].String())
 
-	// The wrapper is the longer call and comes first, but the hotspot is the
-	// one the self column points at. The wrapper keeps the 200ms it spent
-	// outside the child, which is the point: self time is what it did itself,
-	// not nothing.
-	assert.Equal(t, "20.0%", rows[0][selfColumn].String(), "the wrapper's own time")
-	assert.Equal(t, "80.0%", rows[1][selfColumn].String(), "the hotspot's own time")
-
-	// And they are not the same colour, so it is visible as well as readable.
+	// Percentage severity uses the same duration share, so the wrapper is also
+	// visibly hotter than the shorter child.
 	assert.NotEqual(t,
-		rows[0][selfColumn].Segments[0].Style.Render("x"),
-		rows[1][selfColumn].Segments[0].Style.Render("x"),
+		rows[0][shareColumn].Segments[0].Style.Render("x"),
+		rows[1][shareColumn].Segments[0].Style.Render("x"),
 	)
 }
 
 // Column positions on the functions page, for the tests which read a cell.
 const (
 	functionColumn = 0
-	selfColumn     = 1
+	shareColumn    = 1
 )
 
 // functionNames of the rows on the functions page, in the order shown.
@@ -417,7 +410,7 @@ func TestView_HelpMarksWhereItWasCut(t *testing.T) {
 
 	view := ansi.Strip(tall.View())
 	assert.NotContains(t, view, "more, on a taller terminal")
-	assert.Contains(t, view, "SELF", "the whole legend should fit a terminal this tall")
+	assert.Contains(t, view, "DURATION", "the whole legend should fit a terminal this tall")
 }
 
 // The marker fires for one reason only. A mark which means two different things
@@ -686,7 +679,7 @@ func TestFunctions_InspectShowsTheSelectedRowInFull(t *testing.T) {
 
 	assert.Contains(t, panel, `Drupal\Core\DrupalKernel::handle`)
 	assert.Contains(t, panel, "function")
-	assert.Contains(t, panel, "self")
+	assert.Contains(t, panel, "share")
 	assert.Contains(t, panel, "window")
 
 	// And it follows the cursor.
@@ -698,8 +691,8 @@ func TestFunctions_InspectShowsTheSelectedRowInFull(t *testing.T) {
 	assert.NotContains(t, panel, "DrupalKernel")
 }
 
-// The self column is a percentage and the timeline is a picture. Neither says
-// how long anything actually took, which is what the panel is for.
+// The share column is a percentage and the timeline is a picture. The panel
+// gives the elapsed durations behind both.
 func TestFunctions_InspectGivesTheNumbersBehindTheColumns(t *testing.T) {
 	m := testModel(120, 34)
 	m.updateKeyEnter()
@@ -708,7 +701,9 @@ func TestFunctions_InspectGivesTheNumbersBehindTheColumns(t *testing.T) {
 	panel := ansi.Strip(m.inspectView())
 
 	// renderRoot ran from 100ms to 250ms of a 402ms request.
+	assert.Contains(t, panel, "share")
 	assert.Contains(t, panel, "150ms")
+	assert.Contains(t, panel, "37.3%")
 	assert.Contains(t, panel, "100ms in")
 	assert.Contains(t, panel, "402ms")
 }
@@ -790,7 +785,7 @@ func TestView_PanelDoesNotRunIntoTheKeyRail(t *testing.T) {
 		"the key rail should sit under a rule, not under the panel's last value")
 }
 
-func TestFunctionTruncation_IsVisibleAndDerivedTimingIsMarkedPartial(t *testing.T) {
+func TestFunctionTruncation_IsVisibleWithoutQualifyingDurationShare(t *testing.T) {
 	m := testModel(120, 34)
 
 	partial := testTrace("/partial")
@@ -811,21 +806,21 @@ func TestFunctionTruncation_IsVisibleAndDerivedTimingIsMarkedPartial(t *testing.
 
 	columns := m.functions.Columns()
 	require.GreaterOrEqual(t, len(columns), 2)
-	assert.Equal(t, "self*", columns[1].Title)
+	assert.Equal(t, "share", columns[1].Title)
 
 	inspect := ansi.Strip(m.inspectView())
-	assert.Contains(t, inspect, "7 calls dropped")
-	assert.Contains(t, inspect, "self time uses retained calls only")
+	assert.NotContains(t, inspect, "calls dropped")
+	assert.NotContains(t, inspect, "retained calls only")
 }
 
-func TestFunctionTruncation_CleanTraceHasNoPartialMarkers(t *testing.T) {
+func TestFunctionTruncation_CleanTraceUsesTheSameShareColumn(t *testing.T) {
 	m := testModel(120, 34)
 	m.updateKeyEnter()
 
 	assert.NotContains(t, ansi.Strip(m.viewDetail()), "CALL DATA")
 	columns := m.functions.Columns()
 	require.GreaterOrEqual(t, len(columns), 2)
-	assert.Equal(t, "self", columns[1].Title)
+	assert.Equal(t, "share", columns[1].Title)
 	assert.NotContains(t, ansi.Strip(m.inspectView()), "retained calls only")
 }
 
@@ -835,7 +830,8 @@ func TestFunctionTruncation_IsExplainedInHelp(t *testing.T) {
 
 	help := ansi.Strip(m.viewHelp())
 	assert.Contains(t, help, "additional function calls were dropped")
-	assert.Contains(t, help, "derived timing uses retained function calls only")
+	assert.Contains(t, help, "elapsed call duration as a share")
+	assert.NotContains(t, help, "derived timing")
 }
 
 func TestFilter_FunctionsNarrowsRowsAndInspectFollowsSelection(t *testing.T) {

@@ -39,15 +39,13 @@ func (m *Model) viewHelp() string {
 				{theme.SelectionRail, "the row the cursor is on"},
 				{AttentionMarker, "uncacheable: something set a max age of zero"},
 				{TruncatedMarker, "after calls: additional function calls were dropped"},
-				{PartialTimingMarker, "derived timing uses retained function calls only"},
 			},
 		},
 		{
-			title: "Self",
+			title: "Duration",
 			rows: [][2]string{
-				{"", "the share of a request a function spent on its own work,"},
-				{"", "not waiting on what it called. Reads high: calls under the"},
-				{"", "extension's threshold are not recorded."},
+				{"", "the elapsed call duration as a share of the whole request."},
+				{"", "It drives the percentage, colour, and gutter weight."},
 			},
 		},
 	}
