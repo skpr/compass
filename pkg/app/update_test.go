@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -158,4 +159,38 @@ func newNavTestModel() *Model {
 	m.Init()
 
 	return m
+}
+
+// Arrow and wheel input is an ESC-prefixed ANSI sequence. Bubble Tea can split
+// it into a standalone Esc and a rune suffix when the terminal read fragments,
+// which must not close the trace.
+func TestUpdate_FragmentedArrowDoesNotCloseTrace(t *testing.T) {
+	m := openedTrace(t)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	require.NotNil(t, cmd)
+	assert.Equal(t, PageFunctions, m.PageSelected)
+	assert.True(t, m.traceClosePending)
+	sequence := m.traceCloseSequence
+
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("[B")})
+	assert.Equal(t, PageFunctions, m.PageSelected)
+	assert.False(t, m.traceClosePending)
+
+	// The already-scheduled close must also be harmless after cancellation.
+	m.Update(deferredTraceCloseMsg{sequence: sequence})
+	assert.Equal(t, PageFunctions, m.PageSelected)
+	require.NotNil(t, m.Current)
+}
+
+func TestUpdate_StandaloneEscStillReturnsToSearch(t *testing.T) {
+	m := openedTrace(t)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	require.NotNil(t, cmd)
+	assert.Equal(t, PageFunctions, m.PageSelected)
+
+	m.Update(cmd())
+	assert.Equal(t, PageSearch, m.PageSelected)
+	assert.False(t, m.traceClosePending)
 }

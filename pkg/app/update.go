@@ -13,6 +13,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle key presses.
 	case tea.KeyMsg:
+		// Bubble Tea can emit the ESC byte of an arrow/wheel sequence as a
+		// standalone key when the terminal splits the sequence across reads.
+		if m.cancelTraceCloseForContinuation(msg) {
+			return m, nil
+		}
+
 		// While the filter has the cursor almost every key is text, so it is
 		// asked first and only the keys which leave it are taken away.
 		if m.filterFocused {
@@ -63,10 +69,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			if m.showHelp || m.inTrace() {
+			if m.showHelp {
 				return m.updateKeyEsc()
 			}
+			if m.inTrace() {
+				return m.deferTraceClose()
+			}
 		}
+
+	case deferredTraceCloseMsg:
+		return m.updateDeferredTraceClose(msg)
 
 	case tea.WindowSizeMsg:
 		return m.updateWindowSize(msg)

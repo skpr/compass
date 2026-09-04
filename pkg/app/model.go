@@ -71,6 +71,11 @@ type Model struct {
 	// showHelp overlays the key map.
 	showHelp bool
 
+	// A trace-closing Escape is briefly deferred because terminal navigation
+	// keys are ESC-prefixed sequences which can be split across input reads.
+	traceClosePending  bool
+	traceCloseSequence uint64
+
 	// filter narrows the list on screen. filterFocused is whether it is being
 	// typed into; a filter stays in force after the cursor leaves it. Search
 	// and Logs share a value, while each trace page keeps its own so a URI
