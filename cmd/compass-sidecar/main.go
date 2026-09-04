@@ -38,6 +38,22 @@ var cmdExample = `
 const HeaderToken = "X-Skpr-Token"
 
 var (
+	serverReadHeaderTimeout = 10 * time.Second
+	serverIdleTimeout       = 2 * time.Minute
+)
+
+func newServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:    addr,
+		Handler: handler,
+		// No WriteTimeout: /v1/traces streams for the life of the subscription,
+		// so slow clients are bounded by these two rather than a write deadline.
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		IdleTimeout:       serverIdleTimeout,
+	}
+}
+
+var (
 	metricCollectorRunning = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "compass_sidecar_collector_running",
 		Help: "If the collector is running. 1 = on, 0 = off.",
@@ -178,10 +194,7 @@ func main() {
 					}
 				})
 
-				server := &http.Server{
-					Addr:    config.Addr,
-					Handler: mux,
-				}
+				server := newServer(config.Addr, mux)
 
 				// Start the server in its own goroutine.
 				eg.Go(func() error {
