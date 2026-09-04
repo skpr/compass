@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -123,6 +125,11 @@ type Options struct {
 }
 
 func main() {
+	// Cancel the root context on an interrupt or termination signal, so the
+	// HTTP server drains and the tracers run their cleanup on shutdown.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	o := Options{}
 
 	cmd := &cobra.Command{
@@ -272,7 +279,7 @@ func main() {
 
 	// Cobra prints the error, so exit quietly rather than panicking with a
 	// stack trace over the top of it.
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
 }
