@@ -13,7 +13,7 @@ import (
 )
 
 func TestBroadcaster_Subscribe(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch := b.Subscribe()
 	defer b.Unsubscribe(ch)
@@ -25,7 +25,7 @@ func TestBroadcaster_Subscribe(t *testing.T) {
 }
 
 func TestBroadcaster_MultipleSubscribers(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch1 := b.Subscribe()
 	ch2 := b.Subscribe()
@@ -42,7 +42,7 @@ func TestBroadcaster_MultipleSubscribers(t *testing.T) {
 }
 
 func TestBroadcaster_Unsubscribe(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch := b.Subscribe()
 
@@ -58,7 +58,7 @@ func TestBroadcaster_Unsubscribe(t *testing.T) {
 }
 
 func TestBroadcaster_ProcessTrace(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch := b.Subscribe()
 	defer b.Unsubscribe(ch)
@@ -85,7 +85,7 @@ func TestBroadcaster_ProcessTrace(t *testing.T) {
 }
 
 func TestBroadcaster_Broadcast_MultipleSubscribers(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch1 := b.Subscribe()
 	ch2 := b.Subscribe()
@@ -115,7 +115,7 @@ func TestBroadcaster_Broadcast_MultipleSubscribers(t *testing.T) {
 }
 
 func TestBroadcaster_ResubscribeAfterEmpty(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch := b.Subscribe()
 
@@ -150,7 +150,7 @@ func TestBroadcaster_ResubscribeAfterEmpty(t *testing.T) {
 }
 
 func TestBroadcaster_DropsForSlowConsumers(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 
 	ch := b.Subscribe()
 	defer b.Unsubscribe(ch)
@@ -171,12 +171,12 @@ func TestBroadcaster_DropsForSlowConsumers(t *testing.T) {
 }
 
 func TestBroadcaster_Initialize(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 	assert.NoError(t, b.Initialize())
 }
 
 func TestBroadcaster_ProcessTrace_ContextCancelled(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(t.Context())
 	// No subscribers, so broadcast channel will block.
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,4 +190,45 @@ func TestBroadcaster_ProcessTrace_ContextCancelled(t *testing.T) {
 
 	err := b.ProcessTrace(ctx, tr)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestBroadcaster_ShutdownClosesSubscribers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	b := NewBroadcaster(ctx)
+
+	ch := b.Subscribe()
+
+	// Allow subscribe to register.
+	time.Sleep(50 * time.Millisecond)
+	require.Equal(t, 1, b.Subscribers())
+
+	cancel()
+
+	// Shutdown closes every subscriber, so a blocked reader unblocks.
+	select {
+	case _, ok := <-ch:
+		assert.False(t, ok, "subscriber channel should be closed on shutdown")
+	case <-time.After(time.Second):
+		t.Fatal("subscriber was not closed on shutdown")
+	}
+
+	// Subscribe and Unsubscribe must not block once the loop has stopped.
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		late := b.Subscribe()
+
+		_, ok := <-late
+		assert.False(t, ok, "subscribe after shutdown should return a closed channel")
+
+		b.Unsubscribe(late)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Subscribe/Unsubscribe blocked after shutdown")
+	}
 }
