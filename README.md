@@ -232,7 +232,7 @@ see [`docs/sidecar-config.yaml`](docs/sidecar-config.yaml).
 | `COMPASS_SIDECAR_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, inside the Node container. |
 | `COMPASS_SIDECAR_DISCOVERY_TIMEOUT` | `1m` | How long to wait for a runtime before deciding it is not present. |
 | `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` | `10000` | Function calls retained per trace; later calls are counted as dropped. |
-| `COMPASS_SIDECAR_TOKEN` | | Require this token from clients. |
+| `COMPASS_SIDECAR_TOKEN` | | Require this token, as the `X-Skpr-Token` header, on both `/v1/traces` and `/metrics`. |
 | `COMPASS_SIDECAR_CERT_FILE` | | Serve traces over TLS with this certificate. |
 | `COMPASS_SIDECAR_KEY_FILE` | | Key for the TLS certificate. |
 

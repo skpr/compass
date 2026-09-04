@@ -49,6 +49,20 @@ func authorized(want, got string) bool {
 	return subtle.ConstantTimeCompare([]byte(want), []byte(got)) == 1
 }
 
+// requireToken gates a handler behind the configured token. An empty token
+// leaves the handler open.
+func requireToken(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authorized(token, r.Header.Get(HeaderToken)) {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintln(w, "Access Denied")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 var (
 	serverReadHeaderTimeout = 10 * time.Second
 	serverIdleTimeout       = 2 * time.Minute
@@ -148,17 +162,9 @@ func main() {
 			eg.Go(func() error {
 				mux := http.NewServeMux()
 
-				mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-					promhttp.Handler().ServeHTTP(w, r)
-				})
+				mux.Handle("/metrics", requireToken(config.Token, promhttp.Handler()))
 
-				mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
-					if !authorized(config.Token, r.Header.Get(HeaderToken)) {
-						w.WriteHeader(http.StatusUnauthorized)
-						fmt.Fprintln(w, "Access Denied")
-						return
-					}
-
+				mux.Handle("/v1/traces", requireToken(config.Token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					// Track the number of subscriptions for debugging how many clients are using the sidecar.
 					metricSubscription.Inc()
 					defer metricSubscription.Dec()
@@ -204,7 +210,7 @@ func main() {
 							flusher.Flush()
 						}
 					}
-				})
+				})))
 
 				server := newServer(config.Addr, mux)
 
