@@ -16,6 +16,12 @@ import (
 // "this probe is absent" apart from "this binary could not be read".
 var ErrProbeNotFound = errors.New("probe not found")
 
+// maxNoteDescSize bounds a single stapsdt note descriptor. A real descriptor is
+// three addresses plus a few short strings, so this is far larger than any
+// legitimate note; it exists to reject a corrupt descsz before it is used to
+// size an allocation.
+const maxNoteDescSize int32 = 64 * 1024
+
 // Note represents a SystemTap note.
 type Note struct {
 	Location              uint64
@@ -52,10 +58,13 @@ func getLocationFromProbe(path, provider, probe string) (*Note, error) {
 		return nil, errors.New("SDT note section not found")
 	}
 
-	addrsz := 4
-	if f.Class == elf.ELFCLASS64 {
-		addrsz = 8
+	// Only 64-bit binaries are supported: the extension and addon are always
+	// built 64-bit, and the address reads below assume eight-byte fields.
+	if f.Class != elf.ELFCLASS64 {
+		return nil, fmt.Errorf("unsupported ELF class %s: only 64-bit binaries are supported", f.Class)
 	}
+
+	addrsz := 8
 
 	r := sec.Open()
 	base := sdtBaseAddr(f)
@@ -70,9 +79,21 @@ func getLocationFromProbe(path, provider, probe string) (*Note, error) {
 			return nil, err
 		}
 
+		if namesz < 0 {
+			return nil, fmt.Errorf("malformed stapsdt note: negative namesz: %d", namesz)
+		}
+
 		err = binary.Read(r, f.ByteOrder, &descsz)
 		if err != nil {
 			return nil, err
+		}
+
+		// A valid descriptor holds at least the three addresses; reject anything
+		// smaller or implausibly large before it sizes the allocation below, so a
+		// corrupt note cannot wrap to a huge make or leave the field reads that
+		// follow out of bounds.
+		if descsz < int32(3*addrsz) || descsz > maxNoteDescSize {
+			return nil, fmt.Errorf("malformed stapsdt note: descsz out of range: %d", descsz)
 		}
 
 		// skip note type
@@ -97,10 +118,16 @@ func getLocationFromProbe(path, provider, probe string) (*Note, error) {
 			return nil, err
 		}
 
+		d, err := parseNoteDesc(desc, addrsz, f.ByteOrder)
+		if err != nil {
+			return nil, err
+		}
+
 		note := Note{
-			Location:  f.ByteOrder.Uint64(desc[0:addrsz]),
-			Base:      f.ByteOrder.Uint64(desc[addrsz : 2*addrsz]),
-			Semaphore: f.ByteOrder.Uint64(desc[2*addrsz : 3*addrsz]),
+			Location:  d.location,
+			Base:      d.base,
+			Semaphore: d.semaphore,
+			Args:      d.args,
 			bo:        f.ByteOrder,
 		}
 
@@ -123,30 +150,69 @@ func getLocationFromProbe(path, provider, probe string) (*Note, error) {
 			}
 		}
 
-		idx := 3 * addrsz
-		providersz := bytes.IndexByte(desc[idx:], 0)
-		pv := string(desc[idx : idx+providersz])
-
-		idx += providersz + 1
-		probesz := bytes.IndexByte(desc[idx:], 0)
-		pb := string(desc[idx : idx+probesz])
-
-		// The arguments string follows immediately after the probe name's null terminator.
-		idx += probesz + 1
-		if idx < len(desc) {
-			argssz := bytes.IndexByte(desc[idx:], 0)
-			if argssz < 0 {
-				argssz = len(desc) - idx
-			}
-			note.Args = string(desc[idx : idx+argssz])
-		}
-
-		if provider == pv && probe == pb {
+		if provider == d.provider && probe == d.probe {
 			return &note, nil
 		}
 	}
 
 	return nil, fmt.Errorf("%w: %s in provider %s", ErrProbeNotFound, probe, provider)
+}
+
+// noteDesc is the decoded body of one stapsdt note.
+type noteDesc struct {
+	location  uint64
+	base      uint64
+	semaphore uint64
+	provider  string
+	probe     string
+	args      string
+}
+
+// parseNoteDesc decodes one stapsdt note descriptor: three addresses followed
+// by the null-terminated provider, probe and argument strings. It returns an
+// error rather than panicking on a descriptor too short for the addresses or
+// carrying an unterminated provider or probe name.
+func parseNoteDesc(desc []byte, addrsz int, bo binary.ByteOrder) (noteDesc, error) {
+	if addrsz != 8 {
+		return noteDesc{}, fmt.Errorf("unsupported address size: %d", addrsz)
+	}
+
+	if len(desc) < 3*addrsz {
+		return noteDesc{}, fmt.Errorf("malformed stapsdt note: descriptor too short: %d", len(desc))
+	}
+
+	d := noteDesc{
+		location:  bo.Uint64(desc[0:addrsz]),
+		base:      bo.Uint64(desc[addrsz : 2*addrsz]),
+		semaphore: bo.Uint64(desc[2*addrsz : 3*addrsz]),
+	}
+
+	idx := 3 * addrsz
+
+	providersz := bytes.IndexByte(desc[idx:], 0)
+	if providersz < 0 {
+		return noteDesc{}, errors.New("malformed stapsdt note: unterminated provider name")
+	}
+	d.provider = string(desc[idx : idx+providersz])
+
+	idx += providersz + 1
+	probesz := bytes.IndexByte(desc[idx:], 0)
+	if probesz < 0 {
+		return noteDesc{}, errors.New("malformed stapsdt note: unterminated probe name")
+	}
+	d.probe = string(desc[idx : idx+probesz])
+
+	// The arguments string follows immediately after the probe name's null terminator.
+	idx += probesz + 1
+	if idx < len(desc) {
+		argssz := bytes.IndexByte(desc[idx:], 0)
+		if argssz < 0 {
+			argssz = len(desc) - idx
+		}
+		d.args = string(desc[idx : idx+argssz])
+	}
+
+	return d, nil
 }
 
 func offset(f *elf.File, addr uint64) uint64 {
