@@ -59,7 +59,6 @@ spec:
       containers:
         - name: compass-daemon
           image: ghcr.io/skpr/compass-daemon:v1.10.0
-          args: ["compass-daemon"]
           ports:
             - name: traces
               containerPort: 28624

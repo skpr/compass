@@ -48,21 +48,27 @@ COPY --from=build /data/_output/compass /usr/local/bin/compass
 CMD ["compass"]
 
 # Compass sidecar, the default target.
-FROM alpine:3.21 AS sidecar
-
-RUN apk add bash binutils
+#
+# scratch: the sidecar is a statically linked (CGO_ENABLED=0) server that never
+# dials out, loads eBPF via the host's /sys/kernel/btf, and parses ELF in pure
+# Go, so it needs nothing from userspace. Shipping just the binary keeps this
+# privileged, host-PID container's attack surface to a minimum. There is no
+# shell, so debug with an ephemeral container rather than `exec sh`.
+FROM scratch AS sidecar
 
 COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar
 
 ENV COMPASS_SIDECAR_PHP_PROCESS_NAME=php-fpm
 
-CMD ["compass-sidecar"]
+# Absolute path: scratch has no shell or PATH to resolve a bare command against.
+ENTRYPOINT ["/usr/local/bin/compass-sidecar"]
 
 # Compass daemon, a per-node DaemonSet collector.
-FROM alpine:3.21 AS daemon
-
-RUN apk add bash binutils
+#
+# scratch for the same reasons as the sidecar: a static, server-only binary in a
+# privileged, host-PID container.
+FROM scratch AS daemon
 
 COPY --from=build /data/_output/compass-daemon /usr/local/bin/compass-daemon
 
-CMD ["compass-daemon"]
+ENTRYPOINT ["/usr/local/bin/compass-daemon"]
