@@ -36,6 +36,10 @@ type Router struct {
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
 	backoffReset   time.Duration
+	// maxTargets caps the number of distinct pods collected at once. Zero means
+	// unlimited. It bounds the eBPF programs, probes and /proc scans a single
+	// daemon can be driven to start by clients naming distinct pod UIDs.
+	maxTargets int
 
 	// Hooks for metrics; no-ops by default so the router carries no metrics
 	// dependency of its own.
@@ -62,6 +66,14 @@ func WithBackoff(initial, maximum, resetAfter time.Duration) Option {
 // WithBufferSize sets the per-subscriber channel buffer.
 func WithBufferSize(n int) Option {
 	return func(r *Router) { r.bufferSize = n }
+}
+
+// WithMaxTargets caps the number of distinct pods collected concurrently.
+// Non-positive values leave the count unlimited. When the cap is reached,
+// CanAccept reports false for a not-yet-collected pod so the daemon can reject
+// the request rather than starting another collector.
+func WithMaxTargets(n int) Option {
+	return func(r *Router) { r.maxTargets = n }
 }
 
 // WithMetrics installs callbacks invoked when a collector starts or stops and
@@ -221,6 +233,30 @@ func (r *Router) Targets() int {
 	defer r.mu.Unlock()
 
 	return len(r.targets)
+}
+
+// CanAccept reports whether a subscription for target may proceed under the
+// configured target ceiling. A pod already being collected always may (it adds
+// a subscriber, not a collector); a new pod may only when the ceiling has room.
+//
+// This is an admission check, not a reservation: it is not atomic with the
+// Subscribe that follows, so a burst of concurrent subscriptions for distinct
+// new pods can transiently exceed maxTargets by the size of that burst. The cap
+// is a safety ceiling against unbounded growth, not an exact quota, so that
+// relaxation is intentional.
+func (r *Router) CanAccept(target Target) bool {
+	if r.maxTargets <= 0 {
+		return true
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.targets[target.Key()]; ok {
+		return true
+	}
+
+	return len(r.targets) < r.maxTargets
 }
 
 // targetStream owns the subscribers and the collector for one pod target. It is

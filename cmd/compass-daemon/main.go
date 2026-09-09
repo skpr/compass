@@ -101,6 +101,11 @@ var (
 		Name: "compass_daemon_traces_dropped_total",
 		Help: "The total number of traces dropped because a subscriber could not keep up.",
 	})
+
+	metricSubscriptionsRejected = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "compass_daemon_subscriptions_rejected_total",
+		Help: "The total number of subscriptions rejected because the concurrent target ceiling was reached.",
+	})
 )
 
 // Config utilised by this daemon application.
@@ -112,6 +117,7 @@ type Config struct {
 	ProcRoot         string `yaml:"proc_root"          env:"COMPASS_DAEMON_PROC_ROOT"          env-default:"/proc"`
 	CgroupRoot       string `yaml:"cgroup_root"        env:"COMPASS_DAEMON_CGROUP_ROOT"        env-default:"/sys/fs/cgroup"`
 	MaxFunctionCalls int    `yaml:"max_function_calls" env:"COMPASS_DAEMON_MAX_FUNCTION_CALLS" env-default:"10000"`
+	MaxTargets       int    `yaml:"max_targets"        env:"COMPASS_DAEMON_MAX_TARGETS"        env-default:"50"`
 	Token            string `yaml:"token"              env:"COMPASS_DAEMON_TOKEN"`
 	CertFile         string `yaml:"cert_file"          env:"COMPASS_DAEMON_CERT_FILE"`
 	KeyFile          string `yaml:"key_file"           env:"COMPASS_DAEMON_KEY_FILE"`
@@ -170,6 +176,7 @@ func main() {
 			eg, ctx := errgroup.WithContext(cmd.Context())
 
 			router := collector.NewRouter(ctx, logger, podCollector(logger, config),
+				collector.WithMaxTargets(config.MaxTargets),
 				collector.WithMetrics(
 					func(collector.Target) { metricCollectorsRunning.Inc() },
 					func(collector.Target) { metricCollectorsRunning.Dec() },
@@ -294,6 +301,16 @@ func handleTraces(logger *slog.Logger, router *collector.Router, w http.Response
 
 	metricSubscription.Inc()
 	defer metricSubscription.Dec()
+
+	// Refuse the request when the node is already collecting its ceiling of
+	// distinct pods, rather than starting another eBPF collector. Without this a
+	// client could name arbitrarily many pod UIDs and exhaust the node.
+	if !router.CanAccept(target) {
+		metricSubscriptionsRejected.Inc()
+		logger.Warn("Refusing subscription: target ceiling reached", "uid", target.UID)
+		http.Error(w, "too many concurrent traced pods", http.StatusServiceUnavailable)
+		return
+	}
 
 	traces, unsubscribe := router.Subscribe(target)
 	defer unsubscribe()
