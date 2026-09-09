@@ -15,7 +15,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 )
 
 // DefaultProcRoot is where the host /proc is expected to be mounted.
@@ -25,6 +27,12 @@ const DefaultProcRoot = "/proc"
 // to be mounted. It is only used to resolve a cgroup id for the BPF filter and
 // is optional: resolution still returns matches when it is absent.
 const DefaultCgroupRoot = "/sys/fs/cgroup"
+
+// DefaultNegativeTTL is how long a "pod not on this node" result is remembered
+// so repeated requests for an absent pod do not force a full /proc rescan on
+// every retry. Short enough that a pod which schedules onto the node shortly
+// after a client connects is still picked up on a later retry.
+const DefaultNegativeTTL = 5 * time.Second
 
 // podUIDPattern matches the "pod<uid>" token the kubelet writes into a cgroup
 // path. The UID is a UUID whose separators the systemd cgroup driver rewrites
@@ -57,6 +65,18 @@ type Resolver struct {
 	// CgroupRoot is the unified cgroup mount used to resolve cgroup ids.
 	// Defaults to DefaultCgroupRoot.
 	CgroupRoot string
+	// NegativeTTL bounds how long a no-match result is remembered so repeated
+	// requests for a pod not on this node do not rescan /proc every time. Zero
+	// uses DefaultNegativeTTL; a negative value disables the cache. Only empty
+	// results are cached: a successful resolution always rescans so its process
+	// list is never stale.
+	NegativeTTL time.Duration
+
+	// now is an injectable clock for tests; nil uses time.Now.
+	now func() time.Time
+
+	mu     sync.Mutex
+	misses map[string]time.Time // normalised uid -> cached-miss expiry
 }
 
 // NewResolver returns a Resolver using the default host mount points.
@@ -83,12 +103,38 @@ func (r *Resolver) cgroupRoot() string {
 // Resolve returns every process on the node whose cgroup path carries the given
 // pod UID. An empty slice with a nil error means the pod has no processes here,
 // which is the normal case for a node the pod is not scheduled on.
+//
+// A no-match result is cached for NegativeTTL so a client repeatedly asking for
+// a pod that is not on this node does not force a full /proc rescan on every
+// retry. Successful resolutions are never cached, so a caller (re)starting a
+// collector always gets a fresh, current process list.
 func (r *Resolver) Resolve(uid string) ([]Match, error) {
 	want := NormaliseUID(uid)
 	if want == "" {
 		return nil, fmt.Errorf("invalid pod UID: %q", uid)
 	}
 
+	if r.recentlyMissed(want) {
+		return nil, nil
+	}
+
+	matches, err := r.scan(want)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(matches) == 0 {
+		r.rememberMiss(want)
+	} else {
+		r.forgetMiss(want)
+	}
+
+	return matches, nil
+}
+
+// scan walks the /proc tree for processes whose cgroup carries the wanted
+// (already normalised) pod UID.
+func (r *Resolver) scan(want string) ([]Match, error) {
 	entries, err := os.ReadDir(r.procRoot())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read proc root %s: %w", r.procRoot(), err)
@@ -123,6 +169,69 @@ func (r *Resolver) Resolve(uid string) ([]Match, error) {
 	}
 
 	return matches, nil
+}
+
+// negativeTTL resolves the configured miss cache duration. Zero uses the
+// default; a negative value disables caching.
+func (r *Resolver) negativeTTL() time.Duration {
+	if r.NegativeTTL == 0 {
+		return DefaultNegativeTTL
+	}
+
+	return r.NegativeTTL
+}
+
+func (r *Resolver) clock() time.Time {
+	if r.now != nil {
+		return r.now()
+	}
+
+	return time.Now()
+}
+
+// recentlyMissed reports whether want was resolved to no matches within the
+// negative TTL.
+func (r *Resolver) recentlyMissed(want string) bool {
+	if r.negativeTTL() <= 0 {
+		return false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	expiry, ok := r.misses[want]
+	if !ok {
+		return false
+	}
+
+	if !r.clock().Before(expiry) {
+		delete(r.misses, want)
+		return false
+	}
+
+	return true
+}
+
+func (r *Resolver) rememberMiss(want string) {
+	if r.negativeTTL() <= 0 {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.misses == nil {
+		r.misses = make(map[string]time.Time)
+	}
+
+	r.misses[want] = r.clock().Add(r.negativeTTL())
+}
+
+func (r *Resolver) forgetMiss(want string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.misses, want)
 }
 
 // describe gathers the filter keys and paths for a matched process. Missing

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -178,6 +179,87 @@ func TestResolve_RejectsInvalidUID(t *testing.T) {
 
 	_, err := r.Resolve("not-a-uuid")
 	assert.Error(t, err)
+}
+
+// TestResolve_CachesNegativeResult proves a no-match result is remembered for
+// the negative TTL: a pod added to the tree after a miss is not seen until the
+// cached miss expires. This is what spares the daemon a full /proc rescan on
+// every retry for a pod that is not (yet) on the node.
+func TestResolve_CachesNegativeResult(t *testing.T) {
+	const uid = "12345678-1234-1234-1234-123456789abc"
+	target := "0::/kubepods.slice/kubepods-pod12345678_1234_1234_1234_123456789abc.slice/cri-containerd-x.scope\n"
+
+	procRoot := t.TempDir()
+
+	now := time.Unix(0, 0)
+	r := &Resolver{ProcRoot: procRoot, NegativeTTL: 5 * time.Second, now: func() time.Time { return now }}
+
+	// Absent pod: miss, cached.
+	matches, err := r.Resolve(uid)
+	require.NoError(t, err)
+	require.Empty(t, matches)
+
+	// The pod appears, but within the TTL the cached miss is still returned.
+	writeProc(t, procRoot, 100, target)
+
+	matches, err = r.Resolve(uid)
+	require.NoError(t, err)
+	assert.Empty(t, matches, "a cached miss should be reused within the negative TTL")
+
+	// After the TTL, the scan runs again and finds the pod.
+	now = now.Add(6 * time.Second)
+
+	matches, err = r.Resolve(uid)
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	assert.Equal(t, 100, matches[0].PID)
+}
+
+// TestResolve_DoesNotCacheHits confirms a successful resolution is never cached,
+// so a caller always gets a current process list (fresh PIDs).
+func TestResolve_DoesNotCacheHits(t *testing.T) {
+	const uid = "12345678-1234-1234-1234-123456789abc"
+	target := "0::/kubepods.slice/kubepods-pod12345678_1234_1234_1234_123456789abc.slice/cri-containerd-x.scope\n"
+
+	procRoot := t.TempDir()
+	writeProc(t, procRoot, 100, target)
+
+	now := time.Unix(0, 0)
+	r := &Resolver{ProcRoot: procRoot, NegativeTTL: time.Hour, now: func() time.Time { return now }}
+
+	matches, err := r.Resolve(uid)
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+
+	// The worker recycles to a new PID; the next resolve must reflect it despite
+	// the long TTL, because hits are not cached.
+	require.NoError(t, os.RemoveAll(filepath.Join(procRoot, "100")))
+	writeProc(t, procRoot, 101, target)
+
+	matches, err = r.Resolve(uid)
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	assert.Equal(t, 101, matches[0].PID, "a successful resolution must not be served from cache")
+}
+
+// TestResolve_NegativeTTLDisabled confirms a negative TTL turns the cache off.
+func TestResolve_NegativeTTLDisabled(t *testing.T) {
+	const uid = "12345678-1234-1234-1234-123456789abc"
+	target := "0::/kubepods.slice/kubepods-pod12345678_1234_1234_1234_123456789abc.slice/cri-containerd-x.scope\n"
+
+	procRoot := t.TempDir()
+	r := &Resolver{ProcRoot: procRoot, NegativeTTL: -1}
+
+	matches, err := r.Resolve(uid)
+	require.NoError(t, err)
+	require.Empty(t, matches)
+
+	writeProc(t, procRoot, 100, target)
+
+	// With caching disabled, the pod is found immediately on the next call.
+	matches, err = r.Resolve(uid)
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
 }
 
 // TestInode sanity-checks that inode() returns the same number the kernel
