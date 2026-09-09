@@ -146,6 +146,30 @@ static __always_inline __u64 read_arg(struct pt_regs *ctx, __u32 offset) {
   return val;
 }
 
+// filter_by_cgroup restricts event collection to the cgroups listed in
+// allowed_cgroups. The sidecar traces its whole pod and leaves it 0, so every
+// task is allowed; the DaemonSet collector sets it and populates the map so a
+// probe on a binary whose inode overlayfs shares across pods only reports the
+// target pod.
+volatile const __u8 filter_by_cgroup = 0;
+
+struct {
+  __uint(type, BPF_MAP_TYPE_HASH);
+  __uint(max_entries, 128);
+  __type(key, __u64);
+  __type(value, __u8);
+} allowed_cgroups SEC(".maps");
+
+// cgroup_allowed reports whether the current task may emit events: always when
+// the filter is off, otherwise only when its cgroup id is in allowed_cgroups.
+static __always_inline int cgroup_allowed(void) {
+  if (!filter_by_cgroup)
+    return 1;
+
+  __u64 id = bpf_get_current_cgroup_id();
+  return bpf_map_lookup_elem(&allowed_cgroups, &id) != NULL;
+}
+
 SEC("uprobe/compass_canary")
 int uprobe_compass_canary(struct pt_regs *ctx) {
   return 0;
@@ -153,6 +177,9 @@ int uprobe_compass_canary(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_fpm_request_init")
 int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
+  if (!cgroup_allowed())
+    return 0;
+
   struct request_init_event *event =
       bpf_ringbuf_reserve(&events, sizeof(*event), 0);
   if (!event) {
@@ -175,6 +202,9 @@ int uprobe_compass_fpm_request_init(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_fpm_function")
 int uprobe_compass_fpm_function(struct pt_regs *ctx) {
+  if (!cgroup_allowed())
+    return 0;
+
   struct function_event *event =
       bpf_ringbuf_reserve(&events, sizeof(*event), 0);
   if (!event) {
@@ -197,6 +227,9 @@ int uprobe_compass_fpm_function(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_fpm_request_shutdown")
 int uprobe_compass_fpm_request_shutdown(struct pt_regs *ctx) {
+  if (!cgroup_allowed())
+    return 0;
+
   struct request_shutdown_event *event =
       bpf_ringbuf_reserve(&events, sizeof(*event), 0);
   if (!event) {
@@ -222,6 +255,9 @@ static __always_inline int drupal_cache_event_empty(struct drupal_cache_event *e
 
 SEC("uprobe/compass_drupal_cacheablemetadata_createfromrenderarray")
 int uprobe_compass_drupal_cache_render_array(struct pt_regs *ctx) {
+  if (!cgroup_allowed())
+    return 0;
+
   struct drupal_cache_event *event =
       bpf_ringbuf_reserve(&drupal_cache_events, sizeof(*event), 0);
   if (!event) {
@@ -267,6 +303,9 @@ int uprobe_compass_drupal_cache_render_array(struct pt_regs *ctx) {
 
 SEC("uprobe/compass_drupal_cacheablemetadata_createfromobject")
 int uprobe_compass_drupal_cache_object(struct pt_regs *ctx) {
+  if (!cgroup_allowed())
+    return 0;
+
   struct drupal_cache_event *event =
       bpf_ringbuf_reserve(&drupal_cache_events, sizeof(*event), 0);
   if (!event) {

@@ -5,20 +5,21 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/skpr/compass/pkg/tracer/cgroupfilter"
 	"github.com/skpr/compass/pkg/tracer/php/cli"
 	"github.com/skpr/compass/pkg/tracer/php/fpm"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
-func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFunctionCalls int) error {
+func Run(ctx context.Context, plugin sink.Interface, extensionPath string, maxFunctionCalls int, filter cgroupfilter.Filter) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return fpm.Run(ctx, plugin, extensionPath, maxFunctionCalls)
+		return fpm.Run(ctx, plugin, extensionPath, maxFunctionCalls, filter)
 	})
 
 	g.Go(func() error {
-		return cli.Run(ctx, plugin, extensionPath, maxFunctionCalls)
+		return cli.Run(ctx, plugin, extensionPath, maxFunctionCalls, filter)
 	})
 
 	return g.Wait()

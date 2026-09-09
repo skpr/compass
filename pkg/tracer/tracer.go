@@ -7,6 +7,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/skpr/compass/pkg/tracer/cgroupfilter"
 	"github.com/skpr/compass/pkg/tracer/node"
 	"github.com/skpr/compass/pkg/tracer/php"
 	"github.com/skpr/compass/pkg/tracer/sink"
@@ -16,6 +17,10 @@ import (
 type Options struct {
 	// MaxFunctionCalls is how many function records each trace retains.
 	MaxFunctionCalls int
+	// Filter restricts collection to a set of cgroup ids. The zero value traces
+	// everything the probes see, which is the sidecar's behaviour; the DaemonSet
+	// collector sets it to the target pod's cgroups.
+	Filter cgroupfilter.Filter
 }
 
 // Runtimes which have been discovered and can be traced.
@@ -44,13 +49,13 @@ func Run(ctx context.Context, plugin sink.Interface, runtimes Runtimes, options 
 
 	if runtimes.PHPExtensionPath != "" {
 		g.Go(func() error {
-			return php.Run(ctx, plugin, runtimes.PHPExtensionPath, options.MaxFunctionCalls)
+			return php.Run(ctx, plugin, runtimes.PHPExtensionPath, options.MaxFunctionCalls, options.Filter)
 		})
 	}
 
 	if runtimes.NodeAddonPath != "" {
 		g.Go(func() error {
-			return node.Run(ctx, plugin, runtimes.NodeAddonPath, options.MaxFunctionCalls)
+			return node.Run(ctx, plugin, runtimes.NodeAddonPath, options.MaxFunctionCalls, options.Filter)
 		})
 	}
 

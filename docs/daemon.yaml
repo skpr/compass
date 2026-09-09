@@ -1,0 +1,107 @@
+# Compass node daemon.
+#
+# One collector per node, in the host PID namespace, tracing a single pod at a
+# time chosen by the client with /v1/traces?uid=<podUID>. It resolves the pod's
+# processes from the node's /proc and scopes the eBPF probes to the pod's
+# cgroups, so it never reads another pod's request data even when two pods share
+# an instrumented binary's inode through overlayfs.
+#
+# SECURITY: this pod is privileged, shares the host PID namespace, and can trace
+# any pod on the node by UID. That is a large blast radius, so the token is
+# mandatory (the daemon refuses to start without COMPASS_DAEMON_TOKEN) and gates
+# both /v1/traces and /metrics. Restrict who can reach port 28624 with a
+# NetworkPolicy, and treat the token as a cluster secret.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: compass
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compass-daemon
+  namespace: compass
+---
+# Replace the token before applying. The daemon reads it from the environment;
+# clients present it as the X-Skpr-Token header (the CLI's --token / COMPASS_TOKEN).
+#
+#   kubectl -n compass create secret generic compass-daemon \
+#     --from-literal=token="$(openssl rand -hex 32)"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: compass-daemon
+  namespace: compass
+type: Opaque
+stringData:
+  token: "CHANGE-ME"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: compass-daemon
+  namespace: compass
+  labels:
+    app.kubernetes.io/name: compass-daemon
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: compass-daemon
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: compass-daemon
+    spec:
+      serviceAccountName: compass-daemon
+      # See every process on the node, so a pod's PIDs can be resolved by UID.
+      hostPID: true
+      containers:
+        - name: compass-daemon
+          image: ghcr.io/skpr/compass-daemon:v1.10.0
+          ports:
+            - name: traces
+              containerPort: 28624
+          env:
+            - name: COMPASS_DAEMON_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: compass-daemon
+                  key: token
+            # The instrumented binary paths, as seen inside the target pods'
+            # containers. Override if your images install them elsewhere.
+            - name: COMPASS_DAEMON_PHP_EXTENSION_PATH
+              value: /usr/lib/php/modules/compass.so
+            - name: COMPASS_DAEMON_NODE_ADDON_PATH
+              value: /usr/lib/compass/node/compass.node
+          securityContext:
+            # Loading eBPF programs, attaching uprobes, and opening other
+            # containers' binaries through /proc/<pid>/root all require broad
+            # privileges. This matches the sidecar's requirement.
+            privileged: true
+          volumeMounts:
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            - name: btf
+              mountPath: /sys/kernel/btf
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        # Used to turn a pod's cgroup path into the cgroup id the eBPF filter
+        # keys on.
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        # Kernel BTF for CO-RE relocations at load time.
+        - name: btf
+          hostPath:
+            path: /sys/kernel/btf
+      tolerations:
+        # Run on every node, including control-plane nodes if they host workloads.
+        - operator: Exists

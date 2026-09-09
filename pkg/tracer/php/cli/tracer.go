@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/skpr/compass/pkg/php/extension/usdt"
+	"github.com/skpr/compass/pkg/tracer/cgroupfilter"
 	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/ringloss"
 	"github.com/skpr/compass/pkg/tracer/ringreader"
@@ -59,7 +60,7 @@ const (
 )
 
 // Run the collector.
-func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFunctionCalls int) error {
+func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFunctionCalls int, filter cgroupfilter.Filter) error {
 	logger := yolog.NewLogger(LoggerStream)
 	defer logger.Log(os.Stdout)
 
@@ -75,6 +76,13 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFu
 	if err != nil {
 		return logger.WrapError(err)
 	}
+
+	// Restrict collection to the target pod's cgroups, if a filter was given.
+	if err := filter.Apply(spec); err != nil {
+		return logger.WrapError(err)
+	}
+
+	logger.SetAttr("cgroup_filter_enabled", filter.Enabled())
 
 	// Parse argument register offsets from the .note.stapsdt section of the
 	// extension binary. The Rust compiler may allocate USDT probe arguments to
@@ -170,6 +178,12 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFu
 		return logger.WrapError(fmt.Errorf("failed to load objects: %w", err))
 	}
 	defer objs.Close()
+
+	// Load the target pod's cgroup ids into the allow-map. A no-op when the
+	// filter is disabled.
+	if err := filter.Populate(objs.AllowedCgroups); err != nil {
+		return logger.WrapError(err)
+	}
 
 	reserveFailures, err := ringloss.NewObserver(
 		objs.RingbufReserveFailures,

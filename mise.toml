@@ -58,7 +58,7 @@ depends = ["vendor"]
 
 [tasks.build]
 description = "Build all Compass tracing binaries"
-depends = ["build:cli", "build:sidecar"]
+depends = ["build:cli", "build:sidecar", "build:daemon"]
 
 [tasks."build:cli"]
 description = "Build Compass CLI"
@@ -68,4 +68,9 @@ depends = ["generate"]
 [tasks."build:sidecar"]
 description = "Build Compass sidecar"
 run = "go build -a -o _output/compass-sidecar github.com/skpr/compass/cmd/compass-sidecar"
+depends = ["generate"]
+
+[tasks."build:daemon"]
+description = "Build Compass daemon"
+run = "go build -a -o _output/compass-daemon github.com/skpr/compass/cmd/compass-daemon"
 depends = ["generate"]
