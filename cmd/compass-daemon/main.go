@@ -13,7 +13,6 @@ package main
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -32,6 +31,7 @@ import (
 
 	"github.com/skpr/compass/pkg/collector"
 	"github.com/skpr/compass/pkg/collector/pod"
+	"github.com/skpr/compass/pkg/httpstream"
 	"github.com/skpr/compass/pkg/tracer"
 	"github.com/skpr/compass/pkg/tracer/cgroupfilter"
 	"github.com/skpr/compass/pkg/tracer/sink"
@@ -77,7 +77,10 @@ func newServer(addr string, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr:    addr,
 		Handler: handler,
-		// No WriteTimeout: /v1/traces streams for the life of the subscription.
+		// No server WriteTimeout: /v1/traces streams for the life of the
+		// subscription. Individual writes are bounded per-record in
+		// httpstream.Serve, so a non-reading client is disconnected without
+		// capping the stream.
 		ReadHeaderTimeout: serverReadHeaderTimeout,
 		IdleTimeout:       serverIdleTimeout,
 	}
@@ -98,6 +101,11 @@ var (
 		Name: "compass_daemon_traces_dropped_total",
 		Help: "The total number of traces dropped because a subscriber could not keep up.",
 	})
+
+	metricSubscriptionsRejected = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "compass_daemon_subscriptions_rejected_total",
+		Help: "The total number of subscriptions rejected because the concurrent target ceiling was reached.",
+	})
 )
 
 // Config utilised by this daemon application.
@@ -109,6 +117,7 @@ type Config struct {
 	ProcRoot         string `yaml:"proc_root"          env:"COMPASS_DAEMON_PROC_ROOT"          env-default:"/proc"`
 	CgroupRoot       string `yaml:"cgroup_root"        env:"COMPASS_DAEMON_CGROUP_ROOT"        env-default:"/sys/fs/cgroup"`
 	MaxFunctionCalls int    `yaml:"max_function_calls" env:"COMPASS_DAEMON_MAX_FUNCTION_CALLS" env-default:"10000"`
+	MaxTargets       int    `yaml:"max_targets"        env:"COMPASS_DAEMON_MAX_TARGETS"        env-default:"50"`
 	Token            string `yaml:"token"              env:"COMPASS_DAEMON_TOKEN"`
 	CertFile         string `yaml:"cert_file"          env:"COMPASS_DAEMON_CERT_FILE"`
 	KeyFile          string `yaml:"key_file"           env:"COMPASS_DAEMON_KEY_FILE"`
@@ -167,6 +176,7 @@ func main() {
 			eg, ctx := errgroup.WithContext(cmd.Context())
 
 			router := collector.NewRouter(ctx, logger, podCollector(logger, config),
+				collector.WithMaxTargets(config.MaxTargets),
 				collector.WithMetrics(
 					func(collector.Target) { metricCollectorsRunning.Inc() },
 					func(collector.Target) { metricCollectorsRunning.Dec() },
@@ -292,45 +302,23 @@ func handleTraces(logger *slog.Logger, router *collector.Router, w http.Response
 	metricSubscription.Inc()
 	defer metricSubscription.Dec()
 
-	traces, unsubscribe := router.Subscribe(target)
-	defer unsubscribe()
-
-	w.Header().Set("Content-Type", "application/x-ndjson")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+	// Refuse the request when the node is already collecting its ceiling of
+	// distinct pods, rather than starting another eBPF collector. Without this a
+	// client could name arbitrarily many pod UIDs and exhaust the node.
+	if !router.CanAccept(target) {
+		metricSubscriptionsRejected.Inc()
+		logger.Warn("Refusing subscription: target ceiling reached", "uid", target.UID)
+		http.Error(w, "too many concurrent traced pods", http.StatusServiceUnavailable)
 		return
 	}
 
-	clientCtx := r.Context()
+	traces, unsubscribe := router.Subscribe(target)
+	defer unsubscribe()
 
-	for {
-		select {
-		case <-clientCtx.Done():
-			logger.Info("Client disconnected", "uid", target.UID)
-			return
-		case msg, ok := <-traces:
-			if !ok {
-				logger.Info("Subscriber channel closed", "uid", target.UID)
-				return
-			}
-
-			if err := json.NewEncoder(w).Encode(msg); err != nil {
-				if errors.Is(clientCtx.Err(), context.Canceled) {
-					return
-				}
-
-				logger.Error("Failed to write to client", "uid", target.UID, "error", err)
-				return
-			}
-
-			flusher.Flush()
-		}
-	}
+	// Serve writes the NDJSON stream, bounding each write with a deadline so a
+	// client which stops reading cannot pin this goroutine and its connection
+	// indefinitely.
+	httpstream.Serve(w, r, traces, httpstream.DefaultWriteTimeout, logger, "uid", target.UID)
 }
 
 // loadConfig from a file, if one was provided, with the environment taking precedence.

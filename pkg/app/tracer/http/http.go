@@ -3,12 +3,14 @@ package http
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -22,8 +24,10 @@ import (
 // HeaderToken is the header the sidecar authenticates requests with.
 const HeaderToken = "X-Skpr-Token"
 
-// maxLineBytes is the largest trace payload supported by the stream client.
-const maxLineBytes = 10 * 1024 * 1024
+// maxLineBytes is the largest trace payload supported by the stream client. A
+// trace larger than this cannot be carried, so it is dropped and the stream
+// continues rather than being torn down. A var so tests can shrink it.
+var maxLineBytes = 10 * 1024 * 1024
 
 // Backoff configuration for reconnecting to the sidecar, variables so that
 // tests do not have to wait for real world delays.
@@ -150,20 +154,47 @@ func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, c
 
 	p.Send(events.Connection{State: events.ConnectionStateConnected})
 
-	scanner := bufio.NewScanner(resp.Body)
+	// A bufio.Scanner would return bufio.ErrTooLong on a single line larger than
+	// maxLineBytes, ending the whole stream and dropping every trace buffered
+	// behind it. Read line by line instead so an oversized trace is skipped on
+	// its own and the stream continues.
+	reader := bufio.NewReaderSize(resp.Body, 64*1024)
 
-	// Start with a 64KB initial buffer and grow only for larger traces.
-	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, maxLineBytes)
-
-	for scanner.Scan() {
+	for {
 		select {
 		case <-ctx.Done():
 			return true, ctx.Err()
 		default:
 		}
 
-		line := scanner.Bytes()
+		line, tooLong, err := readLine(reader, maxLineBytes)
+
+		if tooLong {
+			// The trace could not fit the transport. Dropping this one keeps the
+			// stream alive rather than tearing it down and reconnecting into the
+			// same oversized trace. Raising the sidecar function-call limit beyond
+			// what the transport carries is what produces this.
+			logger.Error("dropped a trace larger than the transport line limit", "limit_bytes", maxLineBytes)
+		}
+
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				// Clean end of stream; any trailing partial line is incomplete and
+				// is discarded.
+				return true, nil
+			}
+
+			return true, err
+		}
+
+		if tooLong {
+			continue
+		}
+
+		line = bytes.TrimRight(line, "\r\n")
+		if len(line) == 0 {
+			continue
+		}
 
 		var tr trace.Trace
 
@@ -177,8 +208,40 @@ func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, c
 			Trace:         tr,
 		})
 	}
+}
 
-	return true, scanner.Err()
+// readLine reads one newline-terminated line from r. When the line would exceed
+// max bytes it is drained to its end and discarded, and tooLong is true with a
+// nil line, so a single oversized record never grows the client's memory or
+// stops the stream. err is io.EOF at the end of the stream, possibly alongside
+// a final unterminated line.
+func readLine(r *bufio.Reader, max int) (line []byte, tooLong bool, err error) {
+	for {
+		frag, e := r.ReadSlice('\n')
+
+		if len(frag) > 0 && !tooLong {
+			if len(line)+len(frag) > max {
+				// Over the limit: stop accumulating and release what we held.
+				tooLong = true
+				line = nil
+			} else {
+				// frag aliases the reader's buffer, so copy it out.
+				line = append(line, frag...)
+			}
+		}
+
+		switch {
+		case e == nil:
+			// Reached the newline: a complete line.
+			return line, tooLong, nil
+		case errors.Is(e, bufio.ErrBufferFull):
+			// More of this line remains beyond the reader's buffer; keep reading.
+			continue
+		default:
+			// io.EOF or a read error, with whatever we accumulated so far.
+			return line, tooLong, e
+		}
+	}
 }
 
 // newClient for connecting to the sidecar, configured for TLS if required.

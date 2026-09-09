@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/skpr/compass/pkg/httpstream"
 	nodediscovery "github.com/skpr/compass/pkg/node/addon/discovery"
 	phpdiscovery "github.com/skpr/compass/pkg/php/extension/discovery"
 	"github.com/skpr/compass/pkg/tracer"
@@ -74,8 +74,10 @@ func newServer(addr string, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr:    addr,
 		Handler: handler,
-		// No WriteTimeout: /v1/traces streams for the life of the subscription,
-		// so slow clients are bounded by these two rather than a write deadline.
+		// No server WriteTimeout: /v1/traces streams for the life of the
+		// subscription, which a single write deadline would cap. Individual
+		// writes are instead bounded per-record in httpstream.Serve, so a
+		// non-reading client is disconnected without capping the stream.
 		ReadHeaderTimeout: serverReadHeaderTimeout,
 		IdleTimeout:       serverIdleTimeout,
 	}
@@ -179,47 +181,10 @@ func main() {
 					subscriber := b.Subscribe()
 					defer b.Unsubscribe(subscriber)
 
-					// The stream is newline-delimited JSON: one trace object per
-					// line, as json.NewEncoder writes below. It is not SSE, so it
-					// is labelled as NDJSON rather than text/event-stream.
-					w.Header().Set("Content-Type", "application/x-ndjson")
-					w.Header().Set("Cache-Control", "no-cache")
-					w.Header().Set("Connection", "keep-alive")
-					w.WriteHeader(http.StatusOK)
-
-					flusher, ok := w.(http.Flusher)
-					if !ok {
-						http.Error(w, "Streaming not supported", http.StatusInternalServerError)
-						return
-					}
-
-					clientCtx := r.Context()
-
-					for {
-						select {
-						case <-clientCtx.Done():
-							logger.Info("Client disconnected")
-							return
-						case msg, ok := <-subscriber:
-							if !ok {
-								logger.Info("Subscriber channel closed")
-								return
-							}
-
-							if err := json.NewEncoder(w).Encode(msg); err != nil {
-								// Treat client-context cancellation as a normal disconnect.
-								if errors.Is(clientCtx.Err(), context.Canceled) {
-									logger.Info("Client write failed due to context cancellation")
-									return
-								}
-
-								logger.Error("Failed to write to client", "error", err)
-								return
-							}
-
-							flusher.Flush()
-						}
-					}
+					// Serve writes the NDJSON stream, bounding each write with a
+					// deadline so a client which stops reading cannot pin this
+					// goroutine and its connection indefinitely.
+					httpstream.Serve(w, r, subscriber, httpstream.DefaultWriteTimeout, logger)
 				})))
 
 				server := newServer(config.Addr, mux)

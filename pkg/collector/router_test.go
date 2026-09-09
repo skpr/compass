@@ -283,6 +283,46 @@ func TestRouter_ShutdownClosesSubscribers(t *testing.T) {
 	assert.False(t, ok, "subscribe after shutdown should return a closed channel")
 }
 
+func TestRouter_CanAccept_EnforcesTargetCeiling(t *testing.T) {
+	fake := newFakeCollector()
+	r := NewRouter(t.Context(), testLogger(), fake.run, WithMaxTargets(2))
+
+	a := mustTarget(t, "aaaaaaaa-1234-1234-1234-123456789abc")
+	b := mustTarget(t, "bbbbbbbb-1234-1234-1234-123456789abc")
+	c := mustTarget(t, "cccccccc-1234-1234-1234-123456789abc")
+
+	// First two distinct pods fit under the ceiling.
+	require.True(t, r.CanAccept(a))
+	_, unsubA := r.Subscribe(a)
+	defer unsubA()
+	recv(t, fake.started, "collector A did not start")
+
+	require.True(t, r.CanAccept(b))
+	_, unsubB := r.Subscribe(b)
+	defer unsubB()
+	recv(t, fake.started, "collector B did not start")
+
+	// A third distinct pod is over the ceiling and must be refused.
+	assert.False(t, r.CanAccept(c), "third distinct pod should be refused at the ceiling")
+
+	// An already-collected pod is always accepted: it adds a subscriber, not a
+	// new collector.
+	assert.True(t, r.CanAccept(a), "an already-collected pod must still be accepted at the ceiling")
+}
+
+func TestRouter_CanAccept_UnlimitedByDefault(t *testing.T) {
+	fake := newFakeCollector()
+	r := NewRouter(t.Context(), testLogger(), fake.run)
+
+	for i, uid := range []string{
+		"aaaaaaaa-1234-1234-1234-123456789abc",
+		"bbbbbbbb-1234-1234-1234-123456789abc",
+		"cccccccc-1234-1234-1234-123456789abc",
+	} {
+		assert.True(t, r.CanAccept(mustTarget(t, uid)), "target %d should be accepted when unlimited", i)
+	}
+}
+
 func TestGrowBackoff(t *testing.T) {
 	assert.Equal(t, 2*time.Second, growBackoff(time.Second, 30*time.Second))
 	assert.Equal(t, 30*time.Second, growBackoff(20*time.Second, 30*time.Second))
