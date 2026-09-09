@@ -185,6 +185,41 @@ Then point the CLI at it:
 compass --uri http://localhost:28624/v1/traces
 ```
 
+### Node daemon
+
+The sidecar runs one collector per instrumented pod. On a large cluster that is
+a container in every pod. The **node daemon** is an alternative deployment: one
+privileged collector per node, run as a DaemonSet in the host PID namespace,
+which traces a single pod at a time chosen on the request rather than being
+bound to one pod for its whole life.
+
+A client names the pod by its UID:
+
+```bash
+compass --uri "http://<node>:28624/v1/traces?uid=$(kubectl get pod -n <ns> <pod> -o jsonpath='{.metadata.uid}')" --token "$COMPASS_TOKEN"
+```
+
+The daemon resolves that UID to the pod's processes by scanning the node's
+`/proc` — no Kubernetes API access, service account, or RBAC is needed, only the
+node it already runs on. It attaches the eBPF probes to the instrumented binary
+in the target container and scopes the probes to the pod's cgroups, so a binary
+whose inode overlayfs shares across pods from the same image still only reports
+the pod that was asked for.
+
+Because one daemon can trace any pod on its node, the token is **mandatory**: the
+daemon refuses to start without `COMPASS_DAEMON_TOKEN` and gates both
+`/v1/traces` and `/metrics` with it. A ready-to-edit DaemonSet, ServiceAccount
+and Secret are in [`docs/daemon.yaml`](docs/daemon.yaml):
+
+```bash
+kubectl -n compass create secret generic compass-daemon \
+  --from-literal=token="$(openssl rand -hex 32)"
+kubectl apply -f docs/daemon.yaml
+```
+
+The CLI is unchanged: `--uri` already carries the query string, so pointing it at
+`.../v1/traces?uid=<podUID>` is all a client does differently.
+
 The application also needs the extension or addon installed. The compose stack
 takes the PHP extension from its `skpr/php-fpm` base image, so the version it
 gets is whichever that image ships — see `docker/compose/php-fpm/Dockerfile`.
@@ -256,6 +291,32 @@ The sidecar only fails to start when neither is found.
 `compass_sidecar_tracer_events_skipped_total`. The tracer counters use fixed
 runtime and, where applicable, stream or reason labels so losses are visible without
 unbounded metric cardinality.
+
+### Daemon
+
+The node daemon is configured by environment variable, or with `--config`
+pointing at a YAML file with the same keys.
+
+| Environment variable | Default | Description |
+| --- | --- | --- |
+| `COMPASS_DAEMON_ADDR` | `:28624` | Address to serve traces and metrics on. |
+| `COMPASS_DAEMON_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
+| `COMPASS_DAEMON_TOKEN` | | **Required.** The daemon refuses to start without it and gates both `/v1/traces` and `/metrics` on the `X-Skpr-Token` header. |
+| `COMPASS_DAEMON_PHP_EXTENSION_PATH` | `/usr/lib/php/modules/compass.so` | Extension path, as seen inside the target pod's container. |
+| `COMPASS_DAEMON_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, as seen inside the target pod's container. |
+| `COMPASS_DAEMON_PROC_ROOT` | `/proc` | Host `/proc` to scan for the target pod's processes. |
+| `COMPASS_DAEMON_CGROUP_ROOT` | `/sys/fs/cgroup` | Host unified cgroup mount, used to resolve the cgroup ids the eBPF filter keys on. |
+| `COMPASS_DAEMON_MAX_FUNCTION_CALLS` | `10000` | Function calls retained per trace; later calls are counted as dropped. |
+| `COMPASS_DAEMON_CERT_FILE` | | Serve traces over TLS with this certificate. |
+| `COMPASS_DAEMON_KEY_FILE` | | Key for the TLS certificate. |
+
+Unlike the sidecar, the daemon discovers the runtime per request, inside the
+pod named on the connection, rather than once at startup. A request for a pod
+with no instrumented runtime — or one not scheduled on this node — is retried
+with a backoff, so a client can connect before the pod is ready.
+
+`/metrics` exposes `compass_daemon_subscriptions`,
+`compass_daemon_collectors_running` and `compass_daemon_traces_dropped_total`.
 
 ## Event transport ABI
 

@@ -57,3 +57,12 @@ COPY --from=build /data/_output/compass-sidecar /usr/local/bin/compass-sidecar
 ENV COMPASS_SIDECAR_PHP_PROCESS_NAME=php-fpm
 
 CMD ["compass-sidecar"]
+
+# Compass daemon, a per-node DaemonSet collector.
+FROM alpine:3.21 AS daemon
+
+RUN apk add bash binutils
+
+COPY --from=build /data/_output/compass-daemon /usr/local/bin/compass-daemon
+
+CMD ["compass-daemon"]

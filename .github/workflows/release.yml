@@ -33,6 +33,14 @@ jobs:
             image: ${{ github.repository }}-sidecar
             os: ubuntu-24.04-arm
             arch: arm64
+          - component: daemon
+            image: ${{ github.repository }}-daemon
+            os: ubuntu-latest
+            arch: amd64
+          - component: daemon
+            image: ${{ github.repository }}-daemon
+            os: ubuntu-24.04-arm
+            arch: arm64
 
     permissions:
       contents: read
@@ -69,6 +77,8 @@ jobs:
             image: ${{ github.repository }}
           - component: sidecar
             image: ${{ github.repository }}-sidecar
+          - component: daemon
+            image: ${{ github.repository }}-daemon
 
     permissions:
       contents: read
