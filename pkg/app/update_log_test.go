@@ -2,9 +2,12 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -83,6 +86,38 @@ func TestUpdateLog_FilteringUsesCollapsedRetainedRuns(t *testing.T) {
 	require.Equal(t, []string{"connection refused", "connection refused"}, logMessages(m),
 		"a different intervening event starts a new run")
 	assert.Equal(t, 4, m.logs.len())
+}
+
+// A log message is the one thing on this page worth reading in full, so it
+// wraps onto as many lines as it needs rather than being cut off at the edge
+// of the column.
+func TestLogs_LongMessageWraps(t *testing.T) {
+	const message = "failed to attach probe: uprobe/php_execute_ex: no such file or directory in /usr/local/lib/libphp.so"
+
+	m := testModel(100, 24)
+	m.PageSelected = PageLogs
+	m.relayout()
+
+	m.updateLog(testLog(0, "error", message))
+
+	view := ansi.Strip(m.View())
+
+	assert.NotContains(t, view, theme.MarkerEllipsis, "the message was cut rather than wrapped")
+
+	// Read back off the screen with the wrapping, and the rails around the
+	// selected row, taken out. The words are all there, in order, on however
+	// many lines it took.
+	rails := strings.NewReplacer(theme.SelectionRail, " ", theme.SelectionRailEnd, " ")
+
+	assert.Contains(t, strings.Join(strings.Fields(rails.Replace(view)), " "), message)
+
+	// And the frame is still exactly the terminal, which is what a taller row
+	// puts at risk.
+	assert.Equal(t, 24, lipgloss.Height(m.View()))
+
+	for _, line := range strings.Split(view, "\n") {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 100)
+	}
 }
 
 func logMessages(m *Model) []string {

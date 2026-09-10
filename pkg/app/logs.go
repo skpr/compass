@@ -38,7 +38,10 @@ func (m *Model) logsInit() {
 			datatable.Column{Title: "time", Width: logsWidthTime},
 			datatable.Column{Title: "level", Width: logsWidthLevel, Priority: logsPriorityLevel},
 			datatable.Column{Title: "", Width: logsWidthRepeat, Align: datatable.AlignRight, Priority: logsPriorityRepeat},
-			datatable.Column{Title: "message", Flex: 1, MinWidth: logsMinMessage},
+			// Wrapped rather than cut: a log message is the only thing on
+			// this page worth reading in full, and the interesting part of
+			// one is usually the tail.
+			datatable.Column{Title: "message", Flex: 1, MinWidth: logsMinMessage, Wrap: true},
 		),
 	)
 }

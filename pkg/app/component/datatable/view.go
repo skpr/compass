@@ -28,7 +28,7 @@ func (m *Model) View() string {
 		from, to := m.window()
 
 		for i := from; i < to; i++ {
-			lines = append(lines, m.renderRow(m.rowAt(i), m.focused && i == m.cursor))
+			lines = append(lines, m.renderRow(m.rowAt(i), m.focused && i == m.cursor)...)
 		}
 	}
 
@@ -67,52 +67,98 @@ func (m *Model) rule() string {
 	return theme.S.RuleIdle.Render(strings.Repeat(theme.RuleLight, m.width))
 }
 
-// renderRow of cells.
+// renderRow of cells, as the one or more lines it takes up.
 //
 // The selected background is composed onto each segment's own style rather
 // than wrapped around the finished line. Wrapping is what the previous widget
 // did, and it meant the first coloured cell in a row ended the highlight: the
 // cell's reset closed the background along with its own colour.
-func (m *Model) renderRow(row Row, selected bool) string {
+func (m *Model) renderRow(row Row, selected bool) []string {
+	cells, height := m.layoutRow(row)
+
+	lines := make([]string, 0, height)
+
+	for line := range height {
+		lines = append(lines, m.renderRowLine(cells, line, selected))
+	}
+
+	return lines
+}
+
+// laidOut cell of a row: the column it belongs to, and the lines it occupies.
+type laidOut struct {
+	column int
+	width  int
+	lines  [][]Segment
+}
+
+// layoutRow fits every cell of a row to its column, and reports how many lines
+// the tallest of them needs.
+func (m *Model) layoutRow(row Row) ([]laidOut, int) {
+	cells := make([]laidOut, 0, len(m.columns))
+	height := 1
+
+	m.eachColumn(func(index, width int, _ bool) {
+		var cell Cell
+		if index < len(row) {
+			cell = row[index]
+		}
+
+		lines := [][]Segment{cell.fit(width)}
+		if m.columns[index].Wrap {
+			lines = cell.wrap(width, min(maxRowLines, m.visibleHeight()))
+		}
+
+		height = max(height, len(lines))
+
+		cells = append(cells, laidOut{column: index, width: width, lines: lines})
+	})
+
+	return cells, height
+}
+
+// renderRowLine draws one line of a row: the part of each cell which falls on
+// it, and blanks for the cells which have already run out.
+func (m *Model) renderRowLine(cells []laidOut, line int, selected bool) string {
 	var b strings.Builder
 
 	background := theme.S.Theme().SurfaceSelected
 
 	if m.rail {
 		if selected {
+			// On every line of a wrapped row, so the marker is a band down the
+			// side of the row rather than a tick beside its first line.
 			b.WriteString(theme.S.SelectRail.Background(background).Render(theme.SelectionRail))
 		} else {
 			b.WriteString(" ")
 		}
 	}
 
-	m.eachColumn(func(index, width int, first bool) {
-		if !first {
+	for position, cell := range cells {
+		if position > 0 {
 			b.WriteString(m.spacer(selected, gap))
 		}
 
-		var cell Cell
-		if index < len(row) {
-			cell = row[index]
+		var segments []Segment
+		if line < len(cell.lines) {
+			segments = cell.lines[line]
 		}
-
-		segments := cell.fit(width)
 
 		var used int
 		for _, segment := range segments {
 			used += ansi.StringWidth(segment.Text)
 		}
 
-		padding := max(width-used, 0)
+		padding := max(cell.width-used, 0)
 
 		// A column of right aligned numerals reads as a chart; the same column
 		// left aligned reads as a mess.
-		if m.alignmentOf(index) == AlignRight {
+		if m.alignmentOf(cell.column) == AlignRight {
 			b.WriteString(m.spacer(selected, padding))
 		}
 
 		for _, segment := range segments {
-			style := m.styleFor(index, segment)
+			style := m.styleFor(cell.column, segment)
 
 			// One row per frame carries this, not every cell of every row, so
 			// composing the background here is not on the hot path.
@@ -123,22 +169,22 @@ func (m *Model) renderRow(row Row, selected bool) string {
 			b.WriteString(style.Render(segment.Text))
 		}
 
-		if m.alignmentOf(index) != AlignRight {
+		if m.alignmentOf(cell.column) != AlignRight {
 			b.WriteString(m.spacer(selected, padding))
-		}
-	})
-
-	line := m.padSelected(b.String(), m.width-m.railEndWidth(), selected)
-
-	if m.rail {
-		if selected {
-			line += m.spacer(selected, 1) + theme.S.SelectRail.Background(background).Render(theme.SelectionRailEnd)
-		} else {
-			line += "  "
 		}
 	}
 
-	return line
+	out := m.padSelected(b.String(), m.width-m.railEndWidth(), selected)
+
+	if m.rail {
+		if selected {
+			out += m.spacer(selected, 1) + theme.S.SelectRail.Background(background).Render(theme.SelectionRailEnd)
+		} else {
+			out += "  "
+		}
+	}
+
+	return out
 }
 
 // alignmentOf a column.
