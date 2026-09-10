@@ -22,6 +22,14 @@ const headerHeight = 2
 // MinWidth below which a table cannot say anything useful.
 const MinWidth = 24
 
+// maxRowLines a wrapping row is allowed to grow to.
+//
+// Without a ceiling one unlucky message fills the pane and the rows around it,
+// which are the context that message is read against, go off the screen. Eight
+// lines is enough for the error messages this shows and little enough that the
+// list is still a list.
+const maxRowLines = 8
+
 // Model of a table.
 type Model struct {
 	columns []Column
@@ -49,6 +57,9 @@ type Model struct {
 
 	// Recomputed when the size or the columns change, never per frame.
 	widths []int
+	// wraps reports whether any column wraps. When none does, every row is one
+	// line tall and the scrolling arithmetic is the cheap kind.
+	wraps bool
 }
 
 // Option for a table.
@@ -329,9 +340,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	case keyMatches(pressed, m.keys.Down):
 		m.MoveDown(1)
 	case keyMatches(pressed, m.keys.PageUp):
-		m.MoveUp(m.visibleHeight())
+		m.MoveUp(m.pageSize())
 	case keyMatches(pressed, m.keys.PageDown):
-		m.MoveDown(m.visibleHeight())
+		m.MoveDown(m.pageSize())
 	case keyMatches(pressed, m.keys.Top):
 		m.GotoTop()
 	case keyMatches(pressed, m.keys.Bottom):
@@ -346,12 +357,75 @@ func (m *Model) visibleHeight() int {
 	return max(m.height-headerHeight, 1)
 }
 
+// pageSize is how far the page keys move: what is on screen now, which is a
+// fixed number of rows only while no column wraps.
+func (m *Model) pageSize() int {
+	from, to := m.window()
+
+	return max(to-from, 1)
+}
+
+// rowHeight in lines.
+func (m *Model) rowHeight(index int) int {
+	if !m.wraps || index < 0 || index >= m.rowLen {
+		return 1
+	}
+
+	_, height := m.layoutRow(m.rowAt(index))
+
+	return height
+}
+
 // window of rows currently on screen, as a half open range.
+//
+// The last row of the window may only be partly on screen: a row four lines
+// tall with two lines of room left shows its first two. Excluding it instead
+// would mean the last row of a list could never be reached.
 func (m *Model) window() (int, int) {
 	from := min(m.offset, m.rowLen)
-	to := min(from+m.visibleHeight(), m.rowLen)
+
+	if !m.wraps {
+		return from, min(from+m.visibleHeight(), m.rowLen)
+	}
+
+	visible := m.visibleHeight()
+
+	var lines int
+
+	to := from
+	for to < m.rowLen && lines < visible {
+		lines += m.rowHeight(to)
+		to++
+	}
 
 	return from, to
+}
+
+// topFor is the highest row which can be at the top of the window while row
+// last is still on it in full.
+//
+// The walk is bounded by the height of the window rather than by the length of
+// the list, so it costs the same on ten rows as on ten thousand.
+func (m *Model) topFor(last int) int {
+	if !m.wraps {
+		return max(last-m.visibleHeight()+1, 0)
+	}
+
+	visible := m.visibleHeight()
+	lines := m.rowHeight(last)
+
+	top := last
+	for top > 0 {
+		height := m.rowHeight(top - 1)
+		if lines+height > visible {
+			break
+		}
+
+		lines += height
+		top--
+	}
+
+	return top
 }
 
 // clamp keeps the cursor inside the rows and the window around the cursor.
@@ -365,16 +439,14 @@ func (m *Model) clamp() {
 		return
 	}
 
-	visible := m.visibleHeight()
-
 	m.cursor = min(max(m.cursor, 0), m.rowLen-1)
 
 	// The window follows the cursor when it walks off either edge...
 	m.offset = min(m.offset, m.cursor)
-	m.offset = max(m.offset, m.cursor-visible+1)
+	m.offset = max(m.offset, m.topFor(m.cursor))
 
 	// ...and never scrolls past the end into blank space.
-	m.offset = min(m.offset, max(m.rowLen-visible, 0))
+	m.offset = min(m.offset, m.topFor(m.rowLen-1))
 	m.offset = max(m.offset, 0)
 }
 
@@ -401,4 +473,14 @@ func (m *Model) railEndWidth() int {
 // resolve the column widths for the current size.
 func (m *Model) resolve() {
 	m.widths = resolveWidths(m.columns, m.width-m.railWidth()-m.railEndWidth())
+
+	m.wraps = false
+
+	for index, column := range m.columns {
+		if column.Wrap && index < len(m.widths) && m.widths[index] > 0 {
+			m.wraps = true
+
+			break
+		}
+	}
 }

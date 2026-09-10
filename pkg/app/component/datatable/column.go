@@ -30,6 +30,14 @@ type Column struct {
 	MinWidth int
 	// Align of the content.
 	Align Align
+	// Wrap flows a cell too wide for the column onto further lines instead of
+	// cutting it off at the edge.
+	//
+	// For the one column of a table which carries prose: a log message which
+	// is cut at eighty characters is a log message nobody can act on. Rows of
+	// a table with a wrapping column are no longer one line tall, which is
+	// worth it for a message and not worth it for a duration.
+	Wrap bool
 	// Priority orders which columns are given up when even the minimums will
 	// not fit. Higher goes first; zero is never dropped.
 	//
