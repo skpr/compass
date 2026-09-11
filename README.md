@@ -339,6 +339,11 @@ A generated-layout decode benchmark on Linux/arm64 measured:
 | Legacy fixed 2,328-byte payload | 10,282 | 5,424 | 3 |
 | Compact 232-byte payload | 1,053 | 288 | 2 |
 
+The function record, which is the only one to arrive once per call, is decoded
+at explicit offsets rather than by reflection: about 17ns against 1.6µs, and no
+allocations. [`docs/scaling.md`](docs/scaling.md) has the measurements for each
+stage of the pipeline at a million calls, and what to change next.
+
 ## Development
 
 Tooling is managed with [mise](https://mise.jdx.dev/):

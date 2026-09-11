@@ -291,7 +291,15 @@ func processEvent(ctx context.Context, rawSample []byte, manager *Handler, skips
 	case EventRequestInit:
 		return decodeAndHandleEvent(ctx, rawSample, manager.HandleRequestInit, skips)
 	case EventFunction:
-		return decodeAndHandleEvent(ctx, rawSample, manager.HandleFunction, skips)
+		// Decoded at explicit offsets rather than by reflection: this is the
+		// only event which arrives once per function call, so it is the one
+		// whose decode cost bounds how fast the ring buffer can be drained.
+		event, err := decodeFunctionEvent(rawSample)
+		if err != nil {
+			return fmt.Errorf("failed to read event: %w", err)
+		}
+
+		return ingest.Handle(ctx, event, manager.HandleFunction, skips)
 	case EventRequestShutdown:
 		return decodeAndHandleEvent(ctx, rawSample, manager.HandleRequestShutdown, skips)
 	default:
