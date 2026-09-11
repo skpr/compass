@@ -30,7 +30,7 @@ func TestHandler_FunctionCallsAreBounded(t *testing.T) {
 		}))
 	}
 
-	stored, found := h.storage.Get("bounded", 0)
+	stored, found := h.storage.Get(id, 0)
 	require.True(t, found)
 	tr := *stored
 	assert.Len(t, tr.FunctionCalls, 2)

@@ -25,12 +25,27 @@ const (
 	EventRequestShutdown uint8 = 2
 )
 
+// RequestID is the request id as the probe reports it: a fixed-size,
+// NUL-terminated field.
+//
+// The storage is keyed on this rather than on a string made from it. Every
+// function event has to find its request, and converting the field to a
+// string to do that allocated once per function call. An array is comparable,
+// so it is a map key as it stands.
+type RequestID = [101]uint8
+
+// identified reports whether an event carries a request id at all. The field
+// is NUL-terminated, so an empty one starts with the terminator.
+func identified(id RequestID) bool {
+	return id[0] != 0
+}
+
 // Handler for handling events.
 type Handler struct {
 	// mu guards the storage and the traces behind the pointers it hands out.
 	mu sync.Mutex
 	// storage holds the requests which are still being assembled.
-	storage *requests.Store[string, trace.Trace]
+	storage *requests.Store[RequestID, trace.Trace]
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
@@ -61,7 +76,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage:       requests.New[string, trace.Trace](options.Expire),
+		storage:       requests.New[RequestID, trace.Trace](options.Expire),
 		plugin:        plugin,
 		options:       options,
 		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimeNodeHTTP),
@@ -72,11 +87,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 
 // Handle the event and process it.
 func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
-	var (
-		requestID = unix.ByteSliceToString(event.RequestId[:])
-	)
-
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 
@@ -87,15 +98,15 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestInit(requestID, uri, method, event.Timestamp); err != nil {
+		if err := c.handleRequestInit(event.RequestId, uri, method, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
 	case EventFunction:
-		if err := c.handleFunction(requestID, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+		if err := c.handleFunction(event.RequestId, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(ctx, requestID, event.Timestamp); err != nil {
+		if err := c.handleRequestShutdown(ctx, event.RequestId, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -105,12 +116,11 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 
 // HandleRequestInit processes one compact HTTP request-init record.
 func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent) error {
-	requestID := unix.ByteSliceToString(event.RequestId[:])
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 	if err := c.handleRequestInit(
-		requestID,
+		event.RequestId,
 		unix.ByteSliceToString(event.Uri[:]),
 		unix.ByteSliceToString(event.Method[:]),
 		event.Timestamp,
@@ -122,11 +132,10 @@ func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent
 
 // HandleFunction processes one compact HTTP function record.
 func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) error {
-	requestID := unix.ByteSliceToString(event.RequestId[:])
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
-	if err := c.handleFunction(requestID, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+	if err := c.handleFunction(event.RequestId, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 		return fmt.Errorf("failed to process function: %w", err)
 	}
 	return nil
@@ -134,11 +143,10 @@ func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) erro
 
 // HandleRequestShutdown processes one compact HTTP request-shutdown record.
 func (c *Handler) HandleRequestShutdown(ctx context.Context, event bpfRequestShutdownEvent) error {
-	requestID := unix.ByteSliceToString(event.RequestId[:])
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
-	if err := c.handleRequestShutdown(ctx, requestID, event.Timestamp); err != nil {
+	if err := c.handleRequestShutdown(ctx, event.RequestId, event.Timestamp); err != nil {
 		return fmt.Errorf("failed to process request shutdown: %w", err)
 	}
 	return nil
@@ -154,13 +162,13 @@ func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duratio
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uint64) error {
+func (c *Handler) handleRequestInit(requestID RequestID, uri, method string, timestamp uint64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	t := trace.Trace{
 		Metadata: trace.Metadata{
-			ID:      requestID,
+			ID:      unix.ByteSliceToString(requestID[:]),
 			Source:  trace.SourceHTTP,
 			Runtime: trace.RuntimeNode,
 			HTTP: trace.MetadataHTTP{
@@ -177,13 +185,13 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uin
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleFunction(requestID string, functionName []byte, timestamp, elapsed, memory uint64) error {
+func (c *Handler) handleFunction(requestID RequestID, functionName []byte, timestamp, elapsed, memory uint64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	t, found := c.storage.Get(requestID, timestamp)
 	if !found {
-		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
+		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, unix.ByteSliceToString(requestID[:]))
 	}
 
 	c.functionCalls.Add(
@@ -201,7 +209,7 @@ func (c *Handler) handleFunction(requestID string, functionName []byte, timestam
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, timestamp uint64) error {
+func (c *Handler) handleRequestShutdown(ctx context.Context, requestID RequestID, timestamp uint64) error {
 	t, err := c.complete(requestID, timestamp)
 	if err != nil {
 		return err
@@ -218,13 +226,13 @@ func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, t
 
 // complete a request, removing it from storage so that the caller is left
 // holding the only reference to its trace.
-func (c *Handler) complete(requestID string, timestamp uint64) (trace.Trace, error) {
+func (c *Handler) complete(requestID RequestID, timestamp uint64) (trace.Trace, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	t, found := c.storage.Get(requestID, timestamp)
 	if !found {
-		return trace.Trace{}, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
+		return trace.Trace{}, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, unix.ByteSliceToString(requestID[:]))
 	}
 
 	t.Metadata.EndTime = c.options.Clock.Time(timestamp)
@@ -233,7 +241,7 @@ func (c *Handler) complete(requestID string, timestamp uint64) (trace.Trace, err
 	defer c.storage.Delete(requestID)
 
 	if len(t.FunctionCalls) == 0 {
-		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, requestID)
+		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, unix.ByteSliceToString(requestID[:]))
 	}
 
 	return *t, nil

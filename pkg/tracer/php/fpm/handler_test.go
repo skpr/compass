@@ -115,7 +115,7 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
-	x, found := h.storage.Get("req-1", 0)
+	x, found := h.storage.Get(makeRequestID("req-1"), 0)
 	require.True(t, found)
 
 	stored := x.trace
@@ -151,7 +151,7 @@ func TestHandler_Handle_Function(t *testing.T) {
 	require.NoError(t, h.Handle(t.Context(), funcEvent))
 
 	// Verify the function was stored.
-	x, found := h.storage.Get("req-1", 0)
+	x, found := h.storage.Get(makeRequestID("req-1"), 0)
 	require.True(t, found)
 
 	stored := x.trace
@@ -216,7 +216,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	assert.Len(t, sink.traces[0].FunctionCalls, 1)
 
 	// Verify storage was cleaned up.
-	_, found := h.storage.Get("req-1", 0)
+	_, found := h.storage.Get(makeRequestID("req-1"), 0)
 	assert.False(t, found)
 }
 
@@ -307,7 +307,7 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 func storedTrace(t *testing.T, h *Handler, requestID string) trace.Trace {
 	t.Helper()
 
-	s, found := h.storage.Get(requestID, 0)
+	s, found := h.storage.Get(makeRequestID(requestID), 0)
 	require.True(t, found)
 
 	return s.trace
