@@ -186,7 +186,7 @@ func TestHandler_ConcurrentEventStreams(t *testing.T) {
 	tr := traces[0]
 
 	assert.Equal(t, "req-1", tr.Metadata.ID)
-	assert.Len(t, tr.FunctionCalls, functions)
+	assert.Len(t, tr.Spans, functions)
 
 	require.NotNil(t, tr.Drupal)
 	assert.Len(t, tr.Drupal.CacheEvents, cached)
@@ -248,7 +248,7 @@ func TestHandler_ConcurrentShutdown(t *testing.T) {
 	for _, tr := range sink.Traces() {
 		seen[tr.Metadata.ID]++
 
-		assert.LessOrEqual(t, len(tr.FunctionCalls), functions)
+		assert.LessOrEqual(t, len(tr.Spans), functions)
 
 		if tr.Drupal != nil {
 			assert.LessOrEqual(t, len(tr.Drupal.CacheEvents), cached)
@@ -323,7 +323,7 @@ func TestHandler_ConcurrentDistinctRequests(t *testing.T) {
 	require.Len(t, traces, requests)
 
 	for _, tr := range traces {
-		assert.Len(t, tr.FunctionCalls, functions)
+		assert.Len(t, tr.Spans, functions)
 
 		require.NotNil(t, tr.Drupal)
 		assert.Len(t, tr.Drupal.CacheEvents, cached)

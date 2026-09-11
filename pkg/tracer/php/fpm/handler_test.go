@@ -115,10 +115,10 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
-	x, found := h.storage.Get("req-1")
+	x, found := h.storage.Get(makeRequestID("req-1"), 0)
 	require.True(t, found)
 
-	stored := x.(*state).trace
+	stored := x.trace
 	assert.Equal(t, "req-1", stored.Metadata.ID)
 	assert.Equal(t, trace.SourceHTTP, stored.Metadata.Source)
 	assert.Equal(t, "/api/test", stored.Metadata.HTTP.URI)
@@ -151,16 +151,18 @@ func TestHandler_Handle_Function(t *testing.T) {
 	require.NoError(t, h.Handle(t.Context(), funcEvent))
 
 	// Verify the function was stored.
-	x, found := h.storage.Get("req-1")
+	x, found := h.storage.Get(makeRequestID("req-1"), 0)
 	require.True(t, found)
 
-	stored := x.(*state).trace
-	require.Len(t, stored.FunctionCalls, 1)
-	assert.Equal(t, "myFunc", stored.FunctionCalls[0].Name)
-	assert.Equal(t, 300*time.Nanosecond, stored.FunctionCalls[0].Offset) // (1500 - 200) into a request which began at 1000
-	assert.Equal(t, 200*time.Nanosecond, stored.FunctionCalls[0].Elapsed)
-	assert.Equal(t, int64(4096), stored.FunctionCalls[0].Memory)
-	assert.Equal(t, int64(4096), stored.ResourceUtilisation.MaxMemory)
+	// The spans are only written into the trace when the request completes,
+	// so what is under construction is what the builder holds.
+	spans := x.spans.Spans()
+	require.Len(t, spans, 1)
+	assert.Equal(t, "myFunc", spans[0].Name)
+	assert.Equal(t, 300*time.Nanosecond, spans[0].Offset) // (1500 - 200) into a request which began at 1000
+	assert.Equal(t, 200*time.Nanosecond, spans[0].Elapsed)
+	assert.Equal(t, int64(1), spans[0].Calls)
+	assert.Equal(t, int64(4096), spans[0].Memory)
 }
 
 func TestHandler_Handle_Function_NotFound(t *testing.T) {
@@ -213,10 +215,10 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	require.Len(t, sink.traces, 1)
 	assert.Equal(t, "req-1", sink.traces[0].Metadata.ID)
 	assert.Equal(t, at(2000), sink.traces[0].Metadata.EndTime)
-	assert.Len(t, sink.traces[0].FunctionCalls, 1)
+	assert.Len(t, sink.traces[0].Spans, 1)
 
 	// Verify storage was cleaned up.
-	_, found := h.storage.Get("req-1")
+	_, found := h.storage.Get(makeRequestID("req-1"), 0)
 	assert.False(t, found)
 }
 
@@ -299,6 +301,102 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	assert.Equal(t, "/lifecycle", tr.Metadata.HTTP.URI)
 	assert.Equal(t, at(1000), tr.Metadata.StartTime)
 	assert.Equal(t, at(3000), tr.Metadata.EndTime)
-	assert.Len(t, tr.FunctionCalls, 2)
+	assert.Len(t, tr.Spans, 2)
 	assert.Equal(t, int64(8192), tr.ResourceUtilisation.MaxMemory)
+}
+
+// storedTrace of a request which is still being assembled.
+func storedTrace(t *testing.T, h *Handler, requestID string) trace.Trace {
+	t.Helper()
+
+	s, found := h.storage.Get(makeRequestID(requestID), 0)
+	require.True(t, found)
+
+	return s.trace
+}
+
+// noisyRequestID is the id field as a probe really fills it: the string and
+// its terminator written into a record the ring buffer handed over dirty, so
+// everything past the terminator is whatever the last record left there.
+func noisyRequestID(id string, noise uint8) [101]uint8 {
+	var field [101]uint8
+
+	for i := range field {
+		field[i] = noise
+	}
+
+	copy(field[:], id)
+	field[len(id)] = 0
+
+	return field
+}
+
+// Two events of the same request carry the same id and different rubbish
+// behind it, so what they are matched by has to be what the field says rather
+// than what it holds. Keying on the field as it stands loses every function
+// event, and with it every trace.
+func TestHandler_MatchesARequestAcrossDirtyRecords(t *testing.T) {
+	h, sink := newTestHandler(t)
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
+		Type:      EventRequestInit,
+		RequestId: noisyRequestID("req-1", 0x00),
+		Method:    makeMethod("GET"),
+		Timestamp: 1000,
+	}))
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
+		Type:         EventFunction,
+		RequestId:    noisyRequestID("req-1", 0xAB),
+		FunctionName: makeFunctionName("myFunc"),
+		Timestamp:    1500,
+		Elapsed:      200,
+		Memory:       4096,
+	}))
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
+		Type:      EventRequestShutdown,
+		RequestId: noisyRequestID("req-1", 0xCD),
+		Timestamp: 2000,
+	}))
+
+	traces := sink.Traces()
+	require.Len(t, traces, 1, "the request was not matched across its events")
+	assert.Equal(t, "req-1", traces[0].Metadata.ID)
+	require.Len(t, traces[0].Spans, 1)
+	assert.Equal(t, "myFunc", traces[0].Spans[0].Name)
+	assert.Equal(t, int64(1), traces[0].Calls)
+}
+
+// Two different requests are still two requests, whatever follows their ids.
+func TestHandler_KeepsDistinctRequestsApart(t *testing.T) {
+	h, sink := newTestHandler(t)
+
+	for _, id := range []string{"req-1", "req-2"} {
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type:      EventRequestInit,
+			RequestId: noisyRequestID(id, 0x11),
+			Timestamp: 1000,
+		}))
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type:         EventFunction,
+			RequestId:    noisyRequestID(id, 0x22),
+			FunctionName: makeFunctionName("myFunc"),
+			Timestamp:    1500,
+			Elapsed:      200,
+		}))
+	}
+
+	for _, id := range []string{"req-1", "req-2"} {
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type:      EventRequestShutdown,
+			RequestId: noisyRequestID(id, 0x33),
+			Timestamp: 2000,
+		}))
+	}
+
+	traces := sink.Traces()
+	require.Len(t, traces, 2)
+	assert.Equal(t, "req-1", traces[0].Metadata.ID)
+	assert.Equal(t, "req-2", traces[1].Metadata.ID)
 }

@@ -47,6 +47,7 @@ type Options struct {
 	InsecureSkipVerify bool
 	MaxTraces          int
 	MaxLogs            int
+	MaxBytes           int
 }
 
 func main() {
@@ -77,7 +78,11 @@ func main() {
 		// Usage is not helpful for a runtime failure.
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p := tea.NewProgram(app.NewModel(o.URI, o.MaxTraces, o.MaxLogs), tea.WithAltScreen())
+			p := tea.NewProgram(app.NewModel(o.URI, app.Options{
+				MaxTraces: o.MaxTraces,
+				MaxLogs:   o.MaxLogs,
+				MaxBytes:  o.MaxBytes,
+			}), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
 			if err != nil {
@@ -125,6 +130,7 @@ func main() {
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure-skip-verify", env.Bool("COMPASS_INSECURE_SKIP_VERIFY", false), "Skip verification of the sidecar certificate")
 	cmd.PersistentFlags().IntVar(&o.MaxTraces, "max-traces", env.Int("COMPASS_MAX_TRACES", app.DefaultMaxTraces), "Maximum number of traces to retain, oldest are discarded first")
 	cmd.PersistentFlags().IntVar(&o.MaxLogs, "max-logs", env.Int("COMPASS_MAX_LOGS", app.DefaultMaxLogs), "Maximum number of log events to retain, oldest are discarded first")
+	cmd.PersistentFlags().IntVar(&o.MaxBytes, "max-bytes", env.Int("COMPASS_MAX_BYTES", app.DefaultMaxBytes), "Maximum bytes of retained traces, oldest are discarded first. The newest trace is always kept")
 
 	// Through lipgloss like everything else. gchalk did its own terminal
 	// sniffing, independent of the renderer the interface uses, so the same

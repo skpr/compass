@@ -33,7 +33,7 @@ func BenchmarkSearchSetRowsDrupal(b *testing.B) {
 		})
 	}
 
-	m := NewModel("", traces, DefaultMaxLogs)
+	m := NewModel("", Options{MaxTraces: traces, MaxLogs: DefaultMaxLogs})
 	m.Init()
 	for i := range traces {
 		m.traces.append(events.Trace{Trace: trace.Trace{

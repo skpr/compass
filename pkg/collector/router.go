@@ -327,8 +327,8 @@ func (ts *targetStream) removeSubscriber(ch chan trace.Trace) (last bool) {
 // Initialize satisfies sink.Interface.
 func (ts *targetStream) Initialize() error { return nil }
 
-// ProcessTrace fans a trace out to the target's subscribers, dropping it for
-// any whose buffer is full rather than blocking the collector.
+// ProcessTrace fans a trace out to the target's subscribers, dropping for any
+// whose buffer is full rather than blocking the collector.
 func (ts *targetStream) ProcessTrace(ctx context.Context, t trace.Trace) error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -338,14 +338,43 @@ func (ts *targetStream) ProcessTrace(ctx context.Context, t trace.Trace) error {
 	}
 
 	for ch := range ts.subs {
-		select {
-		case ch <- t:
-		default:
-			ts.onDropped(ts.target)
-		}
+		send(ch, t, func() { ts.onDropped(ts.target) })
 	}
 
 	return nil
+}
+
+// send a trace to a subscriber which may not be keeping up.
+//
+// A full buffer means the subscriber is behind, and the question is which
+// trace to lose. It used to be the arriving one, which is the wrong end: this
+// is a live view of what an application is doing now, and the newest trace is
+// the one somebody is waiting to see. So the oldest waiting trace is dropped
+// to make room, and the new one takes its place.
+//
+// A subscriber which is not reading at all still ends up dropping the
+// arriving trace, because the room made for it is taken by the time the send
+// is attempted. Either way the drop is counted, so a consumer which cannot
+// keep up stays visible.
+func send(ch chan trace.Trace, t trace.Trace, dropped func()) {
+	select {
+	case ch <- t:
+		return
+	default:
+	}
+
+	// Make room by taking the oldest, which the subscriber has not read.
+	select {
+	case <-ch:
+	default:
+	}
+
+	dropped()
+
+	select {
+	case ch <- t:
+	default:
+	}
 }
 
 // serve runs the collector, restarting it with a bounded backoff if it exits

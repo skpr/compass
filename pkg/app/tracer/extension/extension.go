@@ -10,8 +10,8 @@ import (
 	applogger "github.com/skpr/compass/pkg/app/logger"
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/cgroupfilter"
-	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/php"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 // New for sending traces to the program.
@@ -41,6 +41,7 @@ func (s *Sink) ProcessTrace(ctx context.Context, tr trace.Trace) error {
 
 // Start tracing from a file extension and send traces to the program.
 func Start(ctx context.Context, logger *applogger.Logger, p *tea.Program, path string) error {
-	// Direct file tracing has no pod to scope to, so the filter is disabled.
-	return php.Run(ctx, NewSink(p), path, functioncalls.DefaultMax, cgroupfilter.Filter{})
+	// Direct file tracing has no pod to scope to, so the filter is disabled,
+	// and nothing configures the aggregation, so it takes its defaults.
+	return php.Run(ctx, NewSink(p), path, spans.Options{}, cgroupfilter.Filter{})
 }

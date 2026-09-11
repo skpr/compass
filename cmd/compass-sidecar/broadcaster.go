@@ -60,13 +60,7 @@ func (b *Broadcaster) run(ctx context.Context) {
 		case msg := <-b.broadcast:
 			b.mu.Lock()
 			for ch := range b.subs {
-				select {
-				case ch <- msg:
-				default:
-					// Prevent blocking on slow consumers. Dropping is tracked so
-					// that a consumer which cannot keep up is observable.
-					metricTracesDropped.Inc()
-				}
+				send(ch, msg, metricTracesDropped.Inc)
 			}
 			b.mu.Unlock()
 
@@ -148,5 +142,38 @@ func (b *Broadcaster) ProcessTrace(ctx context.Context, t trace.Trace) error {
 		return ctx.Err()
 	case <-b.done:
 		return context.Canceled
+	}
+}
+
+// send a trace to a subscriber which may not be keeping up.
+//
+// A full buffer means the subscriber is behind, and the question is which
+// trace to lose. It used to be the arriving one, which is the wrong end: this
+// is a live view of what an application is doing now, and the newest trace is
+// the one somebody is waiting to see. So the oldest waiting trace is dropped
+// to make room, and the new one takes its place.
+//
+// A subscriber which is not reading at all still ends up dropping the
+// arriving trace, because the room made for it is taken by the time the send
+// is attempted. Either way the drop is counted, so a consumer which cannot
+// keep up stays visible.
+func send(ch chan trace.Trace, t trace.Trace, dropped func()) {
+	select {
+	case ch <- t:
+		return
+	default:
+	}
+
+	// Make room by taking the oldest, which the subscriber has not read.
+	select {
+	case <-ch:
+	default:
+	}
+
+	dropped()
+
+	select {
+	case ch <- t:
+	default:
 	}
 }
