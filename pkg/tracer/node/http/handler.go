@@ -10,10 +10,10 @@ import (
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
-	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/requests"
 	"github.com/skpr/compass/pkg/tracer/sink"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 const (
@@ -45,20 +45,29 @@ type Handler struct {
 	// mu guards the storage and the traces behind the pointers it hands out.
 	mu sync.Mutex
 	// storage holds the requests which are still being assembled.
-	storage *requests.Store[RequestID, trace.Trace]
+	storage *requests.Store[RequestID, state]
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
-	options       Options
-	functionCalls functioncalls.Limiter
+	options Options
+	// spans aggregates each request's function calls as their events arrive.
+	spans *spans.Aggregator
+}
+
+// state of a request which is still being assembled.
+type state struct {
+	trace trace.Trace
+	// spans is the request's function calls, aggregated as they arrive.
+	spans *spans.Builder
 }
 
 // Options for configuring the Handler.
 type Options struct {
 	Expire time.Duration
-	// MaxFunctionCalls is how many function records each trace retains.
-	// Non-positive values use functioncalls.DefaultMax.
-	MaxFunctionCalls int
+	// Spans is how the request's function calls are aggregated: how many
+	// spans a trace carries, and how finely calls are placed in time. The
+	// zero value uses the package defaults.
+	Spans spans.Options
 	// Clock relates the monotonic timestamps the probes emit to the wall clock.
 	// The zero value reads the offset from the system.
 	Clock clock.Monotonic
@@ -76,10 +85,10 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage:       requests.New[RequestID, trace.Trace](options.Expire),
-		plugin:        plugin,
-		options:       options,
-		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimeNodeHTTP),
+		storage: requests.New[RequestID, state](options.Expire),
+		plugin:  plugin,
+		options: options,
+		spans:   spans.New(options.Spans, spans.RuntimeNodeHTTP),
 	}
 
 	return client, nil
@@ -166,20 +175,23 @@ func (c *Handler) handleRequestInit(requestID RequestID, uri, method string, tim
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	t := trace.Trace{
-		Metadata: trace.Metadata{
-			ID:      unix.ByteSliceToString(requestID[:]),
-			Source:  trace.SourceHTTP,
-			Runtime: trace.RuntimeNode,
-			HTTP: trace.MetadataHTTP{
-				URI:    uri,
-				Method: method,
+	s := &state{
+		trace: trace.Trace{
+			Metadata: trace.Metadata{
+				ID:      unix.ByteSliceToString(requestID[:]),
+				Source:  trace.SourceHTTP,
+				Runtime: trace.RuntimeNode,
+				HTTP: trace.MetadataHTTP{
+					URI:    uri,
+					Method: method,
+				},
+				StartTime: c.options.Clock.Time(timestamp),
 			},
-			StartTime: c.options.Clock.Time(timestamp),
 		},
+		spans: c.spans.Request(),
 	}
 
-	c.storage.Set(requestID, &t, timestamp)
+	c.storage.Set(requestID, s, timestamp)
 
 	return nil
 }
@@ -189,18 +201,17 @@ func (c *Handler) handleFunction(requestID RequestID, functionName []byte, times
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	t, found := c.storage.Get(requestID, timestamp)
+	s, found := c.storage.Get(requestID, timestamp)
 	if !found {
 		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, unix.ByteSliceToString(requestID[:]))
 	}
 
-	c.functionCalls.Add(
-		t,
+	s.spans.Add(
 		functionName,
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
 		// has been collected.
-		c.offset(t.Metadata, timestamp-elapsed),
+		c.offset(s.trace.Metadata, timestamp-elapsed),
 		time.Duration(elapsed),
 		int64(memory),
 	)
@@ -230,19 +241,20 @@ func (c *Handler) complete(requestID RequestID, timestamp uint64) (trace.Trace, 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	t, found := c.storage.Get(requestID, timestamp)
+	s, found := c.storage.Get(requestID, timestamp)
 	if !found {
 		return trace.Trace{}, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, unix.ByteSliceToString(requestID[:]))
 	}
 
-	t.Metadata.EndTime = c.options.Clock.Time(timestamp)
+	s.trace.Metadata.EndTime = c.options.Clock.Time(timestamp)
+	s.spans.Finish(&s.trace)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)
 
-	if len(t.FunctionCalls) == 0 {
+	if len(s.trace.Spans) == 0 {
 		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, unix.ByteSliceToString(requestID[:]))
 	}
 
-	return *t, nil
+	return s.trace, nil
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/skpr/compass/pkg/app/events"
 	"github.com/skpr/compass/pkg/app/layout"
 	"github.com/skpr/compass/pkg/trace"
-	"github.com/skpr/compass/pkg/trace/segmented"
 )
 
 const (
@@ -89,7 +88,7 @@ type Model struct {
 	// The rows on the trace pages are cells; these are what the cells were made
 	// from, and the visible maps take a filtered table row back to that source
 	// so the panel below it still describes the selected row.
-	functionSpans   []segmented.Span
+	functionSpans   []trace.Span
 	functionVisible []int
 	// functionSpansTrace is the trace functionSpans was aggregated from, so a
 	// rebuild can tell an aggregate it can reuse from one belonging to a trace

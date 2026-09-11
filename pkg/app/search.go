@@ -186,14 +186,15 @@ func idCell(t events.Trace) datatable.Cell {
 // TruncatedMarker after a call count means additional calls were dropped.
 const TruncatedMarker = "+"
 
-// functionCallCount reports retained calls and marks partial traces.
+// functionCallCount reports the calls a request made, and marks a trace whose
+// spans do not cover all of them.
 func functionCallCount(t events.Trace) string {
 	marker := ""
-	if t.FunctionCallsDropped > 0 {
+	if t.CallsDropped > 0 {
 		marker = TruncatedMarker
 	}
 
-	return fmt.Sprintf("%d%s", len(t.FunctionCalls), marker)
+	return fmt.Sprintf("%d%s", t.Calls, marker)
 }
 
 // AttentionMarker is set beside the runtime on a request worth going and

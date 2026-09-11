@@ -81,13 +81,13 @@ func (m *Model) detailFields() []field {
 			style: theme.S.Severity(theme.ForDurationMs(ms)),
 		},
 		field{label: "Max memory", value: format.Bytes(t.ResourceUtilisation.MaxMemory), style: theme.S.CellDim},
-		field{label: "Calls", value: fmt.Sprintf("%d", len(t.FunctionCalls)), style: theme.S.CellDim},
+		field{label: "Calls", value: fmt.Sprintf("%d", t.Calls), style: theme.S.CellDim},
 	)
 
-	if t.FunctionCallsDropped > 0 {
+	if t.CallsDropped > 0 {
 		fields = append(fields, field{
 			label: "Call data",
-			value: fmt.Sprintf("partial · %d dropped", t.FunctionCallsDropped),
+			value: fmt.Sprintf("partial · %d dropped", t.CallsDropped),
 			style: theme.S.Severity(theme.LevelWarn),
 		})
 	}

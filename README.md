@@ -98,11 +98,22 @@ The extension only fires a probe for calls above
 `compass.function_threshold`, so the page is not an exhaustive call tree. Lower
 the threshold when shorter calls are relevant.
 
-The sidecar retains at most `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` calls per trace.
-When a request exceeds that bound, Search adds `+` to its retained call count
-and the open trace reports the exact number dropped. The elapsed duration of
-each retained call remains a direct measurement. Peak memory still includes
-later dropped calls.
+Calls are aggregated into spans as their events arrive, rather than retained
+one at a time: the calls of one function within one millisecond of the request
+are a single span, carrying how many there were, the longest of them, and what
+they cost altogether. That is what the page has always shown — nothing was ever
+drawn per call — and it is what lets a request making a million calls be a
+trace of a few hundred kilobytes. See [`docs/scaling.md`](docs/scaling.md).
+
+A trace carries at most `COMPASS_SIDECAR_MAX_SPANS` spans, and roughly
+*distinct functions × request duration / `COMPASS_SIDECAR_SPAN_BUCKET`* of them
+are produced. A request which needs more than the bound allows has the calls it
+could not place counted instead: Search adds `+` to its call count, and the
+open trace reports exactly how many. The call count itself is exact either way,
+and peak memory includes calls no span represents. A request which runs for
+much longer than a second, or calls far more distinct functions than a page
+usually does, wants a coarser bucket or a higher bound — see
+[`docs/scaling.md`](docs/scaling.md).
 
 **Drupal Cacheable Metadata** is what the Drupal specific probes reported. The
 tab only appears when the trace has any: a Node trace, a PHP CLI run and any PHP
@@ -274,7 +285,8 @@ see [`docs/sidecar-config.yaml`](docs/sidecar-config.yaml).
 | `COMPASS_SIDECAR_NODE_PROCESS_NAME` | `node` | Process which loads the Node addon. |
 | `COMPASS_SIDECAR_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, inside the Node container. |
 | `COMPASS_SIDECAR_DISCOVERY_TIMEOUT` | `1m` | How long to wait for a runtime before deciding it is not present. |
-| `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` | `10000` | Function calls retained per trace; later calls are counted as dropped. |
+| `COMPASS_SIDECAR_MAX_SPANS` | `10000` | Spans a trace carries. Calls which cannot be placed in one are counted as dropped. Replaces `COMPASS_SIDECAR_MAX_FUNCTION_CALLS`, which is still read and warned about. |
+| `COMPASS_SIDECAR_SPAN_BUCKET` | `10ms` | How finely calls are placed in time. A trace holds roughly *distinct functions × request duration / bucket* spans, so a long request needs a coarser bucket to stay under the bound. |
 | `COMPASS_SIDECAR_TOKEN` | | Require this token, as the `X-Skpr-Token` header, on both `/v1/traces` and `/metrics`. |
 | `COMPASS_SIDECAR_CERT_FILE` | | Serve traces over TLS with this certificate. |
 | `COMPASS_SIDECAR_KEY_FILE` | | Key for the TLS certificate. |
@@ -306,7 +318,8 @@ pointing at a YAML file with the same keys.
 | `COMPASS_DAEMON_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, as seen inside the target pod's container. |
 | `COMPASS_DAEMON_PROC_ROOT` | `/proc` | Host `/proc` to scan for the target pod's processes. |
 | `COMPASS_DAEMON_CGROUP_ROOT` | `/sys/fs/cgroup` | Host unified cgroup mount, used to resolve the cgroup ids the eBPF filter keys on. |
-| `COMPASS_DAEMON_MAX_FUNCTION_CALLS` | `10000` | Function calls retained per trace; later calls are counted as dropped. |
+| `COMPASS_DAEMON_MAX_SPANS` | `10000` | Spans a trace carries. Calls which cannot be placed in one are counted as dropped. Replaces `COMPASS_DAEMON_MAX_FUNCTION_CALLS`, which is still read and warned about. |
+| `COMPASS_DAEMON_SPAN_BUCKET` | `10ms` | How finely calls are placed in time. A trace holds roughly *distinct functions × request duration / bucket* spans, so a long request needs a coarser bucket to stay under the bound. |
 | `COMPASS_DAEMON_CERT_FILE` | | Serve traces over TLS with this certificate. |
 | `COMPASS_DAEMON_KEY_FILE` | | Key for the TLS certificate. |
 

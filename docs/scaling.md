@@ -46,8 +46,9 @@ million it is 262 ms, which is not.
 
 ## Where this stands
 
-Items 1, 8 and 9 are implemented; everything else is the plan. Each item says
-what it measured when it landed, or what it is expected to buy if it has not.
+Items 1, 2, 3, 4, 8 and 9 are implemented; 5, 6, 7 and 10, and the fleet work,
+are the plan. Each item says what it measured when it landed, or what it is
+expected to buy if it has not.
 
 ## The plan
 
@@ -72,49 +73,112 @@ drift from the struct they decode. Each runtime's decoder is therefore checked
 against `binary.Read` over randomised samples, which fails on any offset that
 does not agree with the generated layout.
 
-### 2. Stop touching the cache on every event
+### 2. Stop touching the cache on every event — done
 
-`Handler.touch` calls `go-cache`'s `Set` for every function event to push out
-the request's expiry. That takes a second lock, on top of the handler's own
-mutex, on the hottest path in the process: **203 ns → 51 ns** without it.
+`Handler.touch` called `go-cache`'s `Set` for every function event to push out
+the request's expiry: a second lock and a second map write, on top of the
+handler's own lock, on the hottest path in the process.
 
-Expiry only needs to be pushed out while a request is in flight, which the
-lifecycle events already mark. Either touch on those alone, or hold the state in
-a plain map with a `lastSeen` field swept by a ticker.
+`pkg/tracer/requests` replaced it. Keeping a request alive is a field write on
+the entry the lookup already found, and expiry still runs from the last event
+a request produced, so a long-running Drush command is kept for as long as it
+keeps calling functions. Sweeping moved from a janitor goroutine to the path
+which creates requests, at most once per expiry period, and runs on the
+probes' monotonic clock rather than the system one.
 
-### 3. Intern function names
+    BenchmarkHandleFunction    307.3ns -> 174.6ns per function event
 
-`functioncalls.Limiter.Add` converts the name to a string for every retained
-call: one allocation of about 59 bytes each. A Drupal request calls a few
-hundred distinct symbols, most of them thousands of times, so a per-collector
-intern map makes the steady state allocation-free.
+### 3. Stop allocating a string per call — done
 
-### 4. Aggregate on ingest instead of retaining calls
+Two allocations were left on the path a function event takes, and both were
+for strings made out of bytes the event already carried.
 
-This is the change which removes the ceiling.
+The request id was one: the storage was keyed on a string, so every event
+converted a 101-byte field to find a key it had already used a thousand times.
+The storage is now keyed on the field itself, which is comparable and so is a
+map key as it stands.
 
-Key events by `(name, offset bucket)` and accumulate calls, total elapsed,
-longest call and peak memory: **42 ns per event, no allocations, and an output
-bounded by distinct symbols times segments** — 400 buckets for a million calls,
-against the hundred megabytes of records the same request retains today.
+The function name was the other. The aggregator holds the names it has made
+and reuses them, bounded at 8,192 per collector because the names come from
+the application rather than from us. The lookup is a map index on a string
+conversion of the bytes, which the compiler does without allocating — which is
+also what lets item 4 build its span key without allocating.
 
-The TUI already computes exactly this, in `segmented.Unmarshal`, at display
-time. Moving it to ingest means the aggregate is what travels, and neither the
-10,000-call cap nor the 10 MiB line limit decides what a reader can see any
-more.
+    BenchmarkHandleFunction    174.6ns, 2 allocs -> 151.5ns, 0 allocs
 
-Retention becomes a two-part policy rather than a cliff:
+### 4. Aggregate on ingest instead of retaining calls — done
 
-- the first `MAX_FUNCTION_CALLS` calls are retained exactly, so the call
-  sequence a normal request shows today is unchanged, and
-- everything after that is **aggregated rather than dropped**, so a large
-  request reports where its time went instead of reporting how much of itself
-  it threw away.
+This is the change which removed the ceiling.
 
-On the wire this is a `spans` field beside `functionCalls`, so a million-call
-trace is a few hundred kilobytes rather than 136 MiB. Version it: a CLI which
-predates the field still reads the calls, and a CLI which has it can show the
-aggregate for the part which was never retained.
+A trace no longer carries function calls. It carries **spans**: the calls of
+one function within one slice of the request, with how many there were, the
+longest of them, what they cost altogether, where the earliest of them started
+and the most memory any of them reported. Aggregating as the events arrive
+measured **61ns per call and no allocations**, and the output is bounded by
+the distinct functions a request calls times the slices of it they ran in,
+rather than by how many times it called them.
+
+The display never showed anything else. `segmented.Unmarshal` computed exactly
+this aggregate at render time, from calls which had been carried the whole way
+for the purpose, so moving it to ingest took a step out of the pipeline rather
+than adding one: `pkg/trace/segmented` and `pkg/trace/count` are gone, and the
+Functions page reads `trace.Spans` directly.
+
+One rule, applied to every call:
+
+- a span is `(function, offset / bucket)`, where the bucket is a fixed ten
+  milliseconds — fixed because the span a call belongs to has to be chosen
+  when its event arrives, and how long the request ran for is not known until
+  it ends, so a share of the request is not available to bucket by;
+- a trace carries at most `MAX_SPANS` of them, and a call which needs a span
+  the trace has no room for is counted rather than placed.
+
+The count of calls a request made stays exact whether or not every call found
+a span, and peak memory still takes every call into account. There is no
+second regime: no prefix of the calls is treated differently from the rest.
+
+On the wire `functionCalls` is replaced by `spans`, which is a breaking change
+to the stream: a CLI older than the sidecar it connects to will show traces
+with no functions in them. The two are released together, tagged by version,
+so they are upgraded together.
+
+`COMPASS_SIDECAR_MAX_FUNCTION_CALLS` and `COMPASS_DAEMON_MAX_FUNCTION_CALLS`
+became `..._MAX_SPANS`. The old names are still read, so a deployment keeps
+the bound it configured, and the sidecar warns once at startup when it takes
+one.
+
+    BenchmarkHandleFunction    151.5ns, 0 allocs -> 138.2ns, 0 allocs, 0 B
+
+The whole path a function event takes is now 138.2ns against the 307.3ns it
+started at, and nothing on it allocates: the per-call record it used to append
+is gone, so a request's memory is bounded by its spans rather than by how many
+times it called anything.
+
+**What it costs a reader.** Two calls of the same function in the same bucket
+are no longer separable: the page shows the longest of them with a repeat
+count, and what they cost altogether. The display already did this at one
+percent of the request, so the only change is the resolution.
+
+**What the bucket decides.** Coverage depends on how a request's calls are
+spread, which is the price of a fixed bucket over one which adapts to the
+request. A million calls over one second, as a trace bounded at 10,000 spans:
+
+| Calls spread over | Bucket | Spans | Calls covered | Wire |
+| --- | ---: | ---: | ---: | ---: |
+| 400 functions, round robin | 1ms | 10,000 | 2.5% | 1.62 MiB |
+| 400 functions, round robin | 10ms | 10,000 | 25% | 1.66 MiB |
+| 400 functions, round robin | 50ms | 8,000 | 100% | 1.35 MiB |
+| 20 hot functions, 380 occasional | 10ms | 10,000 | 26% | 1.64 MiB |
+| 20 hot functions, 380 occasional | 50ms | 7,960 | 100% | 1.33 MiB |
+
+Against 136 MiB and a trace the transport refused to carry, every row is an
+improvement, and the exact call count is reported whatever the coverage. But a
+deployment whose requests run for much longer than a second, or call far more
+distinct functions than a page usually does, has to raise `MAX_SPANS` or the
+bucket to keep every call represented. That is what the knobs are for, and
+adapting the bucket to the request — doubling it and merging buckets pairwise
+when a trace fills — is the change which would remove the choice. It is worth
+doing if the defaults turn out to drop calls in practice.
 
 ### 5. Shard the rings and the handler state
 
@@ -159,13 +223,17 @@ Three ways out, all in the extension:
 - **Sampling.** Once a symbol has been seen *k* times, fire for one call in *n*
   and extrapolate the count, which bounds the tail on pathological requests.
 
-### 8. Segment once per trace, not once per keystroke — done
+### 8. Aggregate once per trace, not once per keystroke — done
 
 `functionsSetRows` re-ran `segmented.Unmarshal` and re-sorted its output on
-every filter keystroke and every resize. The spans depend only on the trace, so
-they are now computed when a trace is opened and reused while it stays open,
-and the filter narrows the cached spans. Rows still rebuild on resize, because
+every filter keystroke and every resize. The work depended only on the trace,
+so it is now done once when a trace is opened and reused while it stays open,
+and the filter narrows what is held. Rows still rebuild on resize, because
 they carry their own widths.
+
+Since item 4 the aggregate arrives with the trace, so what is cached here is
+the ordering rather than the aggregation. The measurements below are from
+before that, when this page still did both.
 
 A keystroke on a trace of 10,000 calls went from 2.7 ms to 1.7 ms, and on
 100,000 calls from 22.1 ms to 15.3 ms. Those are against the aggregation in
@@ -181,7 +249,8 @@ page.
 
 `segmented.Unmarshal` built its map key with `fmt.Sprintf("%s-%d-%d", …)`: two
 allocations per function call, and 116 MB of the million-call cost. A struct
-key of the same three fields is allocation-free and compares the same way.
+key of the same fields is allocation-free and compares the same way, which is
+what the aggregator in item 4 now does on the ingest side.
 
 | Calls | Before | After |
 | --- | ---: | ---: |

@@ -45,10 +45,11 @@ func testTrace(uri string) events.Trace {
 				StartTime: at(0), EndTime: at(402_000_000),
 			},
 			ResourceUtilisation: trace.ResourceUtilisation{MaxMemory: 18 << 20},
-			FunctionCalls: []trace.FunctionCall{
-				{Name: `Drupal\Core\DrupalKernel::handle`, Offset: 0, Elapsed: 400_000_000, Memory: 18 << 20},
-				{Name: `Drupal\Core\Render\Renderer::renderRoot`, Offset: 100_000_000, Elapsed: 150_000_000, Memory: 16 << 20},
+			Spans: []trace.Span{
+				{Name: `Drupal\Core\DrupalKernel::handle`, Offset: 0, Elapsed: 400_000_000, Total: 400_000_000, Calls: 1, Memory: 18 << 20},
+				{Name: `Drupal\Core\Render\Renderer::renderRoot`, Offset: 100_000_000, Elapsed: 150_000_000, Total: 150_000_000, Calls: 1, Memory: 16 << 20},
 			},
+			Calls: 2,
 			Drupal: &trace.Drupal{
 				CacheEvents: []trace.CacheEvent{
 					{Origin: trace.CacheOriginObject, Caller: `Drupal\user\Plugin\Block\UserLoginBlock::build`, ObjectType: `Drupal\Core\Session\AccountProxy`, MaxAge: 0, Calls: 3, Contexts: []string{"session"}},
@@ -315,13 +316,14 @@ func TestFunctions_OrderedByExecution(t *testing.T) {
 		Metadata: trace.Metadata{
 			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
-		FunctionCalls: []trace.FunctionCall{
-			// Deliberately out of order, with the longest call in the middle,
+		Spans: []trace.Span{
+			// Deliberately out of order, with the longest span in the middle,
 			// so insertion order and duration ranking both differ from this.
-			{Name: "third", Offset: 600_000_000, Elapsed: 100_000_000},
-			{Name: "first", Offset: 100_000_000, Elapsed: 50_000_000},
-			{Name: "second", Offset: 300_000_000, Elapsed: 500_000_000},
+			{Name: "third", Offset: 600_000_000, Elapsed: 100_000_000, Calls: 1},
+			{Name: "first", Offset: 100_000_000, Elapsed: 50_000_000, Calls: 1},
+			{Name: "second", Offset: 300_000_000, Elapsed: 500_000_000, Calls: 1},
 		},
+		Calls: 3,
 	}}
 
 	m.functionsSetRows()
@@ -338,10 +340,11 @@ func TestFunctions_CallerBeforeCallee(t *testing.T) {
 		Metadata: trace.Metadata{
 			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
-		FunctionCalls: []trace.FunctionCall{
-			{Name: "child", Offset: 0, Elapsed: 200_000_000},
-			{Name: "parent", Offset: 0, Elapsed: 900_000_000},
+		Spans: []trace.Span{
+			{Name: "child", Offset: 0, Elapsed: 200_000_000, Calls: 1},
+			{Name: "parent", Offset: 0, Elapsed: 900_000_000, Calls: 1},
 		},
+		Calls: 2,
 	}}
 
 	m.functionsSetRows()
@@ -358,10 +361,11 @@ func TestFunctions_DurationShareFollowsElapsedTime(t *testing.T) {
 		Metadata: trace.Metadata{
 			Source: trace.SourceHTTP, StartTime: at(0), EndTime: at(1_000_000_000),
 		},
-		FunctionCalls: []trace.FunctionCall{
-			{Name: "wrapper", Offset: 0, Elapsed: 1_000_000_000},
-			{Name: "child", Offset: 100_000_000, Elapsed: 200_000_000},
+		Spans: []trace.Span{
+			{Name: "wrapper", Offset: 0, Elapsed: 1_000_000_000, Calls: 1},
+			{Name: "child", Offset: 100_000_000, Elapsed: 200_000_000, Calls: 1},
 		},
+		Calls: 2,
 	}}
 
 	m.functionsSetRows()
@@ -789,7 +793,7 @@ func TestFunctionTruncation_IsVisibleWithoutQualifyingDurationShare(t *testing.T
 	m := testModel(120, 34)
 
 	partial := testTrace("/partial")
-	partial.FunctionCallsDropped = 7
+	partial.CallsDropped = 7
 	m.updateTrace(partial)
 	m.search.SetCursor(0)
 

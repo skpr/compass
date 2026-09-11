@@ -13,8 +13,8 @@ import (
 	"github.com/skpr/compass/pkg/trace"
 )
 
-// functionsTrace of a request carrying calls, spread over a one second request
-// so that they land in different segments.
+// functionsTrace of a request carrying spans, spread over a one second
+// request so that they sit at different points in it.
 func functionsTrace(id string, calls int) events.Trace {
 	start := time.Unix(1700000000, 0)
 
@@ -27,14 +27,19 @@ func functionsTrace(id string, calls int) events.Trace {
 			StartTime: start,
 			EndTime:   start.Add(time.Second),
 		},
-		FunctionCalls: make([]trace.FunctionCall, 0, calls),
+		Spans: make([]trace.Span, 0, calls),
+		Calls: int64(calls),
 	}
 
+	// One span per call, which is the worst case the page can be handed: a
+	// request whose calls all landed in different slices of it.
 	for i := range calls {
-		fullTrace.FunctionCalls = append(fullTrace.FunctionCalls, trace.FunctionCall{
+		fullTrace.Spans = append(fullTrace.Spans, trace.Span{
 			Name:    fmt.Sprintf("Drupal\\Core\\Entity\\Sql\\SqlContentEntityStorage%d::loadMultiple", i%400),
 			Offset:  time.Duration(i) * time.Microsecond % time.Second,
 			Elapsed: time.Duration(i%500) * time.Microsecond,
+			Total:   time.Duration(i%500) * time.Microsecond,
+			Calls:   1,
 			Memory:  int64(i) * 128,
 		})
 	}
@@ -59,8 +64,8 @@ func functionsModel(t *testing.T, calls int) *Model {
 	return m
 }
 
-// The aggregate depends on the trace alone, so rebuilding the rows for a
-// different filter must reuse it rather than segment the calls again.
+// The ordered spans depend on the trace alone, so rebuilding the rows for a
+// different filter must reuse them rather than sort them again.
 func TestFunctionsSetRows_ReusesTheAggregateWhileTheTraceIsOpen(t *testing.T) {
 	m := functionsModel(t, 2_000)
 
@@ -70,19 +75,19 @@ func TestFunctionsSetRows_ReusesTheAggregateWhileTheTraceIsOpen(t *testing.T) {
 	m.storeFilter(PageFunctions, "loadMultiple")
 	m.functionsSetRows()
 
-	assert.Same(t, first, unsafe.SliceData(m.functionSpans), "filtering re-segmented the trace")
-	assert.Len(t, m.functionSpans, spans, "filtering changed the aggregate")
+	assert.Same(t, first, unsafe.SliceData(m.functionSpans), "filtering reordered the spans again")
+	assert.Len(t, m.functionSpans, spans, "filtering changed the spans")
 	assert.NotEmpty(t, m.functionVisible, "the filter matched nothing, so it proves nothing")
 
 	// A resize rebuilds the rows, which carry their own widths, but not the
 	// aggregate they are built from.
 	m.functionsSetRows()
 
-	assert.Same(t, first, unsafe.SliceData(m.functionSpans), "a rebuild re-segmented the trace")
+	assert.Same(t, first, unsafe.SliceData(m.functionSpans), "a rebuild reordered the spans again")
 }
 
-// Opening another trace has to replace the aggregate, or the page would show
-// the previous request's calls.
+// Opening another trace has to replace the spans, or the page would show the
+// previous request's calls.
 func TestFunctionsSetRows_RecomputesForAnotherTrace(t *testing.T) {
 	m := functionsModel(t, 2_000)
 
@@ -94,11 +99,11 @@ func TestFunctionsSetRows_RecomputesForAnotherTrace(t *testing.T) {
 	m.updateKeyEnter()
 
 	require.Equal(t, "second", m.Current.Metadata.ID)
-	assert.NotSame(t, first, unsafe.SliceData(m.functionSpans), "the aggregate was kept across traces")
+	assert.NotSame(t, first, unsafe.SliceData(m.functionSpans), "the spans were kept across traces")
 	assert.Len(t, m.functionSpans, 10)
 }
 
-// Closing the trace leaves nothing to aggregate.
+// Closing the trace leaves nothing to show.
 func TestFunctionsSetRows_ClearedWithNoTrace(t *testing.T) {
 	m := functionsModel(t, 100)
 
@@ -114,15 +119,15 @@ func TestFunctionsSetRows_ClearedWithNoTrace(t *testing.T) {
 // BenchmarkFunctionsSetRows is the cost of one filter keystroke on an open
 // trace.
 //
-// "cached" is what a keystroke costs: the rows are rebuilt from the aggregate
-// the open trace already has. "reaggregated" is what it cost when every
-// rebuild segmented the calls again, which is the difference the cache makes.
+// "cached" is what a keystroke costs: the rows are rebuilt from the spans the
+// open trace already has in order. "resorted" is what it costs when every
+// rebuild orders them again, which is the difference the cache makes.
 func BenchmarkFunctionsSetRows(b *testing.B) {
 	for _, calls := range []int{10_000, 100_000} {
 		for _, cached := range []bool{true, false} {
 			name := "cached"
 			if !cached {
-				name = "reaggregated"
+				name = "resorted"
 			}
 
 			b.Run(fmt.Sprintf("%s/calls=%d", name, calls), func(b *testing.B) {

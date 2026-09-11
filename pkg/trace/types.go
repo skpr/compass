@@ -72,30 +72,60 @@ type MetadataCLI struct {
 type Trace struct {
 	Metadata            Metadata            `json:"metadata"`
 	ResourceUtilisation ResourceUtilisation `json:"resourceUtilisation"`
-	FunctionCalls       []FunctionCall      `json:"functionCalls"`
-	// FunctionCallsDropped is the exact number of function events not retained
-	// after this trace reached its configured limit.
-	FunctionCallsDropped int     `json:"functionCallsDropped,omitempty"`
-	Drupal               *Drupal `json:"drupal,omitempty"`
+	// Spans are the function calls this request made, aggregated as their
+	// events arrived.
+	Spans []Span `json:"spans"`
+	// Calls is how many function calls the request made, including any which
+	// no span represents. It is an exact count either way.
+	Calls int64 `json:"calls"`
+	// CallsDropped is how many of those calls no span represents, because the
+	// trace had already reached its span limit when they arrived.
+	CallsDropped int64   `json:"callsDropped,omitempty"`
+	Drupal       *Drupal `json:"drupal,omitempty"`
 }
 
 type ResourceUtilisation struct {
 	MaxMemory int64 `json:"maxMemory"`
 }
 
-// FunctionCall provides information about the function call.
+// Span is the calls of one function during one slice of a request.
 //
-// The call is placed by how far into the request it started rather than by the
-// instant it started at. An absolute time for one frame says nothing on its
-// own — every consumer immediately subtracts the request start to get back to
-// this — and it costs a formatted timestamp per call on the wire.
-type FunctionCall struct {
+// A request can make more than a million function calls, and no reader looks
+// at those one at a time: what a reader asks of a trace is where the time
+// went, which is an aggregate. So the aggregate is what a trace is made of.
+// Calls are collected into spans as their events arrive, rather than retained
+// one by one and summarised at the end, which is what lets a trace of a
+// million calls be a few hundred kilobytes. See docs/scaling.md.
+//
+// A span is placed by how far into the request it started rather than by the
+// instant it started at. An absolute time says nothing on its own — every
+// consumer immediately subtracts the request start to get back to this — and
+// it costs a formatted timestamp on the wire.
+type Span struct {
+	// Name of the function which was called.
 	Name string `json:"name"`
-	// Offset from the start of the request at which the call began.
+	// Offset from the start of the request at which the earliest call in this
+	// span began.
 	Offset time.Duration `json:"offsetNanos"`
-	// Elapsed is how long the call ran for.
+	// Elapsed is how long the longest single call in this span ran for.
 	Elapsed time.Duration `json:"elapsedNanos"`
-	Memory  int64         `json:"memory"`
+	// Total is how long the calls in this span ran for altogether. It exceeds
+	// the request duration where a function called its way back into itself.
+	Total time.Duration `json:"totalNanos"`
+	// Calls aggregated into this span.
+	Calls int64 `json:"calls"`
+	// Memory is the highest reported by any call in this span.
+	Memory int64 `json:"memory"`
+}
+
+// DurationShare is the fraction of the request occupied by the longest call in
+// this span.
+func (s Span) DurationShare(requestDuration time.Duration) float64 {
+	if requestDuration <= 0 {
+		return 0
+	}
+
+	return float64(s.Elapsed) / float64(requestDuration)
 }
 
 // Drupal specific data collected for a trace.

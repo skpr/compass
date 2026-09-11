@@ -20,6 +20,7 @@ import (
 	"github.com/skpr/compass/pkg/tracer/ringloss"
 	"github.com/skpr/compass/pkg/tracer/ringreader"
 	"github.com/skpr/compass/pkg/tracer/sink"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 const (
@@ -60,7 +61,7 @@ const (
 )
 
 // Run the collector.
-func Run(ctx context.Context, plugin sink.Interface, addonPath string, maxFunctionCalls int, filter cgroupfilter.Filter) error {
+func Run(ctx context.Context, plugin sink.Interface, addonPath string, spanOptions spans.Options, filter cgroupfilter.Filter) error {
 	logger := yolog.NewLogger(LoggerStream)
 	defer logger.Log(os.Stdout)
 
@@ -246,8 +247,8 @@ func Run(ctx context.Context, plugin sink.Interface, addonPath string, maxFuncti
 	logger.SetAttr(fmt.Sprintf("%s_attached", ProbeNameRequestShutdown), true)
 
 	manager, err := NewHandler(plugin, Options{
-		Expire:           time.Minute,
-		MaxFunctionCalls: maxFunctionCalls,
+		Expire: time.Minute,
+		Spans:  spanOptions,
 	})
 	if err != nil {
 		return logger.WrapError(fmt.Errorf("unable to initialize event manager: %w", err))

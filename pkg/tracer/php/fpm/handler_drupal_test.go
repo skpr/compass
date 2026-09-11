@@ -297,7 +297,7 @@ func TestHandler_HandleDrupalCache_TraceWithoutFunctionsIsSent(t *testing.T) {
 	}))
 
 	require.Len(t, sink.traces, 1)
-	assert.Empty(t, sink.traces[0].FunctionCalls)
+	assert.Empty(t, sink.traces[0].Spans)
 }
 
 func TestHandler_HandleDrupalCache_NonDrupalTraceHasNoDrupalData(t *testing.T) {

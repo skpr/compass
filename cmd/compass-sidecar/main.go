@@ -24,6 +24,7 @@ import (
 	nodediscovery "github.com/skpr/compass/pkg/node/addon/discovery"
 	phpdiscovery "github.com/skpr/compass/pkg/php/extension/discovery"
 	"github.com/skpr/compass/pkg/tracer"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 var cmdExample = `
@@ -114,10 +115,40 @@ type Config struct {
 	NodeProcessName  string        `yaml:"node_process_name"  env:"COMPASS_SIDECAR_NODE_PROCESS_NAME"  env-default:"node"`
 	NodeAddonPath    string        `yaml:"node_addon_path"    env:"COMPASS_SIDECAR_NODE_ADDON_PATH"    env-default:"/usr/lib/compass/node/compass.node"`
 	DiscoveryTimeout time.Duration `yaml:"discovery_timeout"  env:"COMPASS_SIDECAR_DISCOVERY_TIMEOUT"  env-default:"1m"`
-	MaxFunctionCalls int           `yaml:"max_function_calls" env:"COMPASS_SIDECAR_MAX_FUNCTION_CALLS" env-default:"10000"`
-	Token            string        `yaml:"token"              env:"COMPASS_SIDECAR_TOKEN"`
-	CertFile         string        `yaml:"cert_file"          env:"COMPASS_SIDECAR_CERT_FILE"`
-	KeyFile          string        `yaml:"key_file"           env:"COMPASS_SIDECAR_KEY_FILE"`
+	MaxSpans         int           `yaml:"max_spans"          env:"COMPASS_SIDECAR_MAX_SPANS"`
+	SpanBucket       time.Duration `yaml:"span_bucket"        env:"COMPASS_SIDECAR_SPAN_BUCKET"`
+	// MaxFunctionCalls is what MaxSpans was called when a trace retained
+	// individual calls. Still read, so that an existing deployment keeps the
+	// bound it configured, and warned about on the way through.
+	MaxFunctionCalls int    `yaml:"max_function_calls" env:"COMPASS_SIDECAR_MAX_FUNCTION_CALLS"`
+	Token            string `yaml:"token"              env:"COMPASS_SIDECAR_TOKEN"`
+	CertFile         string `yaml:"cert_file"          env:"COMPASS_SIDECAR_CERT_FILE"`
+	KeyFile          string `yaml:"key_file"           env:"COMPASS_SIDECAR_KEY_FILE"`
+}
+
+// spanOptions the collectors should aggregate with, honouring the name the
+// bound was configured under before a trace was made of spans.
+func (c Config) spanOptions() spans.Options {
+	return spans.Options{Max: c.maxSpans(), Bucket: c.SpanBucket}
+}
+
+// maxSpans a trace may carry.
+func (c Config) maxSpans() int {
+	if c.MaxSpans > 0 {
+		return c.MaxSpans
+	}
+
+	if c.MaxFunctionCalls > 0 {
+		return c.MaxFunctionCalls
+	}
+
+	return spans.DefaultMax
+}
+
+// usingDeprecatedMaxFunctionCalls reports whether the bound in force came from
+// the old name, so that startup can say so once rather than per collector.
+func (c Config) usingDeprecatedMaxFunctionCalls() bool {
+	return c.MaxSpans <= 0 && c.MaxFunctionCalls > 0
 }
 
 // Options for this sidecar application.
@@ -157,6 +188,11 @@ func main() {
 				Level: lvl,
 			}))
 			slog.SetDefault(logger)
+
+			if config.usingDeprecatedMaxFunctionCalls() {
+				logger.Warn("COMPASS_SIDECAR_MAX_FUNCTION_CALLS is deprecated and will be removed; use COMPASS_SIDECAR_MAX_SPANS, which bounds the spans a trace carries rather than the calls it retains",
+					"max_spans", config.maxSpans())
+			}
 
 			runtimes, err := discoverRuntimes(cmd.Context(), logger, config)
 			if err != nil {
@@ -227,7 +263,7 @@ func main() {
 			})
 
 			supervisor := newCollectorSupervisor(logger, b, func(collectorCtx context.Context) error {
-				return tracer.Run(collectorCtx, b, runtimes, tracer.Options{MaxFunctionCalls: config.MaxFunctionCalls})
+				return tracer.Run(collectorCtx, b, runtimes, tracer.Options{Spans: config.spanOptions()})
 			})
 
 			eg.Go(func() error {

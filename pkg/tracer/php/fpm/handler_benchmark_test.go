@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/skpr/compass/pkg/tracer/clock"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 // BenchmarkHandleFunction is what one function call costs the handler: the
@@ -16,15 +17,15 @@ import (
 // fast a collector drains its ring buffer. A Drupal request can produce more
 // than a million of these, so the whole budget for one of them is nanoseconds.
 func BenchmarkHandleFunction(b *testing.B) {
-	// Calls per request, so that the benchmark measures the retained path in
-	// its steady state. Letting one trace grow for the whole run would measure
-	// the garbage collector walking a slice no request ever produces.
+	// Calls per request, so that the benchmark measures the steady state.
+	// Letting one request run for the whole benchmark would measure the
+	// garbage collector walking an aggregate no request ever produces.
 	const callsPerRequest = 10_000
 
 	handler, err := NewHandler(&mockSink{}, Options{
-		Expire:           time.Minute,
-		MaxFunctionCalls: callsPerRequest,
-		Clock:            clock.Monotonic{Boot: time.Unix(1700000000, 0)},
+		Expire: time.Minute,
+		Spans:  spans.Options{Max: callsPerRequest},
+		Clock:  clock.Monotonic{Boot: time.Unix(1700000000, 0)},
 	})
 	require.NoError(b, err)
 

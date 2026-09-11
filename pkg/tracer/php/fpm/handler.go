@@ -12,10 +12,10 @@ import (
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
-	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
 	"github.com/skpr/compass/pkg/tracer/requests"
 	"github.com/skpr/compass/pkg/tracer/sink"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 const (
@@ -62,16 +62,18 @@ type Handler struct {
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
-	options       Options
-	functionCalls functioncalls.Limiter
+	options Options
+	// spans aggregates each request's function calls as their events arrive.
+	spans *spans.Aggregator
 }
 
 // Options for configuring the Handler.
 type Options struct {
 	Expire time.Duration
-	// MaxFunctionCalls is how many function records each trace retains.
-	// Non-positive values use functioncalls.DefaultMax.
-	MaxFunctionCalls int
+	// Spans is how the request's function calls are aggregated: how many
+	// spans a trace carries, and how finely calls are placed in time. The
+	// zero value uses the package defaults.
+	Spans spans.Options
 	// MaxCacheEvents is how many distinct Drupal cache events a trace retains.
 	// Defaults to DefaultMaxCacheEvents.
 	MaxCacheEvents int
@@ -86,7 +88,9 @@ type Options struct {
 // their contents, and a page can emit far more of them than a linear scan over
 // what has already been collected would want to look at.
 type state struct {
-	trace      trace.Trace
+	trace trace.Trace
+	// spans is the request's function calls, aggregated as they arrive.
+	spans      *spans.Builder
 	cacheIndex map[string]int
 }
 
@@ -106,10 +110,10 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage:       requests.New[RequestID, state](options.Expire),
-		plugin:        plugin,
-		options:       options,
-		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimePHPFPM),
+		storage: requests.New[RequestID, state](options.Expire),
+		plugin:  plugin,
+		options: options,
+		spans:   spans.New(options.Spans, spans.RuntimePHPFPM),
 	}
 
 	return client, nil
@@ -242,6 +246,7 @@ func (c *Handler) handleRequestInit(requestID RequestID, uri, method string, tim
 				StartTime: c.options.Clock.Time(timestamp),
 			},
 		},
+		spans:      c.spans.Request(),
 		cacheIndex: make(map[string]int),
 	}
 
@@ -260,8 +265,7 @@ func (c *Handler) handleFunction(requestID RequestID, functionName []byte, times
 		return err
 	}
 
-	c.functionCalls.Add(
-		&s.trace,
+	s.spans.Add(
 		functionName,
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
@@ -363,11 +367,12 @@ func (c *Handler) complete(requestID RequestID, timestamp uint64) (trace.Trace, 
 	}
 
 	s.trace.Metadata.EndTime = c.options.Clock.Time(timestamp)
+	s.spans.Finish(&s.trace)
 
 	// Cleanup this request after we have processed it.
 	defer c.storage.Delete(requestID)
 
-	if len(s.trace.FunctionCalls) == 0 && s.trace.Drupal == nil {
+	if len(s.trace.Spans) == 0 && s.trace.Drupal == nil {
 		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, unix.ByteSliceToString(requestID[:]))
 	}
 

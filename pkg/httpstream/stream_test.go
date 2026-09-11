@@ -99,7 +99,7 @@ func TestServe_DisconnectsNonReadingClient(t *testing.T) {
 	// number of writes rather than needing millions of tiny records.
 	big := trace.Trace{Metadata: trace.Metadata{ID: "x"}}
 	for i := 0; i < 5000; i++ {
-		big.FunctionCalls = append(big.FunctionCalls, trace.FunctionCall{Name: "some/function/name/that/is/reasonably/long"})
+		big.Spans = append(big.Spans, trace.Span{Name: "some/function/name/that/is/reasonably/long", Calls: 1})
 	}
 
 	traces := make(chan trace.Trace)
