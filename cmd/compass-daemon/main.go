@@ -118,40 +118,17 @@ type Config struct {
 	ProcRoot         string        `yaml:"proc_root"          env:"COMPASS_DAEMON_PROC_ROOT"          env-default:"/proc"`
 	CgroupRoot       string        `yaml:"cgroup_root"        env:"COMPASS_DAEMON_CGROUP_ROOT"        env-default:"/sys/fs/cgroup"`
 	MaxSpans         int           `yaml:"max_spans"          env:"COMPASS_DAEMON_MAX_SPANS"`
-	SpanBucket       time.Duration `yaml:"span_bucket"  env:"COMPASS_DAEMON_SPAN_BUCKET"`
-	// MaxFunctionCalls is what MaxSpans was called when a trace retained
-	// individual calls. Still read, so that an existing deployment keeps the
-	// bound it configured, and warned about on the way through.
-	MaxFunctionCalls int    `yaml:"max_function_calls" env:"COMPASS_DAEMON_MAX_FUNCTION_CALLS"`
-	MaxTargets       int    `yaml:"max_targets"        env:"COMPASS_DAEMON_MAX_TARGETS"        env-default:"50"`
-	Token            string `yaml:"token"              env:"COMPASS_DAEMON_TOKEN"`
-	CertFile         string `yaml:"cert_file"          env:"COMPASS_DAEMON_CERT_FILE"`
-	KeyFile          string `yaml:"key_file"           env:"COMPASS_DAEMON_KEY_FILE"`
+	SpanBucket       time.Duration `yaml:"span_bucket"        env:"COMPASS_DAEMON_SPAN_BUCKET"`
+	MaxTargets       int           `yaml:"max_targets"        env:"COMPASS_DAEMON_MAX_TARGETS"        env-default:"50"`
+	Token            string        `yaml:"token"              env:"COMPASS_DAEMON_TOKEN"`
+	CertFile         string        `yaml:"cert_file"          env:"COMPASS_DAEMON_CERT_FILE"`
+	KeyFile          string        `yaml:"key_file"           env:"COMPASS_DAEMON_KEY_FILE"`
 }
 
-// spanOptions the collectors should aggregate with, honouring the name the
-// bound was configured under before a trace was made of spans.
+// spanOptions the collectors should aggregate with. Whatever is left unset
+// here takes the aggregation's own defaults.
 func (c Config) spanOptions() spans.Options {
-	return spans.Options{Max: c.maxSpans(), Bucket: c.SpanBucket}
-}
-
-// maxSpans a trace may carry.
-func (c Config) maxSpans() int {
-	if c.MaxSpans > 0 {
-		return c.MaxSpans
-	}
-
-	if c.MaxFunctionCalls > 0 {
-		return c.MaxFunctionCalls
-	}
-
-	return spans.DefaultMax
-}
-
-// usingDeprecatedMaxFunctionCalls reports whether the bound in force came from
-// the old name, so that startup can say so once rather than per collector.
-func (c Config) usingDeprecatedMaxFunctionCalls() bool {
-	return c.MaxSpans <= 0 && c.MaxFunctionCalls > 0
+	return spans.Options{Max: c.MaxSpans, Bucket: c.SpanBucket}
 }
 
 // validate rejects a configuration the daemon cannot safely run with.
@@ -203,11 +180,6 @@ func main() {
 
 			logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
 			slog.SetDefault(logger)
-
-			if config.usingDeprecatedMaxFunctionCalls() {
-				logger.Warn("COMPASS_DAEMON_MAX_FUNCTION_CALLS is deprecated and will be removed; use COMPASS_DAEMON_MAX_SPANS, which bounds the spans a trace carries rather than the calls it retains",
-					"max_spans", config.maxSpans())
-			}
 
 			eg, ctx := errgroup.WithContext(cmd.Context())
 

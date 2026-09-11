@@ -286,7 +286,7 @@ see [`docs/sidecar-config.yaml`](docs/sidecar-config.yaml).
 | `COMPASS_SIDECAR_NODE_PROCESS_NAME` | `node` | Process which loads the Node addon. |
 | `COMPASS_SIDECAR_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, inside the Node container. |
 | `COMPASS_SIDECAR_DISCOVERY_TIMEOUT` | `1m` | How long to wait for a runtime before deciding it is not present. |
-| `COMPASS_SIDECAR_MAX_SPANS` | `10000` | Spans a trace carries. Calls which cannot be placed in one are counted as dropped. Replaces `COMPASS_SIDECAR_MAX_FUNCTION_CALLS`, which is still read and warned about. |
+| `COMPASS_SIDECAR_MAX_SPANS` | `10000` | Spans a trace carries. Calls which cannot be placed in one are counted as dropped. |
 | `COMPASS_SIDECAR_SPAN_BUCKET` | `10ms` | How finely calls are placed in time. A trace holds roughly *distinct functions × request duration / bucket* spans, so a long request needs a coarser bucket to stay under the bound. |
 | `COMPASS_SIDECAR_TOKEN` | | Require this token, as the `X-Skpr-Token` header, on both `/v1/traces` and `/metrics`. |
 | `COMPASS_SIDECAR_CERT_FILE` | | Serve traces over TLS with this certificate. |
@@ -319,7 +319,7 @@ pointing at a YAML file with the same keys.
 | `COMPASS_DAEMON_NODE_ADDON_PATH` | `/usr/lib/compass/node/compass.node` | Addon path, as seen inside the target pod's container. |
 | `COMPASS_DAEMON_PROC_ROOT` | `/proc` | Host `/proc` to scan for the target pod's processes. |
 | `COMPASS_DAEMON_CGROUP_ROOT` | `/sys/fs/cgroup` | Host unified cgroup mount, used to resolve the cgroup ids the eBPF filter keys on. |
-| `COMPASS_DAEMON_MAX_SPANS` | `10000` | Spans a trace carries. Calls which cannot be placed in one are counted as dropped. Replaces `COMPASS_DAEMON_MAX_FUNCTION_CALLS`, which is still read and warned about. |
+| `COMPASS_DAEMON_MAX_SPANS` | `10000` | Spans a trace carries. Calls which cannot be placed in one are counted as dropped. |
 | `COMPASS_DAEMON_SPAN_BUCKET` | `10ms` | How finely calls are placed in time. A trace holds roughly *distinct functions × request duration / bucket* spans, so a long request needs a coarser bucket to stay under the bound. |
 | `COMPASS_DAEMON_CERT_FILE` | | Serve traces over TLS with this certificate. |
 | `COMPASS_DAEMON_KEY_FILE` | | Key for the TLS certificate. |

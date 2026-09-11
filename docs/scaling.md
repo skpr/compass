@@ -147,15 +147,11 @@ The count of calls a request made stays exact whether or not every call found
 a span, and peak memory still takes every call into account. There is no
 second regime: no prefix of the calls is treated differently from the rest.
 
-On the wire `functionCalls` is replaced by `spans`, which is a breaking change
-to the stream: a CLI older than the sidecar it connects to will show traces
-with no functions in them. The two are released together, tagged by version,
-so they are upgraded together.
-
+On the wire `functionCalls` is replaced by `spans` outright, and
 `COMPASS_SIDECAR_MAX_FUNCTION_CALLS` and `COMPASS_DAEMON_MAX_FUNCTION_CALLS`
-became `..._MAX_SPANS`. The old names are still read, so a deployment keeps
-the bound it configured, and the sidecar warns once at startup when it takes
-one.
+by `..._MAX_SPANS`. Nothing reads the old field or answers to the old names:
+there is one representation of a trace and one name for its bound, which is
+the point.
 
     BenchmarkHandleFunction    151.5ns, 0 allocs -> 153.0ns, 0 allocs, 0 B
 

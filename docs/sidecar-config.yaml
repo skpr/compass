@@ -29,9 +29,8 @@ node_addon_path: "/usr/lib/compass/node/compass.node"
 discovery_timeout: "1m"
 
 # COMPASS_SIDECAR_MAX_SPANS - spans a trace carries. Calls of one function
-# within one millisecond of the request are a single span; calls which cannot
-# be placed in a span are counted and reported as dropped. Replaces
-# max_function_calls, which is still read and warned about.
+# within one bucket of the request are a single span; calls which cannot be
+# placed in a span are counted and reported as dropped.
 max_spans: 10000
 
 # COMPASS_SIDECAR_SPAN_BUCKET - how finely calls are placed in time. A trace
