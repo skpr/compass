@@ -203,25 +203,49 @@ It needs a symbol identity scheme: hash the name in the probe, emit the
 101-byte name once when the hash is first seen, and let every later call carry
 eight bytes instead of 232.
 
-### 7. The probe is the floor
+### 7. The probe is the floor — measured
 
-Everything above is about what happens after a probe fires. At a million calls
-the probes themselves dominate: a USDT probe is a uprobe, so each hit traps into
-the kernel, and the per-hit cost is of the order of a microsecond on x86_64.
-A million of them is therefore of the order of a second of added request
-latency, whatever the sidecar does with the events.
+Everything above is about what happens after a probe fires. This is what
+happens before one, and it is now measured rather than assumed. From
+`mise run bench` in [`skpr/compass-extension`](https://github.com/skpr/compass-extension),
+as ns per PHP function call on x86_64 under PHP 8.5:
 
-Three ways out, all in the extension:
+| State | ns/call | Over no extension |
+| --- | ---: | ---: |
+| No extension | 10.2 | — |
+| `compass.enabled=0` | 10.2 | nothing measurable |
+| `compass.enabled=1`, nothing attached | 13.8 | +3.6 |
+| Tracer attached, call under the threshold | 47.7 | +37.5 |
+| Tracer attached, call over the threshold | 53.2 | +43.0 |
 
-- **Threshold.** `compass.function_threshold` is the front line and already
-  exists. It deserves documented guidance by call volume rather than a single
-  default.
-- **In-process aggregation.** A hot function costs a struct update, tens of
-  nanoseconds, instead of a trap. The extension emits one probe at request
-  shutdown carrying its table. This is the only route to seeing all million
-  calls.
-- **Sampling.** Once a symbol has been seen *k* times, fire for one call in *n*
-  and extrapolate the count, which bounds the tail on pathological requests.
+Two things this settles.
+
+**Tracing costs every call, not just the reported ones.** A start time is taken
+and matched for each call so the threshold has an elapsed time to test, which
+is +37.5ns whether or not the call turns out to be interesting. A request
+making a million calls pays about 38ms of that before a single probe fires —
+which is real, and is also an order of magnitude less than the pipeline behind
+it used to cost.
+
+**The trap is still the part which grows.** The last row is a probe firing into
+a semaphore nothing has set. When a tracer is attached each fired probe also
+traps into the kernel through its uprobe, of the order of a microsecond, which
+the benchmark cannot see without a real tracer attached. That is the cost the
+threshold exists to control, and the reason a million *reported* calls is a
+different proposition from a million calls.
+
+The extension README now turns this into guidance for
+`compass.function_threshold`. The two changes which would lift the floor
+itself both need the probe ABI to carry a call count, so they are blocked on
+the same decision as items 5 and 6:
+
+- **In-process aggregation.** The extension accumulates per function and fires
+  once at request shutdown, so a hot function costs a struct update rather
+  than a trap. It cannot use today's probe: the sidecar counts one call per
+  probe, so an aggregate would have to carry how many calls it stands for.
+- **Sampling.** Fire for one call in *n* once a function has been seen *k*
+  times. Same problem: without a multiplier on the wire the counts become
+  samples presented as totals, which is worse than not sampling.
 
 ### 8. Aggregate once per trace, not once per keystroke — done
 
@@ -303,10 +327,9 @@ trace, and locked memory per target.
 
 ## Not yet measured
 
-- **Uprobe cost per probe hit**, which item 7 turns on. The order-of-magnitude
-  figure above is from the general behaviour of uprobes, not from this
-  extension: it needs measuring against a real workload before anything is
-  traded against it.
+- **Uprobe cost per probe hit.** Item 7 now has everything around it measured,
+  but the trap itself needs a tracer attached to a real kernel, so it is still
+  the order-of-magnitude figure rather than a measurement.
 - **Ring-buffer overflow behaviour** under a sustained million events per
   second, including whether reserve failures cluster or spread.
 - **End-to-end latency** from probe to TUI. Every number here is a stage in
