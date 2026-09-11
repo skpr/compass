@@ -314,3 +314,89 @@ func storedTrace(t *testing.T, h *Handler, requestID string) trace.Trace {
 
 	return s.trace
 }
+
+// noisyRequestID is the id field as a probe really fills it: the string and
+// its terminator written into a record the ring buffer handed over dirty, so
+// everything past the terminator is whatever the last record left there.
+func noisyRequestID(id string, noise uint8) [101]uint8 {
+	var field [101]uint8
+
+	for i := range field {
+		field[i] = noise
+	}
+
+	copy(field[:], id)
+	field[len(id)] = 0
+
+	return field
+}
+
+// Two events of the same request carry the same id and different rubbish
+// behind it, so what they are matched by has to be what the field says rather
+// than what it holds. Keying on the field as it stands loses every function
+// event, and with it every trace.
+func TestHandler_MatchesARequestAcrossDirtyRecords(t *testing.T) {
+	h, sink := newTestHandler(t)
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
+		Type:      EventRequestInit,
+		RequestId: noisyRequestID("req-1", 0x00),
+		Method:    makeMethod("GET"),
+		Timestamp: 1000,
+	}))
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
+		Type:         EventFunction,
+		RequestId:    noisyRequestID("req-1", 0xAB),
+		FunctionName: makeFunctionName("myFunc"),
+		Timestamp:    1500,
+		Elapsed:      200,
+		Memory:       4096,
+	}))
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{
+		Type:      EventRequestShutdown,
+		RequestId: noisyRequestID("req-1", 0xCD),
+		Timestamp: 2000,
+	}))
+
+	traces := sink.Traces()
+	require.Len(t, traces, 1, "the request was not matched across its events")
+	assert.Equal(t, "req-1", traces[0].Metadata.ID)
+	require.Len(t, traces[0].Spans, 1)
+	assert.Equal(t, "myFunc", traces[0].Spans[0].Name)
+	assert.Equal(t, int64(1), traces[0].Calls)
+}
+
+// Two different requests are still two requests, whatever follows their ids.
+func TestHandler_KeepsDistinctRequestsApart(t *testing.T) {
+	h, sink := newTestHandler(t)
+
+	for _, id := range []string{"req-1", "req-2"} {
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type:      EventRequestInit,
+			RequestId: noisyRequestID(id, 0x11),
+			Timestamp: 1000,
+		}))
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type:         EventFunction,
+			RequestId:    noisyRequestID(id, 0x22),
+			FunctionName: makeFunctionName("myFunc"),
+			Timestamp:    1500,
+			Elapsed:      200,
+		}))
+	}
+
+	for _, id := range []string{"req-1", "req-2"} {
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type:      EventRequestShutdown,
+			RequestId: noisyRequestID(id, 0x33),
+			Timestamp: 2000,
+		}))
+	}
+
+	traces := sink.Traces()
+	require.Len(t, traces, 2)
+	assert.Equal(t, "req-1", traces[0].Metadata.ID)
+	assert.Equal(t, "req-2", traces[1].Metadata.ID)
+}

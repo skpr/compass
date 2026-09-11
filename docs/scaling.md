@@ -96,7 +96,17 @@ for strings made out of bytes the event already carried.
 The request id was one: the storage was keyed on a string, so every event
 converted a 101-byte field to find a key it had already used a thousand times.
 The storage is now keyed on the field itself, which is comparable and so is a
-map key as it stands.
+map key.
+
+Not on the field *as it stands*, which was the first attempt and was wrong. A
+probe writes a NUL-terminated string into a fixed-size field of a ring buffer
+record it is handed uninitialised, and writing the string does not clear what
+is behind it, so the same request id arrives with different trailing bytes in
+every event it produces. Keyed on the raw field, a request matched nothing —
+not even itself — so every function event was skipped as untracked and every
+trace completed empty. The key is the field normalised: the string, in a
+buffer which is zero after it, which costs about 15ns and is the same for
+every event of a request.
 
 The function name was the other. The aggregator holds the names it has made
 and reuses them, bounded at 8,192 per collector because the names come from
@@ -147,12 +157,13 @@ became `..._MAX_SPANS`. The old names are still read, so a deployment keeps
 the bound it configured, and the sidecar warns once at startup when it takes
 one.
 
-    BenchmarkHandleFunction    151.5ns, 0 allocs -> 138.2ns, 0 allocs, 0 B
+    BenchmarkHandleFunction    151.5ns, 0 allocs -> 153.0ns, 0 allocs, 0 B
 
-The whole path a function event takes is now 138.2ns against the 307.3ns it
+The whole path a function event takes is now 153.0ns against the 307.3ns it
 started at, and nothing on it allocates: the per-call record it used to append
 is gone, so a request's memory is bounded by its spans rather than by how many
-times it called anything.
+times it called anything. About 15ns of that is normalising the request id,
+which item 3 got wrong and is described there.
 
 **What it costs a reader.** Two calls of the same function in the same bucket
 are no longer separable: the page shows the longest of them with a repeat

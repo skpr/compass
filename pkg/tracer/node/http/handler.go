@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -25,14 +26,37 @@ const (
 	EventRequestShutdown uint8 = 2
 )
 
-// RequestID is the request id as the probe reports it: a fixed-size,
-// NUL-terminated field.
+// RequestID is the request id an event is tracked by: what the probe
+// reported, normalised by requestKey.
 //
 // The storage is keyed on this rather than on a string made from it. Every
 // function event has to find its request, and converting the field to a
 // string to do that allocated once per function call. An array is comparable,
 // so it is a map key as it stands.
 type RequestID = [101]uint8
+
+// requestKey is the id field of an event, as something two events of the same
+// request can be matched by.
+//
+// The probes write a NUL-terminated string into a fixed-size field of a ring
+// buffer record which is handed to them uninitialised, and writing the string
+// does not clear what is behind it. So the same request id arrives with
+// different trailing bytes in every event it produces, and the field as it
+// stands matches nothing -- not even itself. What the field says is the same
+// every time, which is what this returns: the string, in a buffer which is
+// zero after it.
+func requestKey(raw RequestID) RequestID {
+	var key RequestID
+
+	length := bytes.IndexByte(raw[:], 0)
+	if length < 0 {
+		length = len(raw)
+	}
+
+	copy(key[:], raw[:length])
+
+	return key
+}
 
 // identified reports whether an event carries a request id at all. The field
 // is NUL-terminated, so an empty one starts with the terminator.
@@ -107,15 +131,15 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestInit(event.RequestId, uri, method, event.Timestamp); err != nil {
+		if err := c.handleRequestInit(requestKey(event.RequestId), uri, method, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
 	case EventFunction:
-		if err := c.handleFunction(event.RequestId, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+		if err := c.handleFunction(requestKey(event.RequestId), event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(ctx, event.RequestId, event.Timestamp); err != nil {
+		if err := c.handleRequestShutdown(ctx, requestKey(event.RequestId), event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -129,7 +153,7 @@ func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 	if err := c.handleRequestInit(
-		event.RequestId,
+		requestKey(event.RequestId),
 		unix.ByteSliceToString(event.Uri[:]),
 		unix.ByteSliceToString(event.Method[:]),
 		event.Timestamp,
@@ -144,7 +168,7 @@ func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) erro
 	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
-	if err := c.handleFunction(event.RequestId, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+	if err := c.handleFunction(requestKey(event.RequestId), event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 		return fmt.Errorf("failed to process function: %w", err)
 	}
 	return nil
@@ -155,7 +179,7 @@ func (c *Handler) HandleRequestShutdown(ctx context.Context, event bpfRequestShu
 	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
-	if err := c.handleRequestShutdown(ctx, event.RequestId, event.Timestamp); err != nil {
+	if err := c.handleRequestShutdown(ctx, requestKey(event.RequestId), event.Timestamp); err != nil {
 		return fmt.Errorf("failed to process request shutdown: %w", err)
 	}
 	return nil
