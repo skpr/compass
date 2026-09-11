@@ -280,11 +280,12 @@ them there are.
   with a 1 MiB event ring and a 4 MiB Drupal ring: 250 MB of locked memory
   before the sharding in item 5 multiplies it. Make the ring sizes configurable
   and account for them in `COMPASS_DAEMON_MAX_TARGETS`.
-- **Fan-out buffers.** The broadcaster and the router give each subscriber a
-  ten-*trace* buffer and drop on full. That is fine at a megabyte a
-  trace, and 1.4 GB per slow subscriber at 136 MB. Bound the buffer by bytes too, and prefer shedding the
-  oldest trace rather than the arriving one: for a performance tool the newest
-  trace is usually the interesting one.
+- **Fan-out buffers.** *Partly done.* A subscriber which has fallen behind now
+  loses its oldest waiting trace rather than the arriving one: this is a live
+  view, and the newest trace is the one somebody is waiting to see. Bounding
+  the buffer by bytes as well turned out not to be needed once item 4 landed —
+  a trace is bounded by `MAX_SPANS`, so ten of them is a bounded number of
+  megabytes rather than 1.4 GB.
 - **Fan-in.** One collector per target and one CLI per node means a human picks
   the pod. A merge layer above the router — subscribing to many daemons and
   merging by request id, with per-source drop accounting — is additive to what
