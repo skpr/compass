@@ -259,6 +259,7 @@ extension predating them keeps its PHP tracing and loses only the Drupal page.
 | `--insecure-skip-verify` | `COMPASS_INSECURE_SKIP_VERIFY` | `false` | Skip verification of the sidecar certificate. |
 | `--max-traces` | `COMPASS_MAX_TRACES` | `500` | Traces to retain, oldest are discarded first. |
 | `--max-logs` | `COMPASS_MAX_LOGS` | `1000` | Log events to retain, oldest are discarded first. |
+| `--max-bytes` | `COMPASS_MAX_BYTES` | `268435456` | Bytes of retained traces, oldest are discarded first. A count alone does not bound memory, because traces differ in size by orders of magnitude. The newest trace is always kept, however large it is. |
 | | `COMPASS_COLOR` | | Colour depth, when detection gets it wrong: `truecolor`, `256`, `16` or `none`. |
 
 The CLI reconnects with a backoff if the sidecar restarts, and the footer shows

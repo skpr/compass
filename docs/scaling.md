@@ -258,12 +258,18 @@ what the aggregator in item 4 now does on the ingest side.
 | 100,000 | 27.1 ms, 200,070 allocs | 7.5 ms, 37 allocs |
 | 1,000,000 | 261.8 ms, 116 MB, 2,000,313 allocs | 83.0 ms, 21.6 MB, 272 allocs |
 
-### 10. Bound the CLI by bytes
+### 10. Bound the CLI by bytes — done
 
-`--max-traces` bounds the retained traces by count, so what the TUI holds is
-unbounded in bytes: 500 traces times whatever each carries. Bound it by bytes as
-well, and keep only the aggregate for traces which have aged out of the recent
-window.
+`--max-traces` bounds the retained traces by count, so what the TUI held was
+unbounded in bytes: five hundred traces times whatever each carried, which
+since item 4 is anywhere between a few kilobytes and a couple of megabytes.
+
+`--max-bytes` bounds it by weight as well, defaulting to 256MiB, evicting
+oldest first. Each trace is weighed as it arrives — its spans, its cache
+events and the strings hanging off them, which are the parts that vary by
+orders of magnitude — and the total is kept as traces arrive and leave rather
+than walked for. The newest trace is never evicted: a single request larger
+than the whole budget is exactly the one somebody opened Compass to look at.
 
 ### Fleet
 

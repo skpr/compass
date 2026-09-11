@@ -51,7 +51,7 @@ func functionsTrace(id string, calls int) events.Trace {
 func functionsModel(t *testing.T, calls int) *Model {
 	t.Helper()
 
-	m := NewModel("/tmp/compass.so", 10, 10)
+	m := NewModel("/tmp/compass.so", Options{MaxTraces: 10, MaxLogs: 10})
 	m.Init()
 	m.Height, m.Width = 40, 160
 
@@ -131,7 +131,7 @@ func BenchmarkFunctionsSetRows(b *testing.B) {
 			}
 
 			b.Run(fmt.Sprintf("%s/calls=%d", name, calls), func(b *testing.B) {
-				m := NewModel("/tmp/compass.so", 10, 10)
+				m := NewModel("/tmp/compass.so", Options{MaxTraces: 10, MaxLogs: 10})
 				m.Init()
 				m.Height, m.Width = 40, 160
 				m.updateTrace(functionsTrace("first", calls))

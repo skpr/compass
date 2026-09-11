@@ -21,7 +21,7 @@ func testLog(second int, level, message string) events.Log {
 }
 
 func TestUpdateLog_BoundsHistoryAndDisplaysNewestFirst(t *testing.T) {
-	m := NewModel("", 10, 3)
+	m := NewModel("", Options{MaxTraces: 10, MaxLogs: 3})
 	m.Init()
 
 	for i := range 5 {
@@ -38,7 +38,7 @@ func TestUpdateLog_BoundsHistoryAndDisplaysNewestFirst(t *testing.T) {
 }
 
 func TestUpdateLog_RepeatsCollapseAcrossOldestEviction(t *testing.T) {
-	m := NewModel("", 10, 3)
+	m := NewModel("", Options{MaxTraces: 10, MaxLogs: 3})
 	m.Init()
 
 	m.updateLog(testLog(0, "error", "A"))
@@ -63,7 +63,7 @@ func TestUpdateLog_RepeatsCollapseAcrossOldestEviction(t *testing.T) {
 }
 
 func TestUpdateLog_FilteringUsesCollapsedRetainedRuns(t *testing.T) {
-	m := NewModel("", 10, 4)
+	m := NewModel("", Options{MaxTraces: 10, MaxLogs: 4})
 	m.Init()
 
 	m.updateLog(testLog(0, "info", "database ready"))
