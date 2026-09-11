@@ -115,10 +115,10 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
-	x, found := h.storage.Get("req-1")
+	x, found := h.storage.Get("req-1", 0)
 	require.True(t, found)
 
-	stored := x.(*state).trace
+	stored := x.trace
 	assert.Equal(t, "req-1", stored.Metadata.ID)
 	assert.Equal(t, trace.SourceHTTP, stored.Metadata.Source)
 	assert.Equal(t, "/api/test", stored.Metadata.HTTP.URI)
@@ -151,10 +151,10 @@ func TestHandler_Handle_Function(t *testing.T) {
 	require.NoError(t, h.Handle(t.Context(), funcEvent))
 
 	// Verify the function was stored.
-	x, found := h.storage.Get("req-1")
+	x, found := h.storage.Get("req-1", 0)
 	require.True(t, found)
 
-	stored := x.(*state).trace
+	stored := x.trace
 	require.Len(t, stored.FunctionCalls, 1)
 	assert.Equal(t, "myFunc", stored.FunctionCalls[0].Name)
 	assert.Equal(t, 300*time.Nanosecond, stored.FunctionCalls[0].Offset) // (1500 - 200) into a request which began at 1000
@@ -216,7 +216,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	assert.Len(t, sink.traces[0].FunctionCalls, 1)
 
 	// Verify storage was cleaned up.
-	_, found := h.storage.Get("req-1")
+	_, found := h.storage.Get("req-1", 0)
 	assert.False(t, found)
 }
 
@@ -301,4 +301,14 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	assert.Equal(t, at(3000), tr.Metadata.EndTime)
 	assert.Len(t, tr.FunctionCalls, 2)
 	assert.Equal(t, int64(8192), tr.ResourceUtilisation.MaxMemory)
+}
+
+// storedTrace of a request which is still being assembled.
+func storedTrace(t *testing.T, h *Handler, requestID string) trace.Trace {
+	t.Helper()
+
+	s, found := h.storage.Get(requestID, 0)
+	require.True(t, found)
+
+	return s.trace
 }

@@ -3,15 +3,16 @@ package http
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
 	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
+	"github.com/skpr/compass/pkg/tracer/requests"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -26,8 +27,10 @@ const (
 
 // Handler for handling events.
 type Handler struct {
-	// Consider an interface for the storage.
-	storage *cache.Cache
+	// mu guards the storage and the traces behind the pointers it hands out.
+	mu sync.Mutex
+	// storage holds the requests which are still being assembled.
+	storage *requests.Store[string, trace.Trace]
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
@@ -58,7 +61,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage:       cache.New(options.Expire, options.Expire),
+		storage:       requests.New[string, trace.Trace](options.Expire),
 		plugin:        plugin,
 		options:       options,
 		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimeNodeHTTP),
@@ -152,6 +155,9 @@ func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duratio
 
 // Process the function event and store the data.
 func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uint64) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	t := trace.Trace{
 		Metadata: trace.Metadata{
 			ID:      requestID,
@@ -165,22 +171,23 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uin
 		},
 	}
 
-	c.storage.Set(requestID, t, cache.DefaultExpiration)
+	c.storage.Set(requestID, &t, timestamp)
 
 	return nil
 }
 
 // Process the function event and store the data.
 func (c *Handler) handleFunction(requestID string, functionName []byte, timestamp, elapsed, memory uint64) error {
-	x, found := c.storage.Get(requestID)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	t, found := c.storage.Get(requestID, timestamp)
 	if !found {
 		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
 	}
 
-	t := x.(trace.Trace)
-
 	c.functionCalls.Add(
-		&t,
+		t,
 		functionName,
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
@@ -190,19 +197,35 @@ func (c *Handler) handleFunction(requestID string, functionName []byte, timestam
 		int64(memory),
 	)
 
-	c.storage.Set(requestID, t, cache.DefaultExpiration)
-
 	return nil
 }
 
 // Process the request shutdown event and send the profile to the plugin.
 func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, timestamp uint64) error {
-	x, found := c.storage.Get(requestID)
-	if !found {
-		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
+	t, err := c.complete(requestID, timestamp)
+	if err != nil {
+		return err
 	}
 
-	t := x.(trace.Trace)
+	// Sent without the lock held, so that a sink which blocks does not stall
+	// the reader behind it.
+	if err := c.plugin.ProcessTrace(ctx, t); err != nil {
+		return fmt.Errorf("failed to send profile data to plugin: %w", err)
+	}
+
+	return nil
+}
+
+// complete a request, removing it from storage so that the caller is left
+// holding the only reference to its trace.
+func (c *Handler) complete(requestID string, timestamp uint64) (trace.Trace, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	t, found := c.storage.Get(requestID, timestamp)
+	if !found {
+		return trace.Trace{}, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
+	}
 
 	t.Metadata.EndTime = c.options.Clock.Time(timestamp)
 
@@ -210,13 +233,8 @@ func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, t
 	defer c.storage.Delete(requestID)
 
 	if len(t.FunctionCalls) == 0 {
-		return fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, requestID)
+		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, requestID)
 	}
 
-	err := c.plugin.ProcessTrace(ctx, t)
-	if err != nil {
-		return fmt.Errorf("failed to send profile data to plugin: %w", err)
-	}
-
-	return nil
+	return *t, nil
 }

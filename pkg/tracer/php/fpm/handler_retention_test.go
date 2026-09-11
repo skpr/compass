@@ -25,9 +25,9 @@ func TestHandler_FunctionCallsAreBounded(t *testing.T) {
 		}))
 	}
 
-	stored, found := h.storage.Get("bounded")
+	stored, found := h.storage.Get("bounded", 0)
 	require.True(t, found)
-	tr := stored.(*state).trace
+	tr := stored.trace
 	assert.Len(t, tr.FunctionCalls, 2)
 	assert.Equal(t, 2, tr.FunctionCallsDropped)
 	assert.Equal(t, int64(40), tr.ResourceUtilisation.MaxMemory)
@@ -57,9 +57,9 @@ func TestHandler_FunctionCallsStayBoundedAtOneHundredThousandEvents(t *testing.T
 		}))
 	}
 
-	stored, found := h.storage.Get("stress")
+	stored, found := h.storage.Get("stress", 0)
 	require.True(t, found)
-	tr := stored.(*state).trace
+	tr := stored.trace
 	assert.Len(t, tr.FunctionCalls, retained)
 	assert.Equal(t, 100_000-retained, tr.FunctionCallsDropped)
 	assert.Equal(t, int64(99_999), tr.ResourceUtilisation.MaxMemory)

@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
 	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
+	"github.com/skpr/compass/pkg/tracer/requests"
 	"github.com/skpr/compass/pkg/tracer/sink"
 )
 
@@ -45,10 +45,10 @@ const DefaultMaxCacheEvents = 250
 // The tracer reads its two ring buffers in separate goroutines, so every method
 // here can be called concurrently with any other.
 type Handler struct {
-	// mu guards the state behind the pointers held in storage.
+	// mu guards the storage and the state behind the pointers it hands out.
 	mu sync.Mutex
-	// Consider an interface for the storage.
-	storage *cache.Cache
+	// storage holds the requests which are still being assembled.
+	storage *requests.Store[string, state]
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
@@ -96,7 +96,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage:       cache.New(options.Expire, options.Expire),
+		storage:       requests.New[string, state](options.Expire),
 		plugin:        plugin,
 		options:       options,
 		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimePHPFPM),
@@ -238,7 +238,7 @@ func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uin
 		cacheIndex: make(map[string]int),
 	}
 
-	c.storage.Set(requestID, s, cache.DefaultExpiration)
+	c.storage.Set(requestID, s, timestamp)
 
 	return nil
 }
@@ -248,7 +248,7 @@ func (c *Handler) handleFunction(requestID string, functionName []byte, timestam
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	s, err := c.get(requestID)
+	s, err := c.get(requestID, timestamp)
 	if err != nil {
 		return err
 	}
@@ -263,8 +263,6 @@ func (c *Handler) handleFunction(requestID string, functionName []byte, timestam
 		time.Duration(elapsed),
 		int64(memory),
 	)
-
-	c.touch(requestID, s)
 
 	return nil
 }
@@ -281,7 +279,7 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	s, err := c.get(requestID)
+	s, err := c.get(requestID, event.Timestamp)
 	if err != nil {
 		return err
 	}
@@ -304,14 +302,12 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 
 	if index, ok := s.cacheIndex[key]; ok {
 		s.trace.Drupal.CacheEvents[index].Calls++
-		c.touch(requestID, s)
 
 		return nil
 	}
 
 	if len(s.trace.Drupal.CacheEvents) >= c.options.MaxCacheEvents {
 		s.trace.Drupal.CacheEventsDropped++
-		c.touch(requestID, s)
 
 		return nil
 	}
@@ -328,8 +324,6 @@ func (c *Handler) handleDrupalCache(requestID string, origin trace.CacheOrigin, 
 		Offset:     c.offset(s.trace.Metadata, event.Timestamp),
 		Calls:      1,
 	})
-
-	c.touch(requestID, s)
 
 	return nil
 }
@@ -356,7 +350,7 @@ func (c *Handler) complete(requestID string, timestamp uint64) (trace.Trace, err
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	s, err := c.get(requestID)
+	s, err := c.get(requestID, timestamp)
 	if err != nil {
 		return trace.Trace{}, err
 	}
@@ -373,26 +367,20 @@ func (c *Handler) complete(requestID string, timestamp uint64) (trace.Trace, err
 	return s.trace, nil
 }
 
-// get the state of a request which is still being assembled. This is a pointer
-// into the storage, so the caller must hold c.mu for as long as it uses it.
-func (c *Handler) get(requestID string) (*state, error) {
-	x, found := c.storage.Get(requestID)
+// get the state of a request which is still being assembled, and record that
+// the request is still alive: its expiry is measured from the last event it
+// produced rather than from when it started, so a request which is still
+// running is not dropped out from under itself.
+//
+// This is a pointer into the storage, so the caller must hold c.mu for as long
+// as it uses it.
+func (c *Handler) get(requestID string, timestamp uint64) (*state, error) {
+	s, found := c.storage.Get(requestID, timestamp)
 	if !found {
 		return nil, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
 	}
 
-	s, ok := x.(*state)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type in storage for request with id: %s", requestID)
-	}
-
 	return s, nil
-}
-
-// touch the stored request so that its expiry is measured from the last event
-// it received rather than from when it started. The caller must hold c.mu.
-func (c *Handler) touch(requestID string, s *state) {
-	c.storage.Set(requestID, s, cache.DefaultExpiration)
 }
 
 // splitList of space delimited values from a probe. Drupal cache tags and

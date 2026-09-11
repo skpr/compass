@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
 )
 
@@ -31,9 +30,9 @@ func TestHandler_FunctionCallsAreBounded(t *testing.T) {
 		}))
 	}
 
-	stored, found := h.storage.Get("42")
+	stored, found := h.storage.Get(42, 0)
 	require.True(t, found)
-	tr := stored.(trace.Trace)
+	tr := *stored
 	assert.Len(t, tr.FunctionCalls, 2)
 	assert.Equal(t, 2, tr.FunctionCallsDropped)
 	assert.Equal(t, int64(40), tr.ResourceUtilisation.MaxMemory)

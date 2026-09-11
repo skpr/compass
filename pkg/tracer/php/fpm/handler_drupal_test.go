@@ -95,7 +95,7 @@ func TestHandler_HandleDrupalCache_RenderArray(t *testing.T) {
 		Timestamp: 1500,
 	}))
 
-	stored := h.storage.Items()["req-1"].Object.(*state).trace
+	stored := storedTrace(t, h, "req-1")
 
 	require.NotNil(t, stored.Drupal)
 	require.Len(t, stored.Drupal.CacheEvents, 1)
@@ -126,7 +126,7 @@ func TestHandler_HandleDrupalCache_Object(t *testing.T) {
 		Timestamp:  1600,
 	}))
 
-	stored := h.storage.Items()["req-1"].Object.(*state).trace
+	stored := storedTrace(t, h, "req-1")
 
 	require.Len(t, stored.Drupal.CacheEvents, 1)
 
@@ -162,7 +162,7 @@ func TestHandler_HandleDrupalCache_IdenticalEventsAggregate(t *testing.T) {
 	other.Timestamp = 9000
 	require.NoError(t, h.HandleDrupalCache(t.Context(), other))
 
-	stored := h.storage.Items()["req-1"].Object.(*state).trace
+	stored := storedTrace(t, h, "req-1")
 
 	require.Len(t, stored.Drupal.CacheEvents, 2)
 	assert.Equal(t, int64(500), stored.Drupal.CacheEvents[0].Calls)
@@ -190,7 +190,7 @@ func TestHandler_HandleDrupalCache_OriginIsPartOfTheKey(t *testing.T) {
 	event.Type = EventDrupalCacheObject
 	require.NoError(t, h.HandleDrupalCache(t.Context(), event))
 
-	stored := h.storage.Items()["req-1"].Object.(*state).trace
+	stored := storedTrace(t, h, "req-1")
 	assert.Len(t, stored.Drupal.CacheEvents, 2)
 }
 
@@ -211,7 +211,7 @@ func TestHandler_HandleDrupalCache_DistinctEventsAreCapped(t *testing.T) {
 		}))
 	}
 
-	stored := h.storage.Items()["req-1"].Object.(*state).trace
+	stored := storedTrace(t, h, "req-1")
 
 	assert.Len(t, stored.Drupal.CacheEvents, 3)
 	assert.Equal(t, 7, stored.Drupal.CacheEventsDropped)
@@ -235,7 +235,7 @@ func TestHandler_HandleDrupalCache_CappedEventsStillAggregate(t *testing.T) {
 	require.NoError(t, h.HandleDrupalCache(t.Context(), kept))
 	require.NoError(t, h.HandleDrupalCache(t.Context(), kept))
 
-	stored := h.storage.Items()["req-1"].Object.(*state).trace
+	stored := storedTrace(t, h, "req-1")
 
 	require.Len(t, stored.Drupal.CacheEvents, 1)
 	assert.Equal(t, int64(2), stored.Drupal.CacheEvents[0].Calls)

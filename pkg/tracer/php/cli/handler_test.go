@@ -82,10 +82,10 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
-	x, found := h.storage.Get("42")
+	x, found := h.storage.Get(42, 0)
 	require.True(t, found)
 
-	stored := x.(trace.Trace)
+	stored := *x
 	assert.Equal(t, "42", stored.Metadata.ID)
 	assert.Equal(t, trace.SourceCLI, stored.Metadata.Source)
 	assert.Equal(t, "drush cr", stored.Metadata.CLI.Command)
@@ -114,10 +114,10 @@ func TestHandler_Handle_Function(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	x, found := h.storage.Get("42")
+	x, found := h.storage.Get(42, 0)
 	require.True(t, found)
 
-	stored := x.(trace.Trace)
+	stored := *x
 	require.Len(t, stored.FunctionCalls, 1)
 	assert.Equal(t, "myFunc", stored.FunctionCalls[0].Name)
 	assert.Equal(t, 300*time.Nanosecond, stored.FunctionCalls[0].Offset) // (1500 - 200) into a request which began at 1000
@@ -174,7 +174,7 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	assert.Len(t, sink.traces[0].FunctionCalls, 1)
 
 	// Verify storage was cleaned up.
-	_, found := h.storage.Get("42")
+	_, found := h.storage.Get(42, 0)
 	assert.False(t, found)
 }
 
