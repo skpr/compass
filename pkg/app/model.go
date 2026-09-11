@@ -91,8 +91,12 @@ type Model struct {
 	// so the panel below it still describes the selected row.
 	functionSpans   []segmented.Span
 	functionVisible []int
-	drupalEvents    []trace.CacheEvent
-	drupalVisible   []int
+	// functionSpansTrace is the trace functionSpans was aggregated from, so a
+	// rebuild can tell an aggregate it can reuse from one belonging to a trace
+	// which is no longer open.
+	functionSpansTrace *events.Trace
+	drupalEvents       []trace.CacheEvent
+	drupalVisible      []int
 
 	// visible maps a row on screen back to what it came from, so that opening
 	// a trace opens the one under the cursor rather than the one at that index

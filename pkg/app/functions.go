@@ -58,25 +58,38 @@ func (m *Model) timelineTitle() string {
 	return span.New(time.Second, functionsWidthTimeline).Axis()
 }
 
-func (m *Model) functionsSetRows() {
-	selectedIndex, preserveSelection := m.selectedFunctionIndex()
+// functionsInvalidateSpans discards the aggregate, so that the next rebuild
+// computes it for whichever trace is open then.
+func (m *Model) functionsInvalidateSpans() {
+	m.functionSpans = nil
+	m.functionSpansTrace = nil
+	m.functionVisible = nil
+}
 
+// functionsEnsureSpans aggregates the open trace's calls into the spans the
+// page shows, once for as long as that trace stays open.
+//
+// The aggregate is a property of the trace alone: it does not depend on the
+// filter, the terminal width or the cursor. Computing it per rebuild meant
+// paying for it on every filter keystroke and every resize, which on a request
+// carrying a million calls is hundreds of milliseconds of work per key press
+// for a result which cannot have changed.
+func (m *Model) functionsEnsureSpans() {
 	if m.Current == nil {
-		m.functionSpans = nil
-		m.functionVisible = nil
-		m.functions.SetRows(nil)
+		m.functionsInvalidateSpans()
 
 		return
 	}
 
-	var (
-		executionTime  = m.Current.Metadata.ExecutionTime()
-		segmentedTrace = segmented.Unmarshal(m.Current.Trace, SpanSegments)
-		timeline       = span.New(executionTime, functionsWidthTimeline)
-	)
+	// Opening a trace replaces Current with a new value, so its identity is
+	// what says whether the aggregate on hand belongs to it.
+	if m.functionSpansTrace == m.Current {
+		return
+	}
 
-	spans := make([]segmented.Span, len(segmentedTrace.Spans))
-	copy(spans, segmentedTrace.Spans)
+	// Sorted in place: the segmented trace is built here and nothing else holds
+	// a reference to its spans.
+	spans := segmented.Unmarshal(m.Current.Trace, SpanSegments).Spans
 
 	// Ordered by when each call happened, so the page reads as the request ran.
 	// That ordering is most of what a timeline is for: it shows what called
@@ -100,6 +113,25 @@ func (m *Model) functionsSetRows() {
 	// Kept alongside the rows so the panel below the table can say what the
 	// abbreviated name actually was.
 	m.functionSpans = spans
+	m.functionSpansTrace = m.Current
+}
+
+func (m *Model) functionsSetRows() {
+	selectedIndex, preserveSelection := m.selectedFunctionIndex()
+
+	m.functionsEnsureSpans()
+
+	if m.Current == nil {
+		m.functions.SetRows(nil)
+
+		return
+	}
+
+	var (
+		executionTime = m.Current.Metadata.ExecutionTime()
+		timeline      = span.New(executionTime, functionsWidthTimeline)
+		spans         = m.functionSpans
+	)
 
 	values := make([]string, 0, len(spans))
 	for _, s := range spans {
