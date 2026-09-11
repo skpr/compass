@@ -78,3 +78,70 @@ func BenchmarkDecodeFunctionEventPath(b *testing.B) {
 		}
 	})
 }
+
+// dirtyRecord is a ring-buffer record as the kernel hands one over: the fields
+// a probe wrote, and whatever the previous record left everywhere else.
+func dirtyRecord(size int, eventType uint8, noise uint8, fields map[int]string) []byte {
+	raw := make([]byte, size)
+
+	for i := range raw {
+		raw[i] = noise
+	}
+
+	raw[0] = eventType
+
+	for offset, value := range fields {
+		copy(raw[offset:], value)
+		raw[offset+len(value)] = 0
+	}
+
+	return raw
+}
+
+// The whole path a request takes, from records which carry rubbish behind
+// every string, as the ring buffer really delivers them. A request has to come
+// out of it whole: the events are only related to each other by an id field
+// whose trailing bytes differ in each one.
+func TestProcessEvent_AssemblesARequestFromDirtyRecords(t *testing.T) {
+	sink := &mockSink{}
+	handler, err := NewHandler(sink, testOptions())
+	require.NoError(t, err)
+
+	skips := ingest.NewSkips(ingest.RuntimePHPFPM)
+
+	init := dirtyRecord(2216, EventRequestInit, 0x7F, map[int]string{
+		1:   "0123456789abcdef0123456789abcdef",
+		102: "GET",
+		203: "/node/1",
+	})
+	binary.LittleEndian.PutUint64(init[2208:2216], 1000)
+
+	function := dirtyRecord(functionEventSize, EventFunction, 0xA5, map[int]string{
+		1:   "0123456789abcdef0123456789abcdef",
+		102: "Drupal\\Core\\Entity::loadMultiple",
+	})
+	binary.LittleEndian.PutUint64(function[208:216], 1500)
+	binary.LittleEndian.PutUint64(function[216:224], 200)
+	binary.LittleEndian.PutUint64(function[224:232], 4096)
+
+	shutdown := dirtyRecord(112, EventRequestShutdown, 0x3C, map[int]string{
+		1: "0123456789abcdef0123456789abcdef",
+	})
+	binary.LittleEndian.PutUint64(shutdown[104:112], 2000)
+
+	for _, raw := range [][]byte{init, function, shutdown} {
+		require.NoError(t, processEvent(t.Context(), raw, handler, skips))
+	}
+
+	assert.Zero(t, skips.Total(), "an event was skipped")
+
+	traces := sink.Traces()
+	require.Len(t, traces, 1)
+	assert.Equal(t, "0123456789abcdef0123456789abcdef", traces[0].Metadata.ID)
+	assert.Equal(t, "GET", traces[0].Metadata.HTTP.Method)
+	assert.Equal(t, "/node/1", traces[0].Metadata.HTTP.URI)
+	require.Len(t, traces[0].Spans, 1)
+	assert.Equal(t, "Drupal\\Core\\Entity::loadMultiple", traces[0].Spans[0].Name)
+	assert.Equal(t, int64(1), traces[0].Calls)
+	assert.Equal(t, int64(4096), traces[0].ResourceUtilisation.MaxMemory)
+}
