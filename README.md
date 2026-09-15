@@ -11,6 +11,8 @@ collected out of process with eBPF, and streamed to a terminal UI.
 
 **Trace List**
 
+perf test
+
 ![Trace List](docs/list.png)
 
 **Trace**
