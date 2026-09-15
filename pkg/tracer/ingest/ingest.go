@@ -91,15 +91,35 @@ func (s *Skips) Total() uint64 {
 	return s.counts[0].Load() + s.counts[1].Load() + s.counts[2].Load()
 }
 
+// CheckSize requires a ring-buffer sample to be exactly the size of the record
+// it is about to be read as.
+//
+// It is what makes a decoder which reads fields at hand-written offsets safe:
+// those offsets come from a generated layout, and a sample of the wrong length
+// is the sign that the layout is not the one they were written for. Failing
+// here reports that, rather than reading a field from the wrong place.
+func CheckSize(rawSample []byte, want int) error {
+	if len(rawSample) != want {
+		return fmt.Errorf("invalid event size: got %d bytes, want %d", len(rawSample), want)
+	}
+
+	return nil
+}
+
 // DecodeExact decodes one fixed-layout value after requiring its exact generated size.
+//
+// This walks the struct with reflection, which costs about 1.6µs for the
+// compact function record. That is the right trade for the events which arrive
+// once or twice per request, and the wrong one for function calls: those are
+// decoded at explicit offsets by each runtime instead. See docs/scaling.md.
 func DecodeExact[T any](rawSample []byte) (T, error) {
 	var event T
 	expected := binary.Size(event)
 	if expected < 0 {
 		return event, fmt.Errorf("unsupported event layout %T", event)
 	}
-	if len(rawSample) != expected {
-		return event, fmt.Errorf("invalid event size: got %d bytes, want %d", len(rawSample), expected)
+	if err := CheckSize(rawSample, expected); err != nil {
+		return event, err
 	}
 	if err := binary.Read(bytes.NewReader(rawSample), binary.LittleEndian, &event); err != nil {
 		return event, err

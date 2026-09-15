@@ -17,7 +17,7 @@ import (
 
 	"github.com/skpr/compass/pkg/app/events"
 	"github.com/skpr/compass/pkg/trace"
-	"github.com/skpr/compass/pkg/tracer/functioncalls"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 // sender collects the messages which would have been sent to the application.
@@ -170,7 +170,9 @@ func TestStart_Reconnects(t *testing.T) {
 	}, s.states())
 }
 
-func TestDefaultFunctionCallLimitFitsTransport(t *testing.T) {
+// A trace carrying the maximum spans, each as large as the probes can make
+// one, still has to fit the line the stream is read from.
+func TestDefaultSpanLimitFitsTransport(t *testing.T) {
 	const maxInt64 = int64(^uint64(0) >> 1)
 
 	tr := trace.Trace{
@@ -181,17 +183,20 @@ func TestDefaultFunctionCallLimitFitsTransport(t *testing.T) {
 				URI:    strings.Repeat("u", 2_000),
 			},
 		},
-		FunctionCalls: make([]trace.FunctionCall, functioncalls.DefaultMax),
+		Spans: make([]trace.Span, spans.DefaultMax),
+		Calls: maxInt64,
 		Drupal: &trace.Drupal{
 			CacheEvents: make([]trace.CacheEvent, 250),
 		},
 	}
 
-	for i := range tr.FunctionCalls {
-		tr.FunctionCalls[i] = trace.FunctionCall{
+	for i := range tr.Spans {
+		tr.Spans[i] = trace.Span{
 			Name:    strings.Repeat("f", 100),
 			Offset:  time.Duration(maxInt64),
 			Elapsed: time.Duration(maxInt64),
+			Total:   time.Duration(maxInt64),
+			Calls:   maxInt64,
 			Memory:  maxInt64,
 		}
 	}

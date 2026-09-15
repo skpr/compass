@@ -14,7 +14,6 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.0
 	github.com/mattn/go-runewidth v0.0.24
 	github.com/muesli/termenv v0.16.0
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.24.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/skpr/yolog v1.0.0

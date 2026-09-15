@@ -15,6 +15,10 @@ import (
 // sense on one screen.
 type Trace struct {
 	IngestionTime time.Time
+	// Bytes is roughly what retaining this trace costs, which is how the
+	// history bounds itself by memory rather than by a count of traces which
+	// differ in size by orders of magnitude. Set when the trace arrives.
+	Bytes int
 	trace.Trace
 }
 

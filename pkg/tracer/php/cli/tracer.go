@@ -20,6 +20,7 @@ import (
 	"github.com/skpr/compass/pkg/tracer/ringloss"
 	"github.com/skpr/compass/pkg/tracer/ringreader"
 	"github.com/skpr/compass/pkg/tracer/sink"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 const (
@@ -60,7 +61,7 @@ const (
 )
 
 // Run the collector.
-func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFunctionCalls int, filter cgroupfilter.Filter) error {
+func Run(ctx context.Context, plugin sink.Interface, extentionPath string, spanOptions spans.Options, filter cgroupfilter.Filter) error {
 	logger := yolog.NewLogger(LoggerStream)
 	defer logger.Log(os.Stdout)
 
@@ -240,8 +241,8 @@ func Run(ctx context.Context, plugin sink.Interface, extentionPath string, maxFu
 	logger.SetAttr(fmt.Sprintf("%s_attached", ProbeNameRequestShutdown), true)
 
 	manager, err := NewHandler(plugin, Options{
-		Expire:           time.Minute,
-		MaxFunctionCalls: maxFunctionCalls,
+		Expire: time.Minute,
+		Spans:  spanOptions,
 	})
 	if err != nil {
 		return logger.WrapError(fmt.Errorf("unable to initialize event manager: %w", err))
@@ -291,7 +292,15 @@ func processEvent(ctx context.Context, rawSample []byte, manager *Handler, skips
 	case EventRequestInit:
 		return decodeAndHandleEvent(ctx, rawSample, manager.HandleRequestInit, skips)
 	case EventFunction:
-		return decodeAndHandleEvent(ctx, rawSample, manager.HandleFunction, skips)
+		// Decoded at explicit offsets rather than by reflection: this is the
+		// only event which arrives once per function call, so it is the one
+		// whose decode cost bounds how fast the ring buffer can be drained.
+		event, err := decodeFunctionEvent(rawSample)
+		if err != nil {
+			return fmt.Errorf("failed to read event: %w", err)
+		}
+
+		return ingest.Handle(ctx, event, manager.HandleFunction, skips)
 	case EventRequestShutdown:
 		return decodeAndHandleEvent(ctx, rawSample, manager.HandleRequestShutdown, skips)
 	default:

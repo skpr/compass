@@ -1,18 +1,20 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/patrickmn/go-cache"
 	"golang.org/x/sys/unix"
 
 	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
-	"github.com/skpr/compass/pkg/tracer/functioncalls"
 	"github.com/skpr/compass/pkg/tracer/ingest"
+	"github.com/skpr/compass/pkg/tracer/requests"
 	"github.com/skpr/compass/pkg/tracer/sink"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 const (
@@ -24,23 +26,72 @@ const (
 	EventRequestShutdown uint8 = 2
 )
 
+// RequestID is the request id an event is tracked by: what the probe
+// reported, normalised by requestKey.
+//
+// The storage is keyed on this rather than on a string made from it. Every
+// function event has to find its request, and converting the field to a
+// string to do that allocated once per function call. An array is comparable,
+// so it is a map key as it stands.
+type RequestID = [101]uint8
+
+// requestKey is the id field of an event, as something two events of the same
+// request can be matched by.
+//
+// The probes write a NUL-terminated string into a fixed-size field of a ring
+// buffer record which is handed to them uninitialised, and writing the string
+// does not clear what is behind it. So the same request id arrives with
+// different trailing bytes in every event it produces, and the field as it
+// stands matches nothing -- not even itself. What the field says is the same
+// every time, which is what this returns: the string, in a buffer which is
+// zero after it.
+func requestKey(raw RequestID) RequestID {
+	var key RequestID
+
+	length := bytes.IndexByte(raw[:], 0)
+	if length < 0 {
+		length = len(raw)
+	}
+
+	copy(key[:], raw[:length])
+
+	return key
+}
+
+// identified reports whether an event carries a request id at all. The field
+// is NUL-terminated, so an empty one starts with the terminator.
+func identified(id RequestID) bool {
+	return id[0] != 0
+}
+
 // Handler for handling events.
 type Handler struct {
-	// Consider an interface for the storage.
-	storage *cache.Cache
+	// mu guards the storage and the traces behind the pointers it hands out.
+	mu sync.Mutex
+	// storage holds the requests which are still being assembled.
+	storage *requests.Store[RequestID, state]
 	// Plugin for sending completed requests to.
 	plugin sink.Interface
 	// Options for the Handler eg. Thresholds.
-	options       Options
-	functionCalls functioncalls.Limiter
+	options Options
+	// spans aggregates each request's function calls as their events arrive.
+	spans *spans.Aggregator
+}
+
+// state of a request which is still being assembled.
+type state struct {
+	trace trace.Trace
+	// spans is the request's function calls, aggregated as they arrive.
+	spans *spans.Builder
 }
 
 // Options for configuring the Handler.
 type Options struct {
 	Expire time.Duration
-	// MaxFunctionCalls is how many function records each trace retains.
-	// Non-positive values use functioncalls.DefaultMax.
-	MaxFunctionCalls int
+	// Spans is how the request's function calls are aggregated: how many
+	// spans a trace carries, and how finely calls are placed in time. The
+	// zero value uses the package defaults.
+	Spans spans.Options
 	// Clock relates the monotonic timestamps the probes emit to the wall clock.
 	// The zero value reads the offset from the system.
 	Clock clock.Monotonic
@@ -58,10 +109,10 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 	}
 
 	client := &Handler{
-		storage:       cache.New(options.Expire, options.Expire),
-		plugin:        plugin,
-		options:       options,
-		functionCalls: functioncalls.NewLimiter(options.MaxFunctionCalls, functioncalls.RuntimeNodeHTTP),
+		storage: requests.New[RequestID, state](options.Expire),
+		plugin:  plugin,
+		options: options,
+		spans:   spans.New(options.Spans, spans.RuntimeNodeHTTP),
 	}
 
 	return client, nil
@@ -69,11 +120,7 @@ func NewHandler(plugin sink.Interface, options Options) (*Handler, error) {
 
 // Handle the event and process it.
 func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
-	var (
-		requestID = unix.ByteSliceToString(event.RequestId[:])
-	)
-
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 
@@ -84,15 +131,15 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 			method = unix.ByteSliceToString(event.Method[:])
 		)
 
-		if err := c.handleRequestInit(requestID, uri, method, event.Timestamp); err != nil {
+		if err := c.handleRequestInit(requestKey(event.RequestId), uri, method, event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request init: %w", err)
 		}
 	case EventFunction:
-		if err := c.handleFunction(requestID, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+		if err := c.handleFunction(requestKey(event.RequestId), event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 			return fmt.Errorf("failed to process function: %w", err)
 		}
 	case EventRequestShutdown:
-		if err := c.handleRequestShutdown(ctx, requestID, event.Timestamp); err != nil {
+		if err := c.handleRequestShutdown(ctx, requestKey(event.RequestId), event.Timestamp); err != nil {
 			return fmt.Errorf("failed to process request shutdown: %w", err)
 		}
 	}
@@ -102,12 +149,11 @@ func (c *Handler) Handle(ctx context.Context, event bpfEvent) error {
 
 // HandleRequestInit processes one compact HTTP request-init record.
 func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent) error {
-	requestID := unix.ByteSliceToString(event.RequestId[:])
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
 	if err := c.handleRequestInit(
-		requestID,
+		requestKey(event.RequestId),
 		unix.ByteSliceToString(event.Uri[:]),
 		unix.ByteSliceToString(event.Method[:]),
 		event.Timestamp,
@@ -119,11 +165,10 @@ func (c *Handler) HandleRequestInit(_ context.Context, event bpfRequestInitEvent
 
 // HandleFunction processes one compact HTTP function record.
 func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) error {
-	requestID := unix.ByteSliceToString(event.RequestId[:])
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
-	if err := c.handleFunction(requestID, event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
+	if err := c.handleFunction(requestKey(event.RequestId), event.FunctionName[:], event.Timestamp, event.Elapsed, event.Memory); err != nil {
 		return fmt.Errorf("failed to process function: %w", err)
 	}
 	return nil
@@ -131,11 +176,10 @@ func (c *Handler) HandleFunction(_ context.Context, event bpfFunctionEvent) erro
 
 // HandleRequestShutdown processes one compact HTTP request-shutdown record.
 func (c *Handler) HandleRequestShutdown(ctx context.Context, event bpfRequestShutdownEvent) error {
-	requestID := unix.ByteSliceToString(event.RequestId[:])
-	if requestID == "" {
+	if !identified(event.RequestId) {
 		return fmt.Errorf("%w: empty request id", ingest.ErrInvalidIdentifier)
 	}
-	if err := c.handleRequestShutdown(ctx, requestID, event.Timestamp); err != nil {
+	if err := c.handleRequestShutdown(ctx, requestKey(event.RequestId), event.Timestamp); err != nil {
 		return fmt.Errorf("failed to process request shutdown: %w", err)
 	}
 	return nil
@@ -151,72 +195,90 @@ func (c *Handler) offset(metadata trace.Metadata, timestamp uint64) time.Duratio
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleRequestInit(requestID, uri, method string, timestamp uint64) error {
-	t := trace.Trace{
-		Metadata: trace.Metadata{
-			ID:      requestID,
-			Source:  trace.SourceHTTP,
-			Runtime: trace.RuntimeNode,
-			HTTP: trace.MetadataHTTP{
-				URI:    uri,
-				Method: method,
+func (c *Handler) handleRequestInit(requestID RequestID, uri, method string, timestamp uint64) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	s := &state{
+		trace: trace.Trace{
+			Metadata: trace.Metadata{
+				ID:      unix.ByteSliceToString(requestID[:]),
+				Source:  trace.SourceHTTP,
+				Runtime: trace.RuntimeNode,
+				HTTP: trace.MetadataHTTP{
+					URI:    uri,
+					Method: method,
+				},
+				StartTime: c.options.Clock.Time(timestamp),
 			},
-			StartTime: c.options.Clock.Time(timestamp),
 		},
+		spans: c.spans.Request(),
 	}
 
-	c.storage.Set(requestID, t, cache.DefaultExpiration)
+	c.storage.Set(requestID, s, timestamp)
 
 	return nil
 }
 
 // Process the function event and store the data.
-func (c *Handler) handleFunction(requestID string, functionName []byte, timestamp, elapsed, memory uint64) error {
-	x, found := c.storage.Get(requestID)
+func (c *Handler) handleFunction(requestID RequestID, functionName []byte, timestamp, elapsed, memory uint64) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	s, found := c.storage.Get(requestID, timestamp)
 	if !found {
-		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
+		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, unix.ByteSliceToString(requestID[:]))
 	}
 
-	t := x.(trace.Trace)
-
-	c.functionCalls.Add(
-		&t,
+	s.spans.Add(
 		functionName,
 		// The call started at the event time minus how long it took to execute:
 		// the probe fires once the function has returned and its elapsed time
 		// has been collected.
-		c.offset(t.Metadata, timestamp-elapsed),
+		c.offset(s.trace.Metadata, timestamp-elapsed),
 		time.Duration(elapsed),
 		int64(memory),
 	)
-
-	c.storage.Set(requestID, t, cache.DefaultExpiration)
 
 	return nil
 }
 
 // Process the request shutdown event and send the profile to the plugin.
-func (c *Handler) handleRequestShutdown(ctx context.Context, requestID string, timestamp uint64) error {
-	x, found := c.storage.Get(requestID)
-	if !found {
-		return fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, requestID)
-	}
-
-	t := x.(trace.Trace)
-
-	t.Metadata.EndTime = c.options.Clock.Time(timestamp)
-
-	// Cleanup this request after we have processed it.
-	defer c.storage.Delete(requestID)
-
-	if len(t.FunctionCalls) == 0 {
-		return fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, requestID)
-	}
-
-	err := c.plugin.ProcessTrace(ctx, t)
+func (c *Handler) handleRequestShutdown(ctx context.Context, requestID RequestID, timestamp uint64) error {
+	t, err := c.complete(requestID, timestamp)
 	if err != nil {
+		return err
+	}
+
+	// Sent without the lock held, so that a sink which blocks does not stall
+	// the reader behind it.
+	if err := c.plugin.ProcessTrace(ctx, t); err != nil {
 		return fmt.Errorf("failed to send profile data to plugin: %w", err)
 	}
 
 	return nil
+}
+
+// complete a request, removing it from storage so that the caller is left
+// holding the only reference to its trace.
+func (c *Handler) complete(requestID RequestID, timestamp uint64) (trace.Trace, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	s, found := c.storage.Get(requestID, timestamp)
+	if !found {
+		return trace.Trace{}, fmt.Errorf("%w: request %q not found in storage", ingest.ErrRequestNotTracked, unix.ByteSliceToString(requestID[:]))
+	}
+
+	s.trace.Metadata.EndTime = c.options.Clock.Time(timestamp)
+	s.spans.Finish(&s.trace)
+
+	// Cleanup this request after we have processed it.
+	defer c.storage.Delete(requestID)
+
+	if len(s.trace.Spans) == 0 {
+		return trace.Trace{}, fmt.Errorf("%w: no functions found for request with id: %s", ingest.ErrTraceEmpty, unix.ByteSliceToString(requestID[:]))
+	}
+
+	return s.trace, nil
 }

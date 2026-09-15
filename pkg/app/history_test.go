@@ -74,7 +74,7 @@ func BenchmarkTraceArrivalBurst(b *testing.B) {
 
 		b.Run(name, func(b *testing.B) {
 			const capacity = 500
-			m := NewModel("", capacity, capacity)
+			m := NewModel("", Options{MaxTraces: capacity, MaxLogs: capacity})
 			m.Init()
 			for i := range capacity {
 				m.updateTrace(newTrace(fmt.Sprintf("trace-%d", i)))
@@ -103,7 +103,7 @@ func BenchmarkLogArrivalBurst(b *testing.B) {
 
 		b.Run(name, func(b *testing.B) {
 			const capacity = 1_000
-			m := NewModel("", capacity, capacity)
+			m := NewModel("", Options{MaxTraces: capacity, MaxLogs: capacity})
 			m.Init()
 			for i := range capacity {
 				m.updateLog(testLog(i, "error", fmt.Sprintf("message-%d", i)))
@@ -126,7 +126,7 @@ func BenchmarkLogArrivalBurst(b *testing.B) {
 func BenchmarkTraceArrivalAtCapacity(b *testing.B) {
 	for _, capacity := range []int{100, 500, 1_000, 10_000} {
 		b.Run(fmt.Sprintf("capacity-%d", capacity), func(b *testing.B) {
-			m := NewModel("", capacity, capacity)
+			m := NewModel("", Options{MaxTraces: capacity, MaxLogs: capacity})
 			m.Init()
 			for i := range capacity {
 				m.updateTrace(newTrace(fmt.Sprintf("trace-%d", i)))
@@ -145,7 +145,7 @@ func BenchmarkTraceArrivalAtCapacity(b *testing.B) {
 func BenchmarkLogArrivalAtCapacity(b *testing.B) {
 	for _, capacity := range []int{100, 500, 1_000, 10_000} {
 		b.Run(fmt.Sprintf("capacity-%d", capacity), func(b *testing.B) {
-			m := NewModel("", capacity, capacity)
+			m := NewModel("", Options{MaxTraces: capacity, MaxLogs: capacity})
 			m.Init()
 			for i := range capacity {
 				m.updateLog(testLog(i, "info", fmt.Sprintf("message-%d", i)))

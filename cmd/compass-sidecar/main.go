@@ -24,6 +24,7 @@ import (
 	nodediscovery "github.com/skpr/compass/pkg/node/addon/discovery"
 	phpdiscovery "github.com/skpr/compass/pkg/php/extension/discovery"
 	"github.com/skpr/compass/pkg/tracer"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
 var cmdExample = `
@@ -114,10 +115,17 @@ type Config struct {
 	NodeProcessName  string        `yaml:"node_process_name"  env:"COMPASS_SIDECAR_NODE_PROCESS_NAME"  env-default:"node"`
 	NodeAddonPath    string        `yaml:"node_addon_path"    env:"COMPASS_SIDECAR_NODE_ADDON_PATH"    env-default:"/usr/lib/compass/node/compass.node"`
 	DiscoveryTimeout time.Duration `yaml:"discovery_timeout"  env:"COMPASS_SIDECAR_DISCOVERY_TIMEOUT"  env-default:"1m"`
-	MaxFunctionCalls int           `yaml:"max_function_calls" env:"COMPASS_SIDECAR_MAX_FUNCTION_CALLS" env-default:"10000"`
+	MaxSpans         int           `yaml:"max_spans"          env:"COMPASS_SIDECAR_MAX_SPANS"`
+	SpanBucket       time.Duration `yaml:"span_bucket"        env:"COMPASS_SIDECAR_SPAN_BUCKET"`
 	Token            string        `yaml:"token"              env:"COMPASS_SIDECAR_TOKEN"`
 	CertFile         string        `yaml:"cert_file"          env:"COMPASS_SIDECAR_CERT_FILE"`
 	KeyFile          string        `yaml:"key_file"           env:"COMPASS_SIDECAR_KEY_FILE"`
+}
+
+// spanOptions the collectors should aggregate with. Whatever is left unset
+// here takes the aggregation's own defaults.
+func (c Config) spanOptions() spans.Options {
+	return spans.Options{Max: c.MaxSpans, Bucket: c.SpanBucket}
 }
 
 // Options for this sidecar application.
@@ -227,7 +235,7 @@ func main() {
 			})
 
 			supervisor := newCollectorSupervisor(logger, b, func(collectorCtx context.Context) error {
-				return tracer.Run(collectorCtx, b, runtimes, tracer.Options{MaxFunctionCalls: config.MaxFunctionCalls})
+				return tracer.Run(collectorCtx, b, runtimes, tracer.Options{Spans: config.spanOptions()})
 			})
 
 			eg.Go(func() error {

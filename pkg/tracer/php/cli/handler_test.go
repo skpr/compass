@@ -82,10 +82,10 @@ func TestHandler_Handle_RequestInit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the trace was stored.
-	x, found := h.storage.Get("42")
+	x, found := h.storage.Get(42, 0)
 	require.True(t, found)
 
-	stored := x.(trace.Trace)
+	stored := x.trace
 	assert.Equal(t, "42", stored.Metadata.ID)
 	assert.Equal(t, trace.SourceCLI, stored.Metadata.Source)
 	assert.Equal(t, "drush cr", stored.Metadata.CLI.Command)
@@ -114,15 +114,18 @@ func TestHandler_Handle_Function(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	x, found := h.storage.Get("42")
+	x, found := h.storage.Get(42, 0)
 	require.True(t, found)
 
-	stored := x.(trace.Trace)
-	require.Len(t, stored.FunctionCalls, 1)
-	assert.Equal(t, "myFunc", stored.FunctionCalls[0].Name)
-	assert.Equal(t, 300*time.Nanosecond, stored.FunctionCalls[0].Offset) // (1500 - 200) into a request which began at 1000
-	assert.Equal(t, 200*time.Nanosecond, stored.FunctionCalls[0].Elapsed)
-	assert.Equal(t, int64(4096), stored.ResourceUtilisation.MaxMemory)
+	// The spans are only written into the trace when the run completes, so
+	// what is under construction is what the builder holds.
+	spans := x.spans.Spans()
+	require.Len(t, spans, 1)
+	assert.Equal(t, "myFunc", spans[0].Name)
+	assert.Equal(t, 300*time.Nanosecond, spans[0].Offset) // (1500 - 200) into a run which began at 1000
+	assert.Equal(t, 200*time.Nanosecond, spans[0].Elapsed)
+	assert.Equal(t, int64(1), spans[0].Calls)
+	assert.Equal(t, int64(4096), spans[0].Memory)
 }
 
 func TestHandler_Handle_Function_NotFound(t *testing.T) {
@@ -171,10 +174,10 @@ func TestHandler_Handle_RequestShutdown(t *testing.T) {
 	require.Len(t, sink.traces, 1)
 	assert.Equal(t, "42", sink.traces[0].Metadata.ID)
 	assert.Equal(t, at(2000), sink.traces[0].Metadata.EndTime)
-	assert.Len(t, sink.traces[0].FunctionCalls, 1)
+	assert.Len(t, sink.traces[0].Spans, 1)
 
 	// Verify storage was cleaned up.
-	_, found := h.storage.Get("42")
+	_, found := h.storage.Get(42, 0)
 	assert.False(t, found)
 }
 
@@ -222,6 +225,6 @@ func TestHandler_Handle_FullLifecycle(t *testing.T) {
 	assert.Equal(t, "php script.php", tr.Metadata.CLI.Command)
 	assert.Equal(t, at(1000), tr.Metadata.StartTime)
 	assert.Equal(t, at(3000), tr.Metadata.EndTime)
-	assert.Len(t, tr.FunctionCalls, 2)
+	assert.Len(t, tr.Spans, 2)
 	assert.Equal(t, int64(8192), tr.ResourceUtilisation.MaxMemory)
 }

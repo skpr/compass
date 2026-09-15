@@ -328,3 +328,51 @@ func TestGrowBackoff(t *testing.T) {
 	assert.Equal(t, 30*time.Second, growBackoff(20*time.Second, 30*time.Second))
 	assert.Equal(t, 30*time.Second, growBackoff(30*time.Second, 30*time.Second))
 }
+
+// A subscriber which has fallen behind loses its oldest waiting trace rather
+// than the one which just arrived: this is a live view, and the newest trace
+// is the one somebody is waiting to see.
+func TestRouter_DropsTheOldestTraceForABehindSubscriber(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	emitted := make(chan struct{})
+
+	router := NewRouter(ctx, testLogger(), func(ctx context.Context, _ Target, sink sink.Interface) error {
+		// Emitted from the collector, so that every trace has been through
+		// the fan-out before the subscriber reads any of them.
+		for _, id := range []string{"first", "second", "third", "fourth"} {
+			if err := sink.ProcessTrace(ctx, trace.Trace{Metadata: trace.Metadata{ID: id}}); err != nil {
+				return err
+			}
+		}
+
+		close(emitted)
+		<-ctx.Done()
+
+		return nil
+	}, WithBufferSize(2))
+
+	subscription, unsubscribe := router.Subscribe(Target{UID: "pod-1"})
+	defer unsubscribe()
+
+	select {
+	case <-emitted:
+	case <-time.After(time.Second):
+		t.Fatal("collector did not emit")
+	}
+
+	var seen []string
+
+	for range 2 {
+		select {
+		case tr := <-subscription:
+			seen = append(seen, tr.Metadata.ID)
+		case <-time.After(time.Second):
+			t.Fatal("expected a buffered trace")
+		}
+	}
+
+	assert.Equal(t, []string{"third", "fourth"}, seen,
+		"a behind subscriber should keep the newest traces, not the oldest")
+}

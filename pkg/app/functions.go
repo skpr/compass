@@ -9,7 +9,7 @@ import (
 	"github.com/skpr/compass/pkg/app/component/span"
 	"github.com/skpr/compass/pkg/app/format"
 	"github.com/skpr/compass/pkg/app/theme"
-	"github.com/skpr/compass/pkg/trace/segmented"
+	"github.com/skpr/compass/pkg/trace"
 )
 
 // Widths of the functions columns.
@@ -27,9 +27,6 @@ const (
 	functionsPriorityTimeline = 2
 	functionsPriorityElapsed  = 1
 )
-
-// SpanSegments is how finely a request is divided when calls are aggregated.
-const SpanSegments = 100
 
 func (m *Model) functionsInit() {
 	m.functions = datatable.New(
@@ -58,25 +55,38 @@ func (m *Model) timelineTitle() string {
 	return span.New(time.Second, functionsWidthTimeline).Axis()
 }
 
-func (m *Model) functionsSetRows() {
-	selectedIndex, preserveSelection := m.selectedFunctionIndex()
+// functionsInvalidateSpans discards the aggregate, so that the next rebuild
+// computes it for whichever trace is open then.
+func (m *Model) functionsInvalidateSpans() {
+	m.functionSpans = nil
+	m.functionSpansTrace = nil
+	m.functionVisible = nil
+}
 
+// functionsEnsureSpans puts the open trace's spans in the order the page shows
+// them, once for as long as that trace stays open.
+//
+// The order is a property of the trace alone: it does not depend on the
+// filter, the terminal width or the cursor. Sorting per rebuild meant paying
+// for it on every filter keystroke and every resize, for a result which could
+// not have changed.
+func (m *Model) functionsEnsureSpans() {
 	if m.Current == nil {
-		m.functionSpans = nil
-		m.functionVisible = nil
-		m.functions.SetRows(nil)
+		m.functionsInvalidateSpans()
 
 		return
 	}
 
-	var (
-		executionTime  = m.Current.Metadata.ExecutionTime()
-		segmentedTrace = segmented.Unmarshal(m.Current.Trace, SpanSegments)
-		timeline       = span.New(executionTime, functionsWidthTimeline)
-	)
+	// Opening a trace replaces Current with a new value, so its identity is
+	// what says whether the aggregate on hand belongs to it.
+	if m.functionSpansTrace == m.Current {
+		return
+	}
 
-	spans := make([]segmented.Span, len(segmentedTrace.Spans))
-	copy(spans, segmentedTrace.Spans)
+	// Sorted into a copy: the trace belongs to the history, which hands the
+	// same value to anything else which asks for it.
+	spans := make([]trace.Span, len(m.Current.Spans))
+	copy(spans, m.Current.Spans)
 
 	// Ordered by when each call happened, so the page reads as the request ran.
 	// That ordering is most of what a timeline is for: it shows what called
@@ -90,8 +100,8 @@ func (m *Model) functionsSetRows() {
 			return spans[i].Offset < spans[j].Offset
 		}
 
-		if spans[i].Length != spans[j].Length {
-			return spans[i].Length > spans[j].Length
+		if spans[i].Elapsed != spans[j].Elapsed {
+			return spans[i].Elapsed > spans[j].Elapsed
 		}
 
 		return spans[i].Name < spans[j].Name
@@ -100,6 +110,25 @@ func (m *Model) functionsSetRows() {
 	// Kept alongside the rows so the panel below the table can say what the
 	// abbreviated name actually was.
 	m.functionSpans = spans
+	m.functionSpansTrace = m.Current
+}
+
+func (m *Model) functionsSetRows() {
+	selectedIndex, preserveSelection := m.selectedFunctionIndex()
+
+	m.functionsEnsureSpans()
+
+	if m.Current == nil {
+		m.functions.SetRows(nil)
+
+		return
+	}
+
+	var (
+		executionTime = m.Current.Metadata.ExecutionTime()
+		timeline      = span.New(executionTime, functionsWidthTimeline)
+		spans         = m.functionSpans
+	)
 
 	values := make([]string, 0, len(spans))
 	for _, s := range spans {
@@ -116,12 +145,12 @@ func (m *Model) functionsSetRows() {
 		rows = append(rows, datatable.Row{
 			functionNameCell(s),
 			datatable.Styled(format.Percent(share), theme.S.Severity(theme.ForShare(share))),
-			datatable.Styled(format.Bytes(s.MaxMemory), theme.S.CellDim),
+			datatable.Styled(format.Bytes(s.Memory), theme.S.CellDim),
 			timelineCell(timeline.Bar(span.Span{
 				Start:    s.Offset,
-				Duration: s.Length,
+				Duration: s.Elapsed,
 			})),
-			datatable.Styled(format.Duration(s.Length), theme.S.CellDim),
+			datatable.Styled(format.Duration(s.Elapsed), theme.S.CellDim),
 		})
 	}
 
@@ -148,11 +177,11 @@ func timelineCell(bar span.Bar) datatable.Cell {
 
 // functionNameCell, with the repeat count when a span aggregates more than one
 // call of the same function.
-func functionNameCell(s segmented.Span) datatable.Cell {
+func functionNameCell(s trace.Span) datatable.Cell {
 	cell := identifierCell(s.Name)
 
-	if s.TotalFunctionCalls > 1 {
-		repeat := fmt.Sprintf(" %s%d", theme.MarkerRepeat, s.TotalFunctionCalls)
+	if s.Calls > 1 {
+		repeat := fmt.Sprintf(" %s%d", theme.MarkerRepeat, s.Calls)
 
 		cell.Segments = append(cell.Segments, datatable.Seg(repeat, theme.S.CellFaint))
 	}
@@ -174,10 +203,10 @@ func (m *Model) selectedFunctionIndex() (int, bool) {
 	return m.functionVisible[cursor], true
 }
 
-func (m *Model) selectedSpan() (segmented.Span, bool) {
+func (m *Model) selectedSpan() (trace.Span, bool) {
 	index, ok := m.selectedFunctionIndex()
 	if !ok || index < 0 || index >= len(m.functionSpans) {
-		return segmented.Span{}, false
+		return trace.Span{}, false
 	}
 
 	return m.functionSpans[index], true
@@ -199,16 +228,22 @@ func (m *Model) functionsInspectLines() []string {
 	executionTime := m.Current.Metadata.ExecutionTime()
 
 	duration := fmt.Sprintf("%s of %s  %s",
-		format.Duration(span.Length),
+		format.Duration(span.Elapsed),
 		format.Duration(executionTime),
 		format.Percent(span.DurationShare(executionTime)),
 	)
 
 	window := fmt.Sprintf("%s in, ran for %s  %s",
 		format.Duration(span.Offset),
-		format.Duration(span.Length),
-		format.Count(span.TotalFunctionCalls, "call", "calls"),
+		format.Duration(span.Elapsed),
+		format.Count(int(span.Calls), "call", "calls"),
 	)
+
+	// What the calls in this span cost altogether, which is the number a
+	// reader wants when one of them is a function called thousands of times.
+	if span.Calls > 1 {
+		window = fmt.Sprintf("%s  %s total", window, format.Duration(span.Total))
+	}
 
 	return []string{
 		m.inspectValue("function", span.Name),

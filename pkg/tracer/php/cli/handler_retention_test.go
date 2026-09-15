@@ -7,38 +7,75 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skpr/compass/pkg/trace"
 	"github.com/skpr/compass/pkg/tracer/clock"
+	"github.com/skpr/compass/pkg/tracer/spans"
 )
 
-func TestHandler_FunctionCallsAreBounded(t *testing.T) {
+// A trace carries a bounded number of spans, and what it could not represent
+// is reported rather than silently missing.
+func TestHandler_SpansAreBounded(t *testing.T) {
 	sink := &mockSink{}
 	h, err := NewHandler(sink, Options{
-		Expire:           time.Minute,
-		MaxFunctionCalls: 2,
-		Clock:            clock.Monotonic{Boot: testBoot},
+		Expire: time.Minute,
+		Spans:  spans.Options{Max: 2},
+		Clock:  clock.Monotonic{Boot: testBoot},
 	})
 	require.NoError(t, err)
 
 	const pid = 42
 	require.NoError(t, h.Handle(t.Context(), bpfEvent{Type: EventRequestInit, Pid: pid, Timestamp: 100}))
 
+	// Four distinct functions, so the last two have nowhere to go.
 	for i, memory := range []uint64{10, 20, 30, 40} {
 		require.NoError(t, h.Handle(t.Context(), bpfEvent{
 			Type: EventFunction, Pid: pid,
-			FunctionName: makeFunctionName("function"),
+			FunctionName: makeFunctionName(string(rune('a' + i))),
 			Timestamp:    uint64(200 + i), Elapsed: 1, Memory: memory,
 		}))
 	}
 
-	stored, found := h.storage.Get("42")
+	stored, found := h.storage.Get(pid, 0)
 	require.True(t, found)
-	tr := stored.(trace.Trace)
-	assert.Len(t, tr.FunctionCalls, 2)
-	assert.Equal(t, 2, tr.FunctionCallsDropped)
-	assert.Equal(t, int64(40), tr.ResourceUtilisation.MaxMemory)
+	assert.Len(t, stored.spans.Spans(), 2)
 
 	require.NoError(t, h.Handle(t.Context(), bpfEvent{Type: EventRequestShutdown, Pid: pid, Timestamp: 300}))
+
 	require.Len(t, sink.traces, 1)
-	assert.Equal(t, 2, sink.traces[0].FunctionCallsDropped)
+	assert.Len(t, sink.traces[0].Spans, 2)
+	assert.Equal(t, int64(4), sink.traces[0].Calls)
+	assert.Equal(t, int64(2), sink.traces[0].CallsDropped)
+	// Memory is not a sample: the calls no span represents still reported it.
+	assert.Equal(t, int64(40), sink.traces[0].ResourceUtilisation.MaxMemory)
+}
+
+// A Drush command can call one function for a very long time. That is one
+// span per slice of the run it was called in, not one record per call.
+func TestHandler_AHotFunctionIsOneSpanPerSlice(t *testing.T) {
+	const calls = 10_000
+
+	sink := &mockSink{}
+	h, err := NewHandler(sink, Options{
+		Expire: time.Minute,
+		Clock:  clock.Monotonic{Boot: testBoot},
+	})
+	require.NoError(t, err)
+
+	const pid = 42
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{Type: EventRequestInit, Pid: pid, Timestamp: 100}))
+
+	for i := range calls {
+		require.NoError(t, h.Handle(t.Context(), bpfEvent{
+			Type: EventFunction, Pid: pid,
+			FunctionName: makeFunctionName("hot_path"),
+			Timestamp:    uint64(200 + i), Elapsed: 1, Memory: uint64(i),
+		}))
+	}
+
+	require.NoError(t, h.Handle(t.Context(), bpfEvent{Type: EventRequestShutdown, Pid: pid, Timestamp: uint64(200 + calls)}))
+
+	require.Len(t, sink.traces, 1)
+	require.Len(t, sink.traces[0].Spans, 1)
+	assert.Equal(t, int64(calls), sink.traces[0].Spans[0].Calls)
+	assert.Equal(t, int64(calls), sink.traces[0].Calls)
+	assert.Zero(t, sink.traces[0].CallsDropped)
 }

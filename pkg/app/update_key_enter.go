@@ -22,8 +22,7 @@ func (m *Model) updateKeyEnter() (tea.Model, tea.Cmd) {
 	// saved and restored when the trace is closed.
 	m.functionsFilterValue = ""
 	m.drupalFilterValue = ""
-	m.functionSpans = nil
-	m.functionVisible = nil
+	m.functionsInvalidateSpans()
 	m.drupalEvents = nil
 	m.drupalVisible = nil
 	m.selectPage(PageFunctions)

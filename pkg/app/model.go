@@ -8,7 +8,6 @@ import (
 	"github.com/skpr/compass/pkg/app/events"
 	"github.com/skpr/compass/pkg/app/layout"
 	"github.com/skpr/compass/pkg/trace"
-	"github.com/skpr/compass/pkg/trace/segmented"
 )
 
 const (
@@ -17,24 +16,47 @@ const (
 	// DefaultMaxLogs bounds log history for unattended sessions when no limit
 	// has been configured.
 	DefaultMaxLogs = 1000
+	// DefaultMaxBytes bounds what the retained traces may weigh.
+	//
+	// A count on its own does not bound memory: traces differ by orders of
+	// magnitude, from a handful of spans to the thousands a request making a
+	// million calls produces, so the same five hundred traces are anywhere
+	// between a few megabytes and most of a gigabyte.
+	DefaultMaxBytes = 256 << 20
 )
 
-// NewModel for executing this application.
-func NewModel(probePath string, maxTraces, maxLogs int) *Model {
-	if maxTraces <= 0 {
-		maxTraces = DefaultMaxTraces
+// Options for the application.
+type Options struct {
+	// MaxTraces retained, oldest discarded first.
+	MaxTraces int
+	// MaxLogs retained, oldest discarded first.
+	MaxLogs int
+	// MaxBytes the retained traces may weigh, oldest discarded first. The
+	// newest trace is always kept, however large it is.
+	MaxBytes int
+}
+
+// NewModel for executing this application. Non-positive options use the
+// defaults above.
+func NewModel(probePath string, options Options) *Model {
+	if options.MaxTraces <= 0 {
+		options.MaxTraces = DefaultMaxTraces
 	}
-	if maxLogs <= 0 {
-		maxLogs = DefaultMaxLogs
+	if options.MaxLogs <= 0 {
+		options.MaxLogs = DefaultMaxLogs
+	}
+	if options.MaxBytes <= 0 {
+		options.MaxBytes = DefaultMaxBytes
 	}
 
 	return &Model{
 		ProbePath:  probePath,
-		MaxTraces:  maxTraces,
-		MaxLogs:    maxLogs,
-		traces:     newHistory[events.Trace](maxTraces),
-		logs:       newHistory[events.Log](maxLogs),
-		logEntries: newHistory[logEntry](maxLogs),
+		MaxTraces:  options.MaxTraces,
+		MaxLogs:    options.MaxLogs,
+		MaxBytes:   options.MaxBytes,
+		traces:     newHistory[events.Trace](options.MaxTraces),
+		logs:       newHistory[events.Log](options.MaxLogs),
+		logEntries: newHistory[logEntry](options.MaxLogs),
 	}
 }
 
@@ -48,6 +70,9 @@ type Model struct {
 	// MaxLogs is the maximum number of raw log events we retain, oldest are
 	// evicted first. Collapsed rows are derived incrementally from this bound.
 	MaxLogs int
+	// MaxBytes is what the retained traces may weigh before the oldest are
+	// evicted, whatever MaxTraces allows.
+	MaxBytes int
 
 	// The current display that is selected.
 	PageSelected Page
@@ -61,9 +86,12 @@ type Model struct {
 
 	// Collected data is held oldest-to-newest in fixed-capacity rings. Tables
 	// present it newest-first without prepending and copying retained events.
-	traces     history[events.Trace]
-	logs       history[events.Log]
-	logEntries history[logEntry]
+	traces history[events.Trace]
+	// tracesBytes is what the retained traces weigh, kept as they arrive and
+	// leave rather than walked for.
+	tracesBytes int
+	logs        history[events.Log]
+	logEntries  history[logEntry]
 
 	// State of the connection to the trace stream.
 	connection events.Connection
@@ -89,10 +117,14 @@ type Model struct {
 	// The rows on the trace pages are cells; these are what the cells were made
 	// from, and the visible maps take a filtered table row back to that source
 	// so the panel below it still describes the selected row.
-	functionSpans   []segmented.Span
+	functionSpans   []trace.Span
 	functionVisible []int
-	drupalEvents    []trace.CacheEvent
-	drupalVisible   []int
+	// functionSpansTrace is the trace functionSpans was aggregated from, so a
+	// rebuild can tell an aggregate it can reuse from one belonging to a trace
+	// which is no longer open.
+	functionSpansTrace *events.Trace
+	drupalEvents       []trace.CacheEvent
+	drupalVisible      []int
 
 	// visible maps a row on screen back to what it came from, so that opening
 	// a trace opens the one under the cursor rather than the one at that index
