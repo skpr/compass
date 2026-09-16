@@ -186,3 +186,25 @@ func TestUpdateTrace_WeightTracksTheRetainedTraces(t *testing.T) {
 
 	assert.Equal(t, weight, m.tracesBytes)
 }
+
+// The stream hands the same string to every span which names a function, so
+// the weight of a trace is its distinct names rather than its spans' names.
+func TestTraceBytes_CountsASharedStringOnce(t *testing.T) {
+	name := "Drupal\\Core\\Entity\\Sql\\SqlContentEntityStorage::loadMultiple"
+
+	// Same ID for both: only the spans should differ between them.
+	repeated := newTrace("sized")
+	for range 100 {
+		repeated.Spans = append(repeated.Spans, trace.Span{Name: name, Calls: 1})
+	}
+
+	once := newTrace("sized")
+	once.Spans = append(once.Spans, trace.Span{Name: name, Calls: 1})
+
+	// The extra spans cost what a span costs, and the name is already paid for.
+	assert.Equal(t, traceBytes(once.Trace)+99*spanSize, traceBytes(repeated.Trace))
+
+	// A distinct name is still charged for.
+	distinct := traceOfSpans("distinct", 100)
+	assert.Greater(t, traceBytes(distinct.Trace), traceBytes(repeated.Trace))
+}

@@ -265,6 +265,16 @@ extension predating them keeps its PHP tracing and loses only the Drupal page.
 The CLI reconnects with a backoff if the sidecar restarts, and the footer shows
 the current connection state.
 
+A trace is mostly the same function names repeated across the slices of the
+request they were called in, so the stream is compressed: the CLI asks for gzip
+and the sidecar answers with it, which is about a fifth of the bytes on the
+wire. Each trace is flushed through the compressor as it is written, so nothing
+waits behind the trace after it, and a sidecar which does not offer compression
+is read as it always was. The retained traces share one copy of each function
+name, cache tag and cache context, rather than the copy per span the decoder
+produces, which is about half of what a trace would otherwise weigh against
+`--max-bytes`.
+
 Colour depth is detected from `TERM` and `COLORTERM`, and `NO_COLOR` turns it
 off. A terminal which announces itself as a bare `xterm` — which is what
 `docker exec` and some ssh setups hand over — is taken as 256 colours rather
