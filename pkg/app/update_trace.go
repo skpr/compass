@@ -82,6 +82,13 @@ const (
 // it counts the parts which vary by orders of magnitude between traces — the
 // spans, the cache events and the strings hanging off them — and does not try
 // to model what the allocator did with them.
+//
+// A string is counted once however many of the trace's spans and cache events
+// carry it. The stream shares one copy of each name across everything it
+// decodes, so a function named by a hundred spans is a hundred pointers to one
+// string: charging the trace for its characters once per span was most of what
+// a trace appeared to weigh, and evicted at half the history the memory
+// allowed.
 func traceBytes(t trace.Trace) int {
 	bytes := traceSize +
 		len(t.Metadata.ID) +
@@ -89,20 +96,34 @@ func traceBytes(t trace.Trace) int {
 		len(t.Metadata.HTTP.URI) +
 		len(t.Metadata.CLI.Command)
 
+	// Sized for the distinct functions a request calls rather than its spans,
+	// which is the ratio this exists to account for.
+	seen := make(map[string]struct{}, 512)
+
+	distinct := func(s string) int {
+		if _, ok := seen[s]; ok {
+			return 0
+		}
+
+		seen[s] = struct{}{}
+
+		return len(s)
+	}
+
 	for _, span := range t.Spans {
-		bytes += spanSize + len(span.Name)
+		bytes += spanSize + distinct(span.Name)
 	}
 
 	if t.Drupal != nil {
 		for _, event := range t.Drupal.CacheEvents {
-			bytes += cacheEventSize + len(event.Caller) + len(event.ObjectType)
+			bytes += cacheEventSize + distinct(event.Caller) + distinct(event.ObjectType)
 
 			for _, tag := range event.Tags {
-				bytes += stringSize + len(tag)
+				bytes += stringSize + distinct(tag)
 			}
 
 			for _, context := range event.Contexts {
-				bytes += stringSize + len(context)
+				bytes += stringSize + distinct(context)
 			}
 		}
 	}

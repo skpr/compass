@@ -4,6 +4,7 @@ package http
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -13,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,6 +74,12 @@ func Start(ctx context.Context, logger Logger, p Sender, config Config) error {
 		return err
 	}
 
+	// One interner for the whole run rather than one per connection: the
+	// sidecar restarting does not change what the application's functions are
+	// called, and the traces retained from before a reconnect share their names
+	// with the ones which arrive after it.
+	names := newInterner()
+
 	backoff := backoffInitial
 
 	for {
@@ -81,7 +89,7 @@ func Start(ctx context.Context, logger Logger, p Sender, config Config) error {
 
 		p.Send(events.Connection{State: events.ConnectionStateConnecting})
 
-		connected, err := stream(ctx, logger, p, client, config)
+		connected, err := stream(ctx, logger, p, client, config, names)
 
 		// Credentials will not fix themselves, so surface this immediately.
 		if errors.Is(err, ErrUnauthorized) {
@@ -127,7 +135,7 @@ func Start(ctx context.Context, logger Logger, p Sender, config Config) error {
 // stream traces from the sidecar until the connection ends. The first return
 // value reports whether the stream was established, so the caller knows the
 // difference between a sidecar which went away and one which never answered.
-func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, config Config) (bool, error) {
+func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, config Config, names *interner) (bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.URI, nil)
 	if err != nil {
 		return false, err
@@ -136,6 +144,13 @@ func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, c
 	if config.Token != "" {
 		req.Header.Set(HeaderToken, config.Token)
 	}
+
+	// Asked for explicitly, rather than left to the transport to add and undo
+	// on our behalf, because the body is decompressed here: a trace is mostly
+	// its function names repeated across the request, so a compressed stream is
+	// about a fifth of the bytes. A sidecar which does not offer it answers
+	// without the Content-Encoding below and is read as it always was.
+	req.Header.Set("Accept-Encoding", "gzip")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -154,11 +169,26 @@ func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, c
 
 	p.Send(events.Connection{State: events.ConnectionStateConnected})
 
+	body := io.Reader(resp.Body)
+
+	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
+		// NewReader reads the stream header, which the sidecar flushes when it
+		// answers rather than holding until the first trace.
+		decompressed, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return true, fmt.Errorf("failed to read compressed stream: %w", err)
+		}
+
+		defer decompressed.Close()
+
+		body = decompressed
+	}
+
 	// A bufio.Scanner would return bufio.ErrTooLong on a single line larger than
 	// maxLineBytes, ending the whole stream and dropping every trace buffered
 	// behind it. Read line by line instead so an oversized trace is skipped on
 	// its own and the stream continues.
-	reader := bufio.NewReaderSize(resp.Body, 64*1024)
+	reader := bufio.NewReaderSize(body, 64*1024)
 
 	for {
 		select {
@@ -202,6 +232,8 @@ func stream(ctx context.Context, logger Logger, p Sender, client *http.Client, c
 			logger.Error("failed to parse trace (json)", "error", err)
 			continue
 		}
+
+		names.trace(&tr)
 
 		p.Send(events.Trace{
 			IngestionTime: time.Now(),
