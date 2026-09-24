@@ -158,11 +158,41 @@ func sourceCell(source trace.Source) datatable.Cell {
 func shortID(id string) string {
 	const short = 8
 
+	id = xrayUnique(id)
+
 	if len(id) <= short {
 		return id
 	}
 
 	return id[:short]
+}
+
+// xrayUnique returns the random part of an AWS X-Ray trace id, which is what a
+// load balancer puts in X-Amzn-Trace-Id and so what arrives as the request id
+// behind one: Root=1-6ab498e9-2b18ff2f0e49bc425910bfc6, possibly followed by
+// ;Parent= and ;Sampled= fields.
+//
+// Its first characters are the same "Root=1-" on every request, then a hex
+// epoch shared by everything in the same few minutes, so the head of it tells
+// one request from another not at all. The last part is the random one.
+//
+// Anything which is not an X-Ray id comes back as it was.
+func xrayUnique(id string) string {
+	for _, field := range strings.Split(id, ";") {
+		root, ok := strings.CutPrefix(strings.TrimSpace(field), "Root=")
+		if !ok {
+			continue
+		}
+
+		parts := strings.Split(root, "-")
+		if len(parts) != 3 || parts[2] == "" {
+			return root
+		}
+
+		return parts[2]
+	}
+
+	return id
 }
 
 // idCell of a trace.
