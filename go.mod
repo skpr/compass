@@ -1,6 +1,6 @@
 module github.com/skpr/compass
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -11,16 +11,16 @@ require (
 	github.com/christgf/env v0.0.0-20230511114549-ccdc1a7b5961
 	github.com/cilium/ebpf v0.22.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
-	github.com/lucasb-eyer/go-colorful v1.4.0
-	github.com/mattn/go-runewidth v0.0.24
+	github.com/lucasb-eyer/go-colorful v1.4.1
+	github.com/mattn/go-runewidth v0.0.30
 	github.com/muesli/termenv v0.16.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/skpr/yolog v1.0.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/sync v0.22.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sync v0.23.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
