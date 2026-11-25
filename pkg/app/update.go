@@ -13,6 +13,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle key presses.
 	case tea.KeyMsg:
+		// An export's outcome has been seen once the reader moves on.
+		m.notice = nil
+
 		// Bubble Tea can emit the ESC byte of an arrow/wheel sequence as a
 		// standalone key when the terminal splits the sequence across reads.
 		if m.cancelTraceCloseForContinuation(msg) {
@@ -51,6 +54,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showHelp = !m.showHelp
 
 			return m, nil
+
+		case "x":
+			if !m.showHelp {
+				return m.exportTrace()
+			}
 
 		// For navigating the main menu.
 		case tea.KeyRight.String():
@@ -91,6 +99,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case events.Connection:
 		return m.updateConnection(msg)
+
+	case exportedMsg:
+		return m.updateExported(msg)
 	}
 
 	// Everything the chrome did not claim goes to whichever page is showing,
