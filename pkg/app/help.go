@@ -29,6 +29,7 @@ func (m *Model) viewHelp() string {
 				{"/", "filter the current page"},
 				{"enter", "open the selected trace"},
 				{"esc", "close the trace"},
+				{"x", "export the trace to a file"},
 				{"?", "this help"},
 				{"q / ctrl+c", "quit"},
 			},

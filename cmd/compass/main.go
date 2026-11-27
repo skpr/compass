@@ -21,6 +21,7 @@ import (
 	applogger "github.com/skpr/compass/pkg/app/logger"
 	"github.com/skpr/compass/pkg/app/theme"
 	"github.com/skpr/compass/pkg/app/tracer"
+	"github.com/skpr/compass/pkg/trace/export"
 )
 
 const cmdExample = `
@@ -48,6 +49,7 @@ type Options struct {
 	MaxTraces          int
 	MaxLogs            int
 	MaxBytes           int
+	ExportDir          string
 }
 
 func main() {
@@ -82,6 +84,7 @@ func main() {
 				MaxTraces: o.MaxTraces,
 				MaxLogs:   o.MaxLogs,
 				MaxBytes:  o.MaxBytes,
+				ExportDir: o.ExportDir,
 			}), tea.WithAltScreen())
 
 			logger, err := applogger.New(p)
@@ -131,6 +134,7 @@ func main() {
 	cmd.PersistentFlags().IntVar(&o.MaxTraces, "max-traces", env.Int("COMPASS_MAX_TRACES", app.DefaultMaxTraces), "Maximum number of traces to retain, oldest are discarded first")
 	cmd.PersistentFlags().IntVar(&o.MaxLogs, "max-logs", env.Int("COMPASS_MAX_LOGS", app.DefaultMaxLogs), "Maximum number of log events to retain, oldest are discarded first")
 	cmd.PersistentFlags().IntVar(&o.MaxBytes, "max-bytes", env.Int("COMPASS_MAX_BYTES", app.DefaultMaxBytes), "Maximum bytes of retained traces, oldest are discarded first. The newest trace is always kept")
+	cmd.PersistentFlags().StringVar(&o.ExportDir, "export-dir", env.String("COMPASS_EXPORT_DIR", export.DefaultDir), "Directory traces exported from the interface are written to")
 
 	// Through lipgloss like everything else. gchalk did its own terminal
 	// sniffing, independent of the renderer the interface uses, so the same

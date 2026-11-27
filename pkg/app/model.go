@@ -34,6 +34,8 @@ type Options struct {
 	// MaxBytes the retained traces may weigh, oldest discarded first. The
 	// newest trace is always kept, however large it is.
 	MaxBytes int
+	// ExportDir exported traces are written to.
+	ExportDir string
 }
 
 // NewModel for executing this application. Non-positive options use the
@@ -54,6 +56,7 @@ func NewModel(probePath string, options Options) *Model {
 		MaxTraces:  options.MaxTraces,
 		MaxLogs:    options.MaxLogs,
 		MaxBytes:   options.MaxBytes,
+		ExportDir:  options.ExportDir,
 		traces:     newHistory[events.Trace](options.MaxTraces),
 		logs:       newHistory[events.Log](options.MaxLogs),
 		logEntries: newHistory[logEntry](options.MaxLogs),
@@ -73,6 +76,8 @@ type Model struct {
 	// MaxBytes is what the retained traces may weigh before the oldest are
 	// evicted, whatever MaxTraces allows.
 	MaxBytes int
+	// ExportDir exported traces are written to. Empty is export.DefaultDir.
+	ExportDir string
 
 	// The current display that is selected.
 	PageSelected Page
@@ -98,6 +103,9 @@ type Model struct {
 
 	// showHelp overlays the key map.
 	showHelp bool
+
+	// notice is the outcome of the last export, until the next key.
+	notice *notice
 
 	// A trace-closing Escape is briefly deferred because terminal navigation
 	// keys are ESC-prefixed sequences which can be split across input reads.

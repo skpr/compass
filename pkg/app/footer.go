@@ -40,7 +40,18 @@ func (m *Model) viewFooter() string {
 		return m.padLine(left)
 	}
 
+	// An export's outcome takes the path's place until the next key: it is
+	// the answer to the key just pressed, and nowhere else on screen says it.
 	path := theme.S.Faint.Render(text.FitMiddle(m.ProbePath, room))
+
+	if m.notice != nil {
+		style := theme.S.Key
+		if m.notice.err {
+			style = theme.S.Severity(theme.LevelCritical)
+		}
+
+		path = style.Render(text.FitMiddle(m.notice.text, room))
+	}
 
 	gap := m.Width - ansi.StringWidth(left) - ansi.StringWidth(path) - 1
 	if gap < 1 {
@@ -68,6 +79,7 @@ func (m *Model) hints() []hint {
 			{key: "↑↓", desc: "move"},
 			{key: "/", desc: "filter"},
 			{key: "←→", desc: "page"},
+			{key: "x", desc: "export"},
 			{key: "esc", desc: "back"},
 			{key: "?", desc: "keys"},
 			{key: "q", desc: "quit"},
@@ -77,7 +89,7 @@ func (m *Model) hints() []hint {
 	hints := []hint{{key: "↑↓", desc: "move"}}
 
 	if m.PageSelected == PageSearch {
-		hints = append(hints, hint{key: "enter", desc: "open"})
+		hints = append(hints, hint{key: "enter", desc: "open"}, hint{key: "x", desc: "export"})
 	}
 
 	hints = append(hints, hint{key: "/", desc: "filter"})

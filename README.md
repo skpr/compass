@@ -170,6 +170,35 @@ enough to recognise a trace and enough to grep a log with; the open trace shows
 the value in full. A request which arrived without the header has no ID, and
 shows `·` rather than the extension's `UNKNOWN` placeholder.
 
+## Exporting traces
+
+`x` writes a trace to a file, for whatever is going to work on it next: a
+ticket, a diff against a later run, or an agent like Claude Code debugging the
+slow request. On Search it exports the trace under the cursor, and inside a
+trace it exports the open one. The footer says where the file went until the
+next key, and Logs keeps a record.
+
+Each export is one JSON document in exactly the shape the sidecar streams,
+named for when the request started and its ID, in `--export-dir`
+(`./compass-traces` by default).
+
+A trace can carry thousands of spans, one per function per slice of the
+request, so the useful questions are aggregates. With `jq`:
+
+```bash
+# Functions by the time spent in them, across the whole request.
+jq '.spans | group_by(.name)
+  | map({name: .[0].name, calls: (map(.calls) | add), totalMs: ((map(.totalNanos) | add) / 1e6)})
+  | sort_by(-.totalMs) | .[:20]' compass-traces/*.json
+
+# What made the response uncacheable.
+jq '.drupal.cacheEvents // [] | map(select(.maxAge == 0)) | map({caller, objectType, calls})' compass-traces/*.json
+```
+
+`totalNanos` counts a function's own time and its callees' together, so a
+caller is always at least as expensive as what it calls; `elapsedNanos` is the
+longest single call in the span.
+
 ## Install
 
 Both binaries are published as container images on each release. Releases are
@@ -260,6 +289,7 @@ extension predating them keeps its PHP tracing and loses only the Drupal page.
 | `--max-traces` | `COMPASS_MAX_TRACES` | `500` | Traces to retain, oldest are discarded first. |
 | `--max-logs` | `COMPASS_MAX_LOGS` | `1000` | Log events to retain, oldest are discarded first. |
 | `--max-bytes` | `COMPASS_MAX_BYTES` | `268435456` | Bytes of retained traces, oldest are discarded first. A count alone does not bound memory, because traces differ in size by orders of magnitude. The newest trace is always kept, however large it is. |
+| `--export-dir` | `COMPASS_EXPORT_DIR` | `compass-traces` | Directory exported traces are written to. See [Exporting traces](#exporting-traces). |
 | | `COMPASS_COLOR` | | Colour depth, when detection gets it wrong: `truecolor`, `256`, `16` or `none`. |
 
 The CLI reconnects with a backoff if the sidecar restarts, and the footer shows
