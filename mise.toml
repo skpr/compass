@@ -52,7 +52,9 @@ IFS=',' read -ra names <<< "{{arg(name="types")}}"
 for name in "${names[@]}"; do
   types+=("-type" "$name")
 done
-GOPACKAGE={{arg(name="package")}} bpf2go -cflags '-O2 -g -Wall -Werror' "${types[@]}" bpf program.bpf.c -- -I./includes
+# Kernels from 6.19 are built with -fms-extensions and embed tagged structs as
+# anonymous members, so the dumped vmlinux.h needs the same flags to compile.
+GOPACKAGE={{arg(name="package")}} bpf2go -cflags '-O2 -g -Wall -Werror -fms-extensions -Wno-microsoft-anon-tag' "${types[@]}" bpf program.bpf.c -- -I./includes
 '''
 depends = ["vendor"]
 
